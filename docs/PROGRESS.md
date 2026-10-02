@@ -22,6 +22,9 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 - En este entorno cloud Playwright usa Chromium de /opt/pw-browsers (por eso @playwright/test fijado a 1.56.1).
 - Versión visible: `package.json` "version" (0.F.N); subir N en cada sub-paso.
 
+## Correcciones tras prueba de Guillem
+- v0.0.8: en vertical la pantalla "gira el mòbil" se quedaba bloqueada si el Pixel tiene la rotación automática desactivada. Ahora es opaca y tiene botón "Jugar en horitzontal" (pantalla completa + bloqueo horizontal); redimensionado extra tras girar. Test e2e `rotation.spec`.
+
 ## Verificación de criterios F0 (2026-10-02)
 | Criterio (docs/06) | Estado | Cómo se comprobó |
 |---|---|---|

@@ -1,10 +1,19 @@
 import { el } from './dom';
+import { enterFullscreenLandscape } from './fullscreen';
 
-/** "Turn your phone" hint, visible only in portrait via CSS. */
+/**
+ * "Turn your phone" screen, visible only in portrait via CSS. Includes a button that
+ * enters fullscreen and locks landscape, which also works when the phone has auto-rotate
+ * disabled (otherwise the browser would stay in portrait forever).
+ */
 export function createRotateHint(): HTMLElement {
-  return el('div', { className: 'overlay rotate-hint' }, [
+  const button = el('button', { className: 'btn-primary', i18n: 'rotate.button', attrs: { id: 'btn-rotate' } });
+  button.addEventListener('click', () => void enterFullscreenLandscape());
+  return el('div', { className: 'overlay rotate-hint', attrs: { id: 'rotate-hint' } }, [
     el('div', { className: 'rotate-icon', attrs: { 'aria-hidden': 'true' } }, ['📱']),
-    el('p', { i18n: 'rotate.hint' }),
+    el('p', { className: 'rotate-text', i18n: 'rotate.hint' }),
+    button,
+    el('p', { className: 'hint', i18n: 'rotate.autoRotateTip' }),
   ]);
 }
 
