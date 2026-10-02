@@ -20,8 +20,12 @@ de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativ
 - [x] Trencada equilibrada (v0.1.8): frenada previa 0,5 s, salida al 38 % con empujón suave y 0,6 s sin sprint, recarga desde el final; capa `src/sim/feel.ts` para atributos (F2)
 - [x] Frenada previa de la trencada 0,5 → 0,3 s a petición de Guillem (v0.1.9)
 - [x] Giro de la trencada 0,25 → 0,18 s: maniobra completa ~0,48 s (v0.1.10)
-- [ ] Guillem confirma que la trencada está bien → empezar F1.4 (pase)
-- [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
+- [x] Guillem confirma que la trencada está bien (v0.1.10, cerrada)
+- [ ] F1.4 Pase (plan aprobado 2026-10-02; decisiones en DECISIONS.md: toque/mantener, asistencia Ligera + selector, control al receptor por defecto, compañeros que se mueven, escala de recepción, anillo)
+  - [x] F1.4a Banco de pruebas: 2 compañeros (apoyo, ir a por el pase, recoger bola lenta, devolución si el control no cambia), control al receptor (FIFA) con interruptor (Sí por defecto), joystick "bloqueado" tras el cambio hasta soltar/girar, recepción automática con joystick suelto, anillo de jugador controlado + números, sección "Companys i control" en el panel, asistencia mínima PROVISIONAL al compañero (v0.1.11)
+  - [ ] F1.4b Pase real: toque = raso / mantener = elevado (arco de carga en el botón), elección de receptor + asistencia (cono/corrección/anticipación/error por atributo Pase), fuerza automática, selector Desactivada/Ligera/Fuerte en Configuració, anillo bajo el receptor, `passFor` en feel.ts (v0.1.12)
+  - [ ] F1.4c Recepción: dificultad (velocidad relativa, dirección, altura, estado del receptor, Control) → limpio / pesado / rebote / pasa de largo; pase al primer toque con el búfer; `receiveFor` en feel.ts (v0.1.13)
+  - [ ] F1.4d Pared con la valla, ajustes, docs → ronda de afinación del pase (v0.1.14)
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
 - [ ] F1.6 Regates (≥5) + defensa estático + combo → ronda 3
 - [ ] F1.7 Gestos, editor de botones, vibración, mando, pantalla de controles

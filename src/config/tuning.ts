@@ -161,6 +161,42 @@ export const TUNING = {
     passSpeed: 12,
     shotSpeed: 22,
   },
+  /**
+   * Teammates test bench (F1.4) and who the human controls. Final design (docs/03 §3): after
+   * a pass the control goes to the receiver and the passer moves on his own (FIFA-like).
+   */
+  mates: {
+    /** 1 = control goes to the receiver of a pass (and to a teammate who picks up a loose
+     * ball); 0 = you always keep your player and the teammates give the ball back. */
+    switchControl: 1,
+    /** After a switch the stick keeps being ignored for the new player (he goes to the ball
+     * on his own) until it is released or turned at least this much (rad). */
+    switchLatchAngle: 0.7853982,
+    /** 1 = with the stick released, the controlled player goes to meet a pass coming to him. */
+    autoReceive: 1,
+    /** 1 = teammates move to offer a passing line; 0 = they stand still. */
+    move: 1,
+    /** Support spot relative to the ball carrier (or the controlled player): ahead towards
+     * the attacked goal and to each side (m). */
+    supportAhead: 3,
+    supportSide: 5,
+    /** Speed while moving to the support spot (fraction of the normal top speed), and the
+     * distance where they start slowing down to arrive (m). */
+    supportSpeed: 0.6,
+    arriveRadius: 1.5,
+    /** A moving loose ball is "for" a teammate if its path passes this close (m) within
+     * interceptMaxTime (s); he then goes to meet it at interceptSpeed (fraction of top speed). */
+    interceptRadius: 2.5,
+    interceptMaxTime: 2.5,
+    interceptSpeed: 1,
+    /** A slow loose ball this close (m) to a teammate (and closer to him than to you) is
+     * picked up by him. */
+    fetchRadius: 4,
+    /** Only with switchControl = 0: time a teammate keeps the ball before giving it back (s),
+     * and how much the return pass leads your movement (0 = to where you are, 1 = full). */
+    returnDelay: 0.5,
+    returnLead: 1,
+  },
   /** Human input devices (docs/03 §3). */
   input: {
     /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */

@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -131,6 +131,25 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'dribble.relockTime', min: 0, max: 1, step: 0.05, unit: 's' },
       { path: 'dribble.passSpeed', min: 4, max: 25, step: 0.5, unit: 'm/s' },
       { path: 'dribble.shotSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+    ],
+  },
+  {
+    id: 'mates',
+    params: [
+      { path: 'mates.switchControl', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.autoReceive', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.move', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.switchLatchAngle', min: 10, max: 120, step: 5, unit: '°', scale: DEG },
+      { path: 'mates.returnDelay', min: 0, max: 2, step: 0.05, unit: 's' },
+      { path: 'mates.returnLead', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'mates.supportAhead', min: -4, max: 8, step: 0.5, unit: 'm' },
+      { path: 'mates.supportSide', min: 2, max: 9, step: 0.5, unit: 'm' },
+      { path: 'mates.supportSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'mates.arriveRadius', min: 0.5, max: 4, step: 0.1, unit: 'm' },
+      { path: 'mates.interceptRadius', min: 0.5, max: 5, step: 0.1, unit: 'm' },
+      { path: 'mates.interceptMaxTime', min: 0.5, max: 4, step: 0.1, unit: 's' },
+      { path: 'mates.interceptSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'mates.fetchRadius', min: 0, max: 8, step: 0.5, unit: 'm' },
     ],
   },
   {

@@ -5,6 +5,9 @@ import type { Renderer } from '../render/renderer';
 import { FixedStepLoop } from './fixedStepLoop';
 import { FrameStats } from './frameStats';
 
+/** Teammates on the rink next to the human's player (passing test bench, F1.4). */
+export const TEAMMATES = 2;
+
 /** Source of the human player's command, polled once per rendered frame. */
 export interface CommandSource {
   read(out: PlayerCommand): void;
@@ -33,7 +36,8 @@ export class Game {
     private readonly input: CommandSource | null,
     seed = 1,
   ) {
-    this.world = createWorld(seed);
+    // Free play with the two teammates of the F1.4 passing test bench.
+    this.world = createWorld(seed, TEAMMATES);
   }
 
   start(): void {

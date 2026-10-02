@@ -11,6 +11,7 @@ import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
@@ -38,6 +39,8 @@ interface StickRig {
   heel: Vector3;
 }
 const PLAYER_HEIGHT_VISUAL = 1.75;
+/** Placeholder shirt numbers by player index (until teams/rosters arrive in F2). */
+const SHIRT_NUMBERS = [7, 4, 9, 10, 5, 2, 3, 6, 8, 11];
 
 /**
  * Owns the Babylon engine and scene, and draws a WorldState interpolated by `alpha`.
@@ -56,8 +59,10 @@ export class Renderer {
   private readonly tmpVec = new Vector3();
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
-  /** Index of the player the TV camera follows (until there is a ball). */
-  followPlayer = 0;
+  /** Bright ring on the floor under the player the human controls. */
+  private readonly controlRing: Mesh;
+  /** Shirt number floating above each player's head (always facing the camera). */
+  private readonly numberLabels: Mesh[] = [];
 
   constructor(canvas: HTMLCanvasElement, quality: QualityLevel, cameraPreset: CameraPresetId = 'tv') {
     this.quality = quality;
@@ -92,6 +97,7 @@ export class Renderer {
     buildRink(this.scene);
     this.ballMesh = this.createBallMesh();
     this.ballMarker = this.createBallMarker();
+    this.controlRing = this.createControlRing();
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
     this.setQuality(quality);
@@ -149,6 +155,7 @@ export class Renderer {
       nose.material = noseMat;
       nose.parent = body;
       this.sticks.push(this.createStick(i, body));
+      this.numberLabels.push(this.createNumberLabel(i));
       this.shadows?.addShadowCaster(body, true);
       this.playerMeshes.push(body);
     }
@@ -189,6 +196,59 @@ export class Renderer {
     disc.material = mat;
     disc.isPickable = false;
     return disc;
+  }
+
+  /** Yellow ring on the floor marking the controlled player (FIFA-like). */
+  private createControlRing(): Mesh {
+    const disc = CreateDisc('controlRing', { radius: 0.62, tessellation: 32 }, this.scene);
+    disc.rotation.x = Math.PI / 2;
+    const tex = new DynamicTexture('controlRingTex', { width: 128, height: 128 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    ctx.clearRect(0, 0, 128, 128);
+    ctx.strokeStyle = 'rgba(255,214,40,0.95)';
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.arc(64, 64, 56, 0, Math.PI * 2);
+    ctx.stroke();
+    tex.update();
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial('controlRingMat', this.scene);
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    disc.material = mat;
+    disc.isPickable = false;
+    return disc;
+  }
+
+  /** Shirt number above the head (placeholder until real kits in F4). */
+  private createNumberLabel(i: number): Mesh {
+    const plane = CreatePlane(`playerNumber${i}`, { size: 0.55 }, this.scene);
+    plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    const tex = new DynamicTexture(`playerNumberTex${i}`, { width: 64, height: 64 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    const label = String(SHIRT_NUMBERS[i % SHIRT_NUMBERS.length]);
+    ctx.strokeText(label, 32, 34);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, 32, 34);
+    tex.update();
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial(`playerNumberMat${i}`, this.scene);
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.disableLighting = true;
+    plane.material = mat;
+    plane.isPickable = false;
+    return plane;
   }
 
   /**
@@ -265,7 +325,11 @@ export class Renderer {
       // Sim heading is CCW in the (x, y) plane; Babylon's Y rotation is CW seen from above.
       const heading = lerpAngle(p.prevHeading, p.heading, alpha);
       mesh.rotation.y = -heading;
+      this.numberLabels[i]!.position.set(mesh.position.x, PLAYER_HEIGHT_VISUAL + 0.35, mesh.position.z);
     }
+    const controlled = this.playerMeshes[world.controlled];
+    this.controlRing.isVisible = Boolean(controlled) && world.players.length > 1;
+    if (controlled) this.controlRing.position.set(controlled.position.x, 0.008, controlled.position.z);
     // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
     // compensated by the distance to the camera (last frame's pose) and multiplied by the
     // current camera's own factor; never smaller than the real ball.
@@ -296,9 +360,10 @@ export class Renderer {
       this.syncStick(this.sticks[i]!, b.owner === i, -mesh.rotation.y, mesh.position.x, mesh.position.z, frameSeconds);
     }
 
-    // Camera: the active preset aims between the controlled player and the ball.
-    const f = world.players[this.followPlayer];
-    const followed = this.playerMeshes[this.followPlayer];
+    // Camera: the active preset aims between the controlled player and the ball. When the
+    // control switches to another player the rig's smoothing glides over (no cut).
+    const f = world.players[world.controlled];
+    const followed = this.playerMeshes[world.controlled];
     if (f && followed) {
       const c = this.camCtx;
       c.playerX = followed.position.x;
