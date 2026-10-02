@@ -43,7 +43,8 @@
 }
 
 .overlay[hidden] { display: none; }
-.rotate-hint { display: none; z-index: 100; }
+.rotate-hint { display: none; z-index: 100; background: #0b1d33; padding: 24px; }
+.rotate-text { margin: 0; font-size: 22px; font-weight: 800; }
 @media (orientation: portrait) {
   .rotate-hint { display: flex; }
 }

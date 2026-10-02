@@ -31,3 +31,4 @@
 - 2026-10-02: Nombres de idioma como endónimos (Català, Español, English) en los tres diccionarios.
 - 2026-10-02: Test de rendimiento (`tests/e2e/perf.spec.ts`): con CPU ×4 comprueba presupuestos de docs/04 (draw calls ≤ 120, triángulos ≤ 200k) y coste de la sim por tick; el frame time en headless no es representativo (SwiftShader) y solo se reporta. Hook `__PATINS__.perf()` / `benchSim()`.
 - 2026-10-02: `setPointerCapture` envuelto en try/catch (lanza si el puntero ya no existe).
+- 2026-10-02: Pantalla de vertical con botón "Jugar en horitzontal" que pide pantalla completa + `screen.orientation.lock('landscape')`: funciona aunque el móvil tenga la rotación automática desactivada (caso real de Guillem). Tras girar se reajusta el tamaño varias veces (Android da tamaños viejos en el primer evento).

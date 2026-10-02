@@ -73,10 +73,21 @@ export class Renderer {
     this.tvCamera = new TvCamera(this.scene);
     this.scene.activeCamera = this.tvCamera.camera;
 
-    window.addEventListener('resize', () => {
+    const onResize = (): void => {
       this.applyPixelRatio(preset.maxPixelRatio);
       this.engine.resize();
-    });
+    };
+    window.addEventListener('resize', onResize);
+    // Android may report the old size on the first event after a rotation: resize again
+    // once the new orientation has settled.
+    const onRotate = (): void => {
+      onResize();
+      setTimeout(onResize, 250);
+      setTimeout(onResize, 700);
+    };
+    screen.orientation?.addEventListener('change', onRotate);
+    window.addEventListener('orientationchange', onRotate);
+    document.addEventListener('fullscreenchange', onRotate);
   }
 
   /** Render at min(devicePixelRatio, cap) to keep fill-rate inside the mobile budget. */

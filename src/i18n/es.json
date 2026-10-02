@@ -18,5 +18,7 @@
   "lang.es": "Español",
   "lang.en": "English",
   "controls.sprint": "Sprint",
-  "rotate.hint": "Gira el móvil en horizontal"
+  "rotate.hint": "Gira el móvil en horizontal",
+  "rotate.autoRotateTip": "Si no gira, puede que tengas la rotación automática desactivada: toca el botón y el juego se pondrá en horizontal.",
+  "rotate.button": "Jugar en horizontal"
 }

@@ -18,5 +18,7 @@
   "lang.es": "Español",
   "lang.en": "English",
   "controls.sprint": "Esprint",
-  "rotate.hint": "Gira el mòbil en horitzontal"
+  "rotate.hint": "Gira el mòbil en horitzontal",
+  "rotate.autoRotateTip": "Si no gira, pot ser que tinguis la rotació automàtica desactivada: toca el botó i el joc es posarà en horitzontal.",
+  "rotate.button": "Jugar en horitzontal"
 }

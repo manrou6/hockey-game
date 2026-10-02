@@ -18,5 +18,7 @@
   "lang.es": "Español",
   "lang.en": "English",
   "controls.sprint": "Sprint",
-  "rotate.hint": "Turn your phone to landscape"
+  "rotate.hint": "Turn your phone to landscape",
+  "rotate.autoRotateTip": "If it doesn't rotate, auto-rotate may be off: tap the button and the game will switch to landscape.",
+  "rotate.button": "Play in landscape"
 }
