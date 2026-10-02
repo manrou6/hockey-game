@@ -12,3 +12,8 @@
 - 2026-10-02: Pantalla completa + bloqueo horizontal se piden al pulsar "Toca per jugar" (Chrome Android exige gesto del usuario). En vertical se muestra aviso "gira el mòbil".
 - 2026-10-02: Icono provisional SVG generado por código; PNGs rasterizados con `scripts/gen-icons.mjs` (Chromium de Playwright).
 - 2026-10-02: i18n propio mínimo (`src/i18n`, JSON por idioma, `data-i18n` en DOM), test que exige las mismas claves en ca/es/en.
+- 2026-10-02: RNG de la simulación = sfc32 sembrado con splitmix32 (`src/sim/rng.ts`), estado serializable (4 uint32).
+- 2026-10-02: Bucle: acumulador de paso fijo (`src/game/fixedStepLoop.ts`) con máx. 5 pasos por frame; el estado guarda la pose del tick anterior (`prevX/prevY/prevHeading`) y el render interpola con `alpha`.
+- 2026-10-02: Test `simPurity` vigila la regla 3 de CLAUDE.md: falla si src/sim importa Babylon/render/DOM o usa Math.random/Date/performance.now.
+- 2026-10-02: Panel de debug (`?debug=1`) es herramienta de desarrollo: sus etiquetas son identificadores de código sin traducir (excepción explícita a "ningún texto hardcodeado"). Tuning en vivo con sliders generados desde `TUNING`.
+- 2026-10-02: Hook de solo lectura `window.__PATINS__` para tests automáticos (Playwright).

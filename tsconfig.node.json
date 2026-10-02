@@ -13,6 +13,7 @@
     "vite.config.ts",
     "playwright.config.ts",
     "tests/e2e",
-    "scripts"
-  ]
+    "tests/unit/simPurity.test.ts"
+  ],
+  "exclude": []
 }

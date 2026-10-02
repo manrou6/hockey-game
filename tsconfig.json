@@ -27,5 +27,8 @@
   "include": [
     "src",
     "tests/unit"
+  ],
+  "exclude": [
+    "tests/unit/simPurity.test.ts"
   ]
 }
