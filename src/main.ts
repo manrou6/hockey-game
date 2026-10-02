@@ -3,6 +3,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { translateDom } from './i18n';
 import { Game } from './game/game';
 import { Renderer } from './render/renderer';
+import { HumanInput } from './input/humanInput';
 import { createRotateHint, createStartOverlay } from './ui/overlays';
 import { enterFullscreenLandscape } from './ui/fullscreen';
 import { createDebugPanel, isDebugEnabled } from './ui/debugPanel';
@@ -15,10 +16,16 @@ const uiRoot = document.getElementById('ui-root') as HTMLDivElement;
 
 const qualityParam = new URLSearchParams(location.search).get('quality');
 const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : DEFAULT_QUALITY);
-const game = new Game(renderer, null);
+const input = new HumanInput();
+const game = new Game(renderer, input);
 
 uiRoot.append(
-  createStartOverlay(() => void enterFullscreenLandscape()),
+  input.joystick.element,
+  input.sprintButton.element,
+  createStartOverlay(() => {
+    input.enabled = true;
+    void enterFullscreenLandscape();
+  }),
   createRotateHint(),
 );
 if (isDebugEnabled()) uiRoot.append(createDebugPanel(game, renderer));

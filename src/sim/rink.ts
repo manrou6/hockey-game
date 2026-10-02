@@ -7,6 +7,14 @@ export interface Contact {
   ny: number;
 }
 
+/** Minimal moving circle the static collision resolver works on. */
+export interface Body {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
 /**
  * Signed distance from point (x, y) to the inside of the boards (rounded rectangle).
  * Negative inside the rink, positive outside. `outNormal` receives the outward normal.
@@ -38,14 +46,13 @@ export function boardSignedDistance(x: number, y: number, outNormal: { nx: numbe
 
 /** Circle (centre x,y, radius) vs boards. Writes into `out`, returns true if overlapping. */
 export function collideBoards(x: number, y: number, radius: number, out: Contact, rink: RinkConfig = RINK): boolean {
-  const n = { nx: 0, ny: 0 };
-  const sd = boardSignedDistance(x, y, n, rink);
+  const sd = boardSignedDistance(x, y, out, rink);
   const depth = sd + radius;
   if (depth <= 0) return false;
-  // Push back inside: normal points towards the rink interior.
+  // Normal must point back towards the rink interior.
   out.depth = depth;
-  out.nx = -n.nx;
-  out.ny = -n.ny;
+  out.nx = -out.nx;
+  out.ny = -out.ny;
   return true;
 }
 
@@ -66,8 +73,6 @@ export function goalFootprints(rink: RinkConfig = RINK): [GoalFootprint, GoalFoo
   };
   return [make(-1), make(1)];
 }
-
-const GOALS = goalFootprints();
 
 /** Circle vs axis-aligned box. Writes the push-out contact into `out`. */
 export function collideBox(x: number, y: number, radius: number, box: GoalFootprint, out: Contact): boolean {
@@ -90,16 +95,57 @@ export function collideBox(x: number, y: number, radius: number, box: GoalFootpr
   const down = y - box.minY;
   const up = box.maxY - y;
   const m = Math.min(left, right, down, up);
-  out.nx = m === left ? -1 : m === right ? 1 : 0;
-  out.ny = m === down ? -1 : m === up ? 1 : 0;
-  if (out.nx !== 0) out.ny = 0;
+  if (m === left || m === right) {
+    out.nx = m === left ? -1 : 1;
+    out.ny = 0;
+  } else {
+    out.nx = 0;
+    out.ny = m === down ? -1 : 1;
+  }
   out.depth = m + radius;
   return true;
 }
 
-/** All static obstacles (boards + both goals) for a circle. Calls `onContact` for each overlap. */
-export function collideStatic(x: number, y: number, radius: number, onContact: (c: Contact) => void): void {
-  const c: Contact = { depth: 0, nx: 0, ny: 0 };
-  if (collideBoards(x, y, radius, c)) onContact(c);
-  for (const g of GOALS) if (collideBox(x, y, radius, g, c)) onContact(c);
+const GOALS = goalFootprints();
+const contact: Contact = { depth: 0, nx: 0, ny: 0 };
+
+/** Push a body out of an overlap and bounce the velocity component going into the obstacle. */
+function resolve(body: Body, c: Contact, restitution: number, friction: number): void {
+  body.x += c.nx * c.depth;
+  body.y += c.ny * c.depth;
+  const vn = body.vx * c.nx + body.vy * c.ny;
+  if (vn >= 0) return;
+  // Split into normal and tangential parts: bounce the normal one, and apply Coulomb
+  // friction to the tangential one (proportional to the impact), so a glancing contact
+  // keeps sliding along the boards while a head-on one stops.
+  const tx = body.vx - vn * c.nx;
+  const ty = body.vy - vn * c.ny;
+  const ts = Math.hypot(tx, ty);
+  const keep = ts > 1e-9 ? Math.max(0, 1 - (friction * (1 + restitution) * -vn) / ts) : 0;
+  body.vx = tx * keep - restitution * vn * c.nx;
+  body.vy = ty * keep - restitution * vn * c.ny;
+}
+
+/**
+ * Keep a circular body out of the boards and goal cages. Iterates a few times so a body
+ * wedged between a goal and the boards still ends up in free space. Returns true on contact.
+ */
+export function resolveStatic(body: Body, radius: number, restitution: number, friction: number): boolean {
+  let hit = false;
+  for (let iter = 0; iter < 3; iter++) {
+    let any = false;
+    if (collideBoards(body.x, body.y, radius, contact)) {
+      resolve(body, contact, restitution, friction);
+      any = true;
+    }
+    for (const g of GOALS) {
+      if (collideBox(body.x, body.y, radius, g, contact)) {
+        resolve(body, contact, restitution, friction);
+        any = true;
+      }
+    }
+    if (!any) break;
+    hit = true;
+  }
+  return hit;
 }

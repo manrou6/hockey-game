@@ -1,5 +1,6 @@
 {
   "app.title": "PATINS",
   "start.tap": "Toca para jugar",
-  "rotate.hint": "Gira el móvil en horizontal"
+  "rotate.hint": "Gira el móvil en horizontal",
+  "controls.sprint": "Sprint"
 }

@@ -11,7 +11,7 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 - [x] F0.2 GitHub Actions (build, tests, deploy Pages) + PWA (manifest, SW, icono, horizontal, pantalla completa) (v0.0.2)
 - [x] F0.3 Bucle a paso fijo 60 Hz + interpolación, RNG con semilla, test determinismo, panel debug ?debug=1 (v0.0.3)
 - [x] F0.4 Pista con medidas, vallas, porterías, iluminación, cámara TV (v0.0.4)
-- [ ] F0.5 Jugador cápsula con inercia, colisión valla/porterías, teclado + joystick virtual
+- [x] F0.5 Jugador cápsula con inercia, colisión valla/porterías, teclado + joystick virtual + mando (v0.0.5)
 - [ ] F0.6 i18n ca/es/en, menú, ajustes con versión
 - [ ] F0.7 Cierre: e2e móvil horizontal + captura, medición rendimiento, criterios, deploy, informe
 
