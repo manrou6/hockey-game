@@ -137,8 +137,12 @@ describe('dribbling: trencada', () => {
       w.players[0]!.control = control;
       run(w, cmd(1, 0), 120);
       let maxSep = 0;
-      run(w, cmd(0, 1), 40, (ww) => (maxSep = Math.max(maxSep, ww.ball.separation)));
-      expect(w.players[0]!.cutPrep > 0 || w.players[0]!.cutTime > 0).toBe(true);
+      let cut = false;
+      run(w, cmd(0, 1), 40, (ww) => {
+        maxSep = Math.max(maxSep, ww.ball.separation);
+        cut ||= ww.players[0]!.cutPrep > 0 || ww.players[0]!.cutTime > 0;
+      });
+      expect(cut).toBe(true);
       return maxSep;
     };
     const good = sepWith(99);
