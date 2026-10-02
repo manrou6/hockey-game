@@ -130,17 +130,35 @@ describe('dribbling: skid stop', () => {
   });
 });
 
+describe('dribbling: trencada', () => {
+  it('a cut at speed separates the ball, less with a high Control attribute', () => {
+    const sepWith = (control: number): number => {
+      const w = carrying(-18, 3);
+      w.players[0]!.control = control;
+      run(w, cmd(1, 0), 120);
+      let maxSep = 0;
+      run(w, cmd(0, 1), 15, (ww) => (maxSep = Math.max(maxSep, ww.ball.separation)));
+      expect(w.players[0]!.cutTime > 0 || w.players[0]!.cutCooldown > 0).toBe(true);
+      return maxSep;
+    };
+    const good = sepWith(99);
+    const poor = sepWith(30);
+    expect(poor).toBeGreaterThan(0.15);
+    expect(good).toBeLessThan(poor * 0.75);
+  });
+});
+
 describe('dribbling: losing the ball', () => {
-  it('normal-speed slaloms for a minute never lose the ball', () => {
+  it('normal-speed slaloms (smooth stick) for a minute never lose the ball', () => {
     const w = carrying(0, 0);
     const r = createRng(9);
-    let c = cmd(1, 0);
+    let target = 0;
+    let a = 0;
     for (let i = 0; i < 3600; i++) {
-      if (i % 50 === 0) {
-        const a = nextFloat(r) * Math.PI * 2;
-        c = cmd(Math.cos(a) * 0.9, Math.sin(a) * 0.9);
-      }
-      stepWorld(w, [c], TUNING);
+      if (i % 50 === 0) target = nextFloat(r) * Math.PI * 2;
+      // Thumb rotates smoothly towards the new direction (no flicks).
+      a += Math.max(-0.05, Math.min(0.05, Math.atan2(Math.sin(target - a), Math.cos(target - a))));
+      stepWorld(w, [cmd(Math.cos(a) * 0.9, Math.sin(a) * 0.9)], TUNING);
       expect(w.ball.owner).toBe(0);
     }
   });

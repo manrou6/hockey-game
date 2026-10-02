@@ -168,7 +168,7 @@ describe('ball: players', () => {
   it('a skating player pushes the ball ahead', () => {
     const p = createPlayer(0, 0, 0, 0);
     p.vx = 6;
-    const b = ball(0.37, 0, 0, 0); // touching the player's body
+    const b = ball(TUNING.skating.radius + R - 0.01, 0, 0, 0); // touching the player's body
     sim(b, 1 / 60, [p]);
     expect(b.vx).toBeGreaterThan(6);
   });

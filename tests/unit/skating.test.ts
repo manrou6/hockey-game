@@ -15,6 +15,28 @@ function run(p: PlayerState, c: PlayerCommand, seconds: number): void {
   for (let i = 0; i < n; i++) stepPlayer(p, c, TUNING, DT);
 }
 
+/** Run while keeping the skater in mid-rink (so long runs at high speed never reach the boards). */
+function runInPlace(p: PlayerState, c: PlayerCommand, seconds: number, each?: (p: PlayerState) => void): void {
+  const n = Math.round(seconds / DT);
+  for (let i = 0; i < n; i++) {
+    stepPlayer(p, c, TUNING, DT);
+    p.x = 0;
+    p.y = 0;
+    each?.(p);
+  }
+}
+
+/** Run `fn` with the trencada disabled (tests of plain turning physics). */
+function withoutCut(fn: () => void): void {
+  const saved = TUNING.cut.minSpeed;
+  TUNING.cut.minSpeed = 1e9;
+  try {
+    fn();
+  } finally {
+    TUNING.cut.minSpeed = saved;
+  }
+}
+
 /** Seconds until `cond` holds (or Infinity). */
 function timeUntil(p: PlayerState, c: PlayerCommand, cond: (p: PlayerState) => boolean, max = 10): number {
   for (let t = 0; t < max; t += DT) {
@@ -48,10 +70,9 @@ describe('skating: acceleration', () => {
     expect(speed(p)).toBeGreaterThan(3);
   });
   it('caps at maxSpeed without sprint and sprintSpeed with sprint', () => {
-    run(p, cmd(1, 0), 3);
+    runInPlace(p, cmd(1, 0), 3);
     expect(speed(p)).toBeCloseTo(K.maxSpeed, 5);
-    p.x = -18;
-    run(p, cmd(1, 0, true), 3.2);
+    runInPlace(p, cmd(1, 0, true), 4);
     expect(speed(p)).toBeCloseTo(K.sprintSpeed, 5);
   });
   it('a half-pushed stick gives a lower cruising speed', () => {
@@ -88,28 +109,30 @@ describe('skating: sprint push', () => {
   });
   it('leaving the sprint slows down naturally (not instantly) to the normal top speed', () => {
     const p = cruising();
-    for (let i = 0; i < 150; i++) {
-      stepPlayer(p, cmd(1, 0, true), TUNING, DT);
-      p.x = 0;
-    }
+    runInPlace(p, cmd(1, 0, true), 4);
     const v0 = speed(p);
     stepPlayer(p, cmd(1, 0), TUNING, DT);
-    expect(v0 - speed(p)).toBeLessThan(0.1);
-    run(p, cmd(1, 0), 1.5);
+    expect(v0 - speed(p)).toBeLessThanOrEqual(K.overspeedDecel * DT + 1e-6); // gradual
+    runInPlace(p, cmd(1, 0), 2);
     expect(speed(p)).toBeCloseTo(K.maxSpeed, 3);
   });
 });
 
 describe('skating: glide and four-wheel skid stop', () => {
-  it('bringing the stick back gently glides smoothly (never stops dead)', () => {
+  it('bringing the stick back gently glides smoothly (no skid, never stops dead)', () => {
     const p = cruising();
-    for (let i = 0; i < 30; i++) stepPlayer(p, cmd(1 - i / 30, 0), TUNING, DT);
-    p.x = -10;
-    run(p, cmd(0, 0), 1);
-    expect(speed(p)).toBeGreaterThan(5);
-    expect(p.skidTime).toBe(0);
-    p.x = -15;
-    run(p, cmd(0, 0), 15);
+    let prev = speed(p);
+    for (let i = 0; i < 30; i++) {
+      stepPlayer(p, cmd(1 - i / 30, 0), TUNING, DT);
+      expect(prev - speed(p)).toBeLessThan(0.5);
+      prev = speed(p);
+    }
+    runInPlace(p, cmd(0, 0), 0.2, (q) => {
+      expect(q.skidTime).toBe(0);
+      expect(prev - speed(q)).toBeLessThan(0.5);
+      prev = speed(q);
+    });
+    runInPlace(p, cmd(0, 0), 15);
     expect(speed(p)).toBe(0);
   });
 
@@ -159,29 +182,34 @@ describe('skating: glide and four-wheel skid stop', () => {
 });
 
 describe('skating: turning', () => {
-  it('turns more slowly at high speed (radius grows with speed)', () => {
-    const fast = cruising();
-    const slow = createPlayer(0, 0, 0, 0);
-    run(slow, cmd(0.35, 0), 3);
-    slow.x = 0;
-    const turnFor = (p: PlayerState): number => {
-      const h0 = p.heading;
-      run(p, cmd(0, 1, false), 0.2);
-      return Math.abs(p.heading - h0);
-    };
-    expect(turnFor(fast)).toBeLessThan(turnFor(slow));
-  });
-  it('a tight turn at full speed costs speed', () => {
-    const p = cruising();
-    run(p, cmd(0, 1), 0.5);
-    expect(speed(p)).toBeLessThan(K.maxSpeed * 0.95);
-  });
-  it('a gentle curve keeps almost all speed', () => {
-    const p = cruising();
-    const a = 0.25;
-    run(p, cmd(Math.cos(a), Math.sin(a)), 0.5);
-    expect(speed(p)).toBeGreaterThan(K.maxSpeed * 0.97);
-  });
+  it('turns more slowly at high speed (radius grows with speed)', () =>
+    withoutCut(() => {
+      const fast = cruising();
+      const slow = createPlayer(0, 0, 0, 0);
+      run(slow, cmd(0.4, 0), 3);
+      slow.x = 0;
+      const turnFor = (p: PlayerState): number => {
+        const h0 = p.heading;
+        run(p, cmd(0, 1, false), 0.2);
+        return Math.abs(p.heading - h0);
+      };
+      expect(turnFor(fast)).toBeLessThan(turnFor(slow));
+    }));
+  it('a tight turn at full speed costs speed', () =>
+    withoutCut(() => {
+      const p = cruising();
+      run(p, cmd(0, 1), 0.5);
+      expect(speed(p)).toBeLessThan(K.maxSpeed * 0.95);
+    }));
+  it('a gentle curve costs much less speed than a tight turn', () =>
+    withoutCut(() => {
+      const gentle = cruising();
+      const tight = cruising();
+      const a = 0.15;
+      run(gentle, cmd(Math.cos(a), Math.sin(a)), 0.5);
+      run(tight, cmd(0, 1), 0.5);
+      expect(K.maxSpeed - speed(gentle)).toBeLessThan(0.4 * (K.maxSpeed - speed(tight)));
+    }));
   it('pivots on the spot when (almost) still', () => {
     const p = createPlayer(0, 0, 0, 0);
     run(p, cmd(-1, 0), 0.5);
@@ -189,6 +217,106 @@ describe('skating: turning', () => {
     expect(p.vx).toBeLessThan(0);
   });
 });
+
+describe('skating: trencada (lateral cut)', () => {
+  const C = TUNING.cut;
+  /** Flick the stick 90° to the left while cruising along +x. */
+  function flick(sprint = false): PlayerState {
+    const p = cruising();
+    stepPlayer(p, cmd(0, 1, sprint), TUNING, DT);
+    return p;
+  }
+
+  it('a quick 90° flick at speed starts a cut', () => {
+    const p = flick();
+    expect(p.cutTime).toBeGreaterThan(0);
+    expect(p.braking).toBe(true);
+  });
+
+  it('slides sideways, loses the old speed, redirects part of it and exits with a push', () => {
+    const p = flick();
+    const v0 = p.cutSpeed0;
+    let maxBody = 0;
+    runInPlace(p, cmd(0, 1), C.duration - DT, (q) => {
+      maxBody = Math.max(maxBody, Math.abs(wrapAngleTest(q.heading - Math.atan2(q.vy, q.vx))));
+    });
+    expect(p.cutTime).toBe(0);
+    // Now going the new way (+y) with about `redirect` of the old speed.
+    expect(Math.abs(p.vx)).toBeLessThan(0.05);
+    expect(p.vy).toBeCloseTo(v0 * C.redirect, 1);
+    expect(maxBody).toBeGreaterThan(C.bodyTurn * 0.5); // body turned towards the cut
+    // Exit push: accelerates faster than normal acceleration alone.
+    const vEnd = speed(p);
+    runInPlace(p, cmd(0, 1), 0.2);
+    const withPush = speed(p) - vEnd;
+    const plain = cruising();
+    plain.vx = 0;
+    plain.vy = vEnd;
+    plain.heading = Math.PI / 2;
+    plain.boostCooldown = 99; // no push
+    plain.cutCooldown = 99;
+    runInPlace(plain, cmd(0, 1), 0.2);
+    expect(withPush).toBeGreaterThan(speed(plain) - vEnd + 1);
+  });
+
+  it('a normal curve (stick turning gradually) never triggers a cut', () => {
+    const p = cruising();
+    for (let i = 0; i <= 60; i++) {
+      const a = (i / 60) * (Math.PI / 2); // 90° over 1 s
+      stepPlayer(p, cmd(Math.cos(a), Math.sin(a)), TUNING, DT);
+      p.x = 0;
+      p.y = 0;
+      expect(p.cutTime).toBe(0);
+    }
+  });
+
+  it('no cut below the minimum speed or beyond the brake angle (that is the skid stop)', () => {
+    const slow = createPlayer(0, 0, 4, 0);
+    run(slow, cmd(0.4, 0), 2);
+    expect(speed(slow)).toBeLessThan(C.minSpeed);
+    stepPlayer(slow, cmd(0, 1), TUNING, DT);
+    expect(slow.cutTime).toBe(0);
+    const rev = cruising();
+    stepPlayer(rev, cmd(-1, 0.1), TUNING, DT);
+    expect(rev.cutTime).toBe(0);
+    expect(rev.skidTime).toBeGreaterThan(0);
+  });
+
+  it('taking the stick back to the old direction cancels it', () => {
+    const p = flick();
+    stepPlayer(p, cmd(1, 0), TUNING, DT);
+    expect(p.cutTime).toBe(0);
+  });
+
+  it('cannot be chained: cooldown before the next cut, and the exit push blocks the sprint push', () => {
+    const p = flick();
+    runInPlace(p, cmd(0, 1), C.duration);
+    expect(p.boostTime).toBeGreaterThan(0); // exit push running
+    stepPlayer(p, cmd(1, 0), TUNING, DT); // flick back at once
+    expect(p.cutTime).toBe(0);
+    expect(p.cutCooldown).toBeGreaterThan(0);
+    // Entering a sprint right now gives no extra sprint push (shared cooldown).
+    const q = flick();
+    runInPlace(q, cmd(0, 1), C.duration + 0.25);
+    runInPlace(q, cmd(0, 1, true), DT);
+    expect(q.boostIsSprint).toBe(false);
+  });
+
+  it('"only with sprint" (option B): no cut without the sprint zone, cut with it', () => {
+    const saved = C.onlyWithSprint;
+    C.onlyWithSprint = 1;
+    try {
+      expect(flick(false).cutTime).toBe(0);
+      expect(flick(true).cutTime).toBeGreaterThan(0);
+    } finally {
+      C.onlyWithSprint = saved;
+    }
+  });
+});
+
+function wrapAngleTest(a: number): number {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
 
 describe('skating: never through boards, goals or players', () => {
   it('random sprinting for 2 minutes always stays inside and out of the goals', () => {

@@ -143,5 +143,17 @@
   "tuning.skating.skidMinSpeed": "Derrapatge en deixar anar: velocitat mínima",
   "tuning.skating.skidReleaseStick": "Derrapatge en deixar anar: joystick mínim",
   "tuning.skating.skidReleaseWindow": "Derrapatge en deixar anar: rapidesa del gest",
-  "tuning.dribble.skidSeparation": "Separació extra en derrapar"
+  "tuning.dribble.skidSeparation": "Separació extra en derrapar",
+  "tuning.section.cut": "Patinatge: trencada",
+  "tuning.cut.minAngle": "Angle mínim de gir",
+  "tuning.cut.minSpeed": "Velocitat mínima",
+  "tuning.cut.gestureTime": "Rapidesa del gest (temps màxim)",
+  "tuning.cut.duration": "Durada del tall",
+  "tuning.cut.redirect": "Velocitat redirigida",
+  "tuning.cut.bodyTurn": "Gir del cos",
+  "tuning.cut.exitAccel": "Empenta de sortida: força",
+  "tuning.cut.exitTime": "Empenta de sortida: durada",
+  "tuning.cut.cooldown": "Temps entre trencades",
+  "tuning.cut.onlyWithSprint": "Només amb esprint",
+  "tuning.cut.ballSeparation": "Separació de la bola"
 }

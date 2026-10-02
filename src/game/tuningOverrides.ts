@@ -87,7 +87,9 @@ export class TuningOverrides {
       const def = getAt(this.defaults, path);
       if (def === undefined || (this.allowed && !this.allowed.has(path))) continue;
       if (!sameValue(def, o.base)) {
-        this.stale.push(path);
+        // The factory value changed. If it changed TO the player's own value (Claude adopted
+        // their tuning as the new default), drop it silently; otherwise report it.
+        if (!sameValue(def, o.v)) this.stale.push(path);
         continue;
       }
       if (sameValue(def, o.v)) continue;
@@ -148,6 +150,7 @@ export class TuningOverrides {
 
   /** Plain-text summary to paste into the chat with Claude. */
   exportText(version: string): string {
+    // (toggles are exported as 0 / 1)
     const lines = [`PATINS tuning ${version}`];
     const paths = this.modifiedPaths().sort();
     if (paths.length === 0) lines.push('(no changes)');
