@@ -9,7 +9,7 @@ const player = (page: Page): Promise<P> =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./?quality=low');
-  await page.click('#btn-start');
+  await page.click('#btn-play');
 });
 
 test('keyboard: D skates right (+x), W skates away from camera (+y)', async ({ page }) => {

@@ -1,6 +1,22 @@
 {
   "app.title": "PATINS",
-  "start.tap": "Toca per jugar",
-  "rotate.hint": "Gira el mòbil en horitzontal",
-  "controls.sprint": "Esprint"
+  "menu.play": "Jugar",
+  "menu.resume": "Continuar",
+  "menu.settings": "Configuració",
+  "menu.back": "Tornar",
+  "menu.controlsHint": "Mòbil: dit esquerre per patinar, botó dret per esprintar · PC: WASD/fletxes + Shift",
+  "hud.pause": "Pausa",
+  "settings.title": "Configuració",
+  "settings.language": "Idioma",
+  "settings.quality": "Qualitat gràfica",
+  "settings.qualityNote": "En canviar-la, el joc es reinicia",
+  "settings.version": "Versió {version}",
+  "quality.low": "Baixa",
+  "quality.medium": "Mitjana",
+  "quality.high": "Alta",
+  "lang.ca": "Català",
+  "lang.es": "Español",
+  "lang.en": "English",
+  "controls.sprint": "Esprint",
+  "rotate.hint": "Gira el mòbil en horitzontal"
 }

@@ -1,35 +1,60 @@
 import './ui/styles.css';
 import { registerSW } from 'virtual:pwa-register';
-import { translateDom } from './i18n';
+import { setLanguage, translateDom, onLanguageChange } from './i18n';
+import { isQualityLevel } from './config/quality';
 import { Game } from './game/game';
 import { Renderer } from './render/renderer';
 import { HumanInput } from './input/humanInput';
-import { createRotateHint, createStartOverlay } from './ui/overlays';
+import { createPauseButton, createRotateHint } from './ui/overlays';
 import { enterFullscreenLandscape } from './ui/fullscreen';
 import { createDebugPanel, isDebugEnabled } from './ui/debugPanel';
-import { DEFAULT_QUALITY, isQualityLevel } from './config/quality';
+import { loadSettings } from './ui/settings';
+import { Menu } from './ui/menu';
 
 registerSW({ immediate: true });
+
+const settings = loadSettings();
+setLanguage(settings.language);
+document.documentElement.lang = settings.language;
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui-root') as HTMLDivElement;
 
+// ?quality= overrides the saved setting (handy for testing on the device).
 const qualityParam = new URLSearchParams(location.search).get('quality');
-const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : DEFAULT_QUALITY);
+const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : settings.quality);
 const input = new HumanInput();
 const game = new Game(renderer, input);
+game.paused = true;
 
-uiRoot.append(
-  input.joystick.element,
-  input.sprintButton.element,
-  createStartOverlay(() => {
+const menu = new Menu(settings, {
+  onPlay: () => {
+    game.paused = false;
     input.enabled = true;
+    hud.hidden = false;
     void enterFullscreenLandscape();
-  }),
-  createRotateHint(),
-);
+  },
+  onQualityChange: () => location.reload(),
+});
+
+const pauseButton = createPauseButton(() => {
+  game.paused = true;
+  input.enabled = false;
+  hud.hidden = true;
+  menu.showMain();
+});
+
+// In-game layer: joystick surface, sprint button and pause button.
+const hud = document.createElement('div');
+hud.className = 'hud';
+hud.id = 'hud';
+hud.hidden = true;
+hud.append(input.joystick.element, input.sprintButton.element, pauseButton);
+
+uiRoot.append(hud, menu.element, createRotateHint());
 if (isDebugEnabled()) uiRoot.append(createDebugPanel(game, renderer));
 translateDom(uiRoot);
+onLanguageChange(() => translateDom(uiRoot));
 
 game.start();
 

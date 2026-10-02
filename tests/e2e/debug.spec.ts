@@ -5,6 +5,7 @@ test('debug panel shows with ?debug=1 and the sim advances', async ({ page }) =>
   const panel = page.locator('#debug-panel');
   await expect(panel).toBeVisible();
   await expect(panel).toContainText('fps');
+  await page.click('#btn-play');
   const t0 = await page.evaluate(() => (window as any).__PATINS__.game.world.tick as number);
   await page.waitForTimeout(2000);
   const t1 = await page.evaluate(() => (window as any).__PATINS__.game.world.tick as number);

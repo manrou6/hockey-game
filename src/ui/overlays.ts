@@ -8,16 +8,9 @@ export function createRotateHint(): HTMLElement {
   ]);
 }
 
-/** Title screen with a single big "tap to play" button. */
-export function createStartOverlay(onStart: () => void): HTMLElement {
-  const button = el('button', { className: 'btn-primary', i18n: 'start.tap', attrs: { id: 'btn-start' } });
-  const overlay = el('div', { className: 'overlay', attrs: { id: 'start-overlay' } }, [
-    el('h1', { className: 'title', i18n: 'app.title' }),
-    button,
-  ]);
-  button.addEventListener('click', () => {
-    overlay.hidden = true;
-    onStart();
-  });
-  return overlay;
+/** Small in-game pause button (top right) that brings the menu back. */
+export function createPauseButton(onPause: () => void): HTMLButtonElement {
+  const b = el('button', { className: 'hud-btn btn-pause', attrs: { id: 'btn-pause', 'data-i18n-aria': 'hud.pause' } }, ['❚❚']);
+  b.addEventListener('click', onPause);
+  return b;
 }

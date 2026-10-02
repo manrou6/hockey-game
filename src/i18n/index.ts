@@ -46,4 +46,8 @@ export function translateDom(root: ParentNode): void {
   root.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n as MessageKey);
   });
+  // Accessible labels for icon-only buttons.
+  root.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria as MessageKey));
+  });
 }

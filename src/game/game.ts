@@ -21,6 +21,8 @@ export class Game {
   private readonly commands: PlayerCommand[] = [emptyCommand()];
   private lastTime = -1;
   private running = false;
+  /** While paused the sim does not advance (the scene is still drawn behind the menu). */
+  paused = false;
   private readonly onFrameCallbacks: (() => void)[] = [];
 
   constructor(
@@ -49,8 +51,10 @@ export class Game {
     // Ignore huge gaps (tab hidden) in stats; the loop clamps them anyway.
     if (frameMs < 250) this.frameStats.push(frameMs);
 
-    if (this.input) this.input.read(this.commands[0]!);
-    this.loop.advance(frameMs / 1000, () => stepWorld(this.world, this.commands, TUNING));
+    if (!this.paused) {
+      if (this.input) this.input.read(this.commands[0]!);
+      this.loop.advance(frameMs / 1000, () => stepWorld(this.world, this.commands, TUNING));
+    }
     this.renderer.sync(this.world, this.loop.alpha, Math.min(frameMs, 100) / 1000);
     this.renderer.render();
     this.workStats.push(performance.now() - now);
