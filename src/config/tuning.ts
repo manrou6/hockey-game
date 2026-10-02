@@ -41,8 +41,6 @@ export const TUNING = {
     pivotSpeed: 1.2,
     /** Turning rate while pivoting (nearly still). */
     pivotTurnRate: 16,
-    /** Stick dead zone (0..1). */
-    deadZone: 0.12,
     /** Bounce against boards/goals, and Coulomb friction coefficient (tangential loss ∝ impact). */
     wallRestitution: 0.2,
     wallFriction: 0.25,
@@ -120,14 +118,37 @@ export const TUNING = {
   input: {
     /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */
     bufferTime: 0.15,
-    /** REGATE pressed shorter than this is a tap (dribble move); longer is a hold (sprint) (s). */
-    tapTime: 0.2,
+    /**
+     * Analog speed on the virtual joystick (docs/03 §3, changed 2026-10-02): thumb travel
+     * (0 = centre, 1 = edge of the ring) below `joystickDeadZone` does nothing; from there to
+     * `sprintThreshold` the speed rises from 0 to the normal top speed following
+     * `joystickCurve` (1 = linear, 2 = much finer control at low tilt); from `sprintThreshold`
+     * on it's a sprint. Values above 1 mean "drag beyond the edge of the ring".
+     * `sprintHysteresis`: once sprinting, it only stops below threshold − this (no flicker).
+     */
+    joystickDeadZone: 0.12,
+    joystickCurve: 1.5,
+    sprintThreshold: 0.9,
+    sprintHysteresis: 0.04,
     /** Floating joystick: drag distance (CSS px) for a full push. */
     joystickRadiusPx: 60,
     /** Fraction of the screen width (from the left) where a touch spawns the joystick. */
     joystickZone: 0.5,
     /** Gamepad stick dead zone (raw axis units). */
     gamepadDeadZone: 0.15,
+  },
+  /** Right-thumb action buttons: distance from the right and bottom edges, and diameter
+   * (CSS px of the landscape layout). Editable live from the tuning panel. */
+  buttons: {
+    passRight: 158,
+    passBottom: 24,
+    passSize: 84,
+    shootRight: 34,
+    shootBottom: 34,
+    shootSize: 100,
+    dribbleRight: 52,
+    dribbleBottom: 150,
+    dribbleSize: 84,
   },
   /** Camera system shared settings (docs/03 §6). */
   camera: {

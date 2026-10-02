@@ -23,19 +23,21 @@ Todos los números son valores iniciales para afinar. Viven en src/config/tuning
 ## 3. Controles (dos esquemas, seleccionables y combinables)
 ### A. Joystick + botones (por defecto)
 - Joystick virtual flotante (aparece donde pones el pulgar izquierdo, mitad izquierda de la pantalla).
-- Botones (derecha), grandes, semitransparentes, posiciones editables:
+- **Velocidad analógica y sprint en el joystick** (cambio de diseño pedido por Guillem, 2026-10-02; antes el sprint era REGATE mantenido): cuanto más lejos del centro, más rápido. Zona muerta central → no se mueve; de ahí hasta el **umbral de sprint** (90 % del recorrido por defecto) la velocidad sube de 0 a la máxima normal (7,5 m/s) según una **curva de respuesta** (1 = lineal, más = más precisión al principio; por defecto 1,5); desde el umbral = **sprint** (~9 m/s). Un anillo en el joystick marca dónde empieza el sprint y se ilumina (junto con el pulgar) mientras esprintas; un margen anti-parpadeo evita entrar y salir en la frontera. El umbral se ajusta en el panel entre 70 % y 130 % (más de 100 % = arrastrar el pulgar más allá del borde del círculo). Todo lo que depende del sprint (separación de la bola, y en el futuro la resistencia) usa esta definición.
+- Botones (derecha), grandes, semitransparentes, posiciones editables (de momento desde el panel de afinación, sección "Botons"; editor de arrastrar en F1.7):
   - PASE: toque = pase raso al compañero en la dirección del joystick. Mantener = pase elevado/largo.
   - TIRO: toque = tiro rápido. Mantener = carga (barra) y soltar. Deslizar el dedo al soltar = dirección/efecto (arriba = tiro alto).
-  - REGATE: toque = finta/regate contextual según dirección. Mantener = sprint.
-  - En defensa: PASE → cambiar jugador, TIRO → entrada/robo, REGATE (mantener) → presionar/sprint.
+  - REGATE: pulsar = finta/regate contextual según dirección (sale al pulsar). Ya no hace sprint.
+  - En defensa: PASE → cambiar jugador, TIRO → entrada/robo, REGATE (mantener) → presionar. El sprint, también en defensa, es la zona exterior del joystick.
 - Buffer de input de 150 ms (si pulsas un poco antes de recibir, la acción sale al recibir).
 - Asistencia al pase y apuntado configurable (Desactivada / Ligera / Fuerte).
 
 ### B. Gestos
-- Mano izquierda igual (joystick). Mano derecha: deslizar corto = pase en esa dirección, deslizar largo hacia portería = tiro (longitud = potencia), doble toque = regate, mantener = sprint.
+- Mano izquierda igual (joystick, con su velocidad analógica y su zona de sprint). Mano derecha: deslizar corto = pase en esa dirección, deslizar largo hacia portería = tiro (longitud = potencia), doble toque = regate.
 
 ### PC
-- Teclado (WASD + J/K/L/Espacio) y mando (Gamepad API).
+- Teclado: WASD/flechas = patinar a la velocidad normal máxima (las teclas no son analógicas), Shift = sprint, J = pase, K/Espacio = tiro, L = regate.
+- Mando (Gamepad API): stick izquierdo analógico (a fondo = sprint), RB/RT = sprint, A = pase, B = tiro, X = regate.
 
 ### Feedback
 - Vibración háptica corta (Vibration API) en tiro, gol, choque y poste. Desactivable.
