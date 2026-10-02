@@ -3,7 +3,7 @@ import type { Tuning } from '../config/tuning';
 import type { BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import type { PlayerState } from './player';
-import { dribbleFor } from './feel';
+import { dribbleFor, passFor } from './feel';
 
 // Simple teammates for the F1.4 passing test bench (not the F2 team AI): they offer a
 // passing line beside and ahead of the ball carrier, go to meet a pass coming to them, pick
@@ -84,13 +84,17 @@ function moveTo(p: PlayerState, tx: number, ty: number, speed: number, arriveRad
   return false;
 }
 
-/** Closer than this (m) to the meeting point, a receiver stops skating and just faces the
- * ball (skaters can't shuffle backwards: any step would turn his back to it). */
-const SETTLE_RADIUS = 1;
+/** Closer than this (m) to the meeting point a receiver just faces the ball and waits. */
+const SETTLE_RADIUS = 0.3;
+/** With the ball this close in time (s) there's no time to move: just face it. */
+const SETTLE_TIME = 0.3;
+/** Skaters can't shuffle backwards: a short step away from the ball would turn his back to it. */
+const NO_BACK_STEP = 1.5;
 
 /**
  * Movement to meet a moving ball with the stick: go to where its path passes (offset so the
- * blade, which is to the right of the body, is on the line), then face it and wait.
+ * blade, which is to the right of the body, is on the line), then face it and wait. Short
+ * sideways steps are fine (he turns back to the ball quickly); short steps backwards are not.
  */
 export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, out: PlayerCommand): void {
   const m = tuning.mates;
@@ -105,7 +109,11 @@ export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, o
   // Facing the ball, the blade is `side` to the right: (sin, −cos) of the facing angle.
   const bx = ball.x + ball.vx * t - Math.sin(face) * side;
   const by = ball.y + ball.vy * t + Math.cos(face) * side;
-  if (Math.hypot(bx - p.x, by - p.y) <= SETTLE_RADIUS) setMove(out, face, TURN_ONLY);
+  const dx = bx - p.x;
+  const dy = by - p.y;
+  const d = Math.hypot(dx, dy);
+  const backwards = d < NO_BACK_STEP && (dx * Math.cos(face) + dy * Math.sin(face)) / Math.max(1e-6, d) < -0.5;
+  if (d <= SETTLE_RADIUS || a.t < SETTLE_TIME || backwards) setMove(out, face, TURN_ONLY);
   else moveTo(p, bx, by, m.interceptSpeed, 0.8, out);
 }
 
@@ -130,6 +138,16 @@ export interface BotContext {
   controlled: number;
   /** Who the moving loose ball is heading to (−1 = nobody). */
   receiver: number;
+  /** Sim time (s), for each teammate's slow drift in rhythm and position. */
+  time: number;
+}
+
+/** A settled supporter only moves again once his spot is this far away (m): no twitching. */
+const RESTART_DISTANCE = 1.2;
+
+/** Per-teammate variation in [-1, 1] that drifts slowly over time (deterministic). */
+function drift(id: number, time: number, rate: number): number {
+  return Math.sin(time * rate + id * 2.39996);
 }
 
 /** Command for a teammate the human is not controlling. */
@@ -139,17 +157,19 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   const p = players[i]!;
   const me = players[controlled];
   out.moveX = out.moveY = 0;
-  out.sprint = out.pass = out.shoot = out.dribble = false;
+  out.sprint = out.pass = out.shoot = out.dribble = out.passHeld = false;
 
   // With the ball (only when the control does not switch): turn to the controlled player and
-  // give it back after returnDelay, leading his movement.
+  // give it back after returnDelay, the same kind of pass he received (the pass assist aims
+  // and leads it). A lofted one is a held PASE, exactly like the human's.
   if (ball.owner === i) {
     if (!me) return;
-    const dist = Math.hypot(me.x - p.x, me.y - p.y);
-    const lead = (dist / Math.max(1, dribbleFor(p, tuning).passSpeed)) * m.returnLead;
-    const angle = Math.atan2(me.y + me.vy * lead - p.y, me.x + me.vx * lead - p.x);
-    setMove(out, angle, TURN_ONLY);
-    if (p.holdTime >= m.returnDelay) out.pass = true;
+    setMove(out, Math.atan2(me.y - p.y, me.x - p.x), TURN_ONLY);
+    if (p.passHold >= 0) out.passHeld = p.passHold < passFor(p, tuning).tapTime + 0.05;
+    else if (p.holdTime >= m.returnDelay) {
+      out.pass = true;
+      out.passHeld = p.receivedLoft;
+    }
     return;
   }
   // A pass (or loose ball) is coming to me: go and meet it.
@@ -171,7 +191,13 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   const anchor = ball.owner >= 0 && players[ball.owner]!.team === p.team ? players[ball.owner]! : me;
   if (!anchor || anchor === p) return;
   supportSpot(anchor, supportSide(ctx, i, anchor), tuning, spot);
-  moveTo(p, spot.x, spot.y, m.supportSpeed, m.arriveRadius, out);
+  // Each teammate has his own rhythm and his spot wanders a little, so they don't mirror you.
+  spot.x += m.spotVariation * drift(p.id, ctx.time, 0.31);
+  spot.y += m.spotVariation * 0.6 * drift(p.id + 7, ctx.time, 0.23);
+  const speed = m.supportSpeed * (1 + m.speedVariation * drift(p.id + 3, ctx.time, 0.17));
+  const far = Math.hypot(spot.x - p.x, spot.y - p.y);
+  if (p.botSettled && far < RESTART_DISTANCE) return;
+  p.botSettled = moveTo(p, spot.x, spot.y, speed, m.arriveRadius, out);
 }
 
 /** The bot (not the controlled player) nearest to a point. */

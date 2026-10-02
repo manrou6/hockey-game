@@ -1,6 +1,7 @@
 import { DEFAULT_QUALITY, isQualityLevel, type QualityLevel } from '../config/quality';
 import { isLanguage, type Language } from '../i18n';
 import { isCameraPresetId, type CameraPresetId } from '../render/cameraPresets';
+import { isAssistLevel, type AssistLevel } from '../sim/pass';
 
 /** Player-facing settings persisted on the device. */
 export interface Settings {
@@ -10,10 +11,12 @@ export interface Settings {
   tuningMode: boolean;
   /** Last camera chosen (kept between matches). */
   camera: CameraPresetId;
+  /** Pass assist level (docs/03 §3): off / light (default) / strong. */
+  assist: AssistLevel;
 }
 
 const STORAGE_KEY = 'patins.settings.v1';
-const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv' };
+const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv', assist: 'light' };
 
 export function loadSettings(): Settings {
   try {
@@ -25,6 +28,7 @@ export function loadSettings(): Settings {
       quality: isQualityLevel(data.quality) ? data.quality : DEFAULTS.quality,
       tuningMode: typeof data.tuningMode === 'boolean' ? data.tuningMode : DEFAULTS.tuningMode,
       camera: isCameraPresetId(data.camera) ? data.camera : DEFAULTS.camera,
+      assist: isAssistLevel(data.assist) ? data.assist : DEFAULTS.assist,
     };
   } catch {
     return { ...DEFAULTS };

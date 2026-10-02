@@ -16,8 +16,10 @@ export interface PlayerCommand {
   pass: boolean;
   shoot: boolean;
   dribble: boolean;
+  /** PASE is being held down (tap = ground pass, hold = lofted; it leaves on release). */
+  passHeld: boolean;
 }
 
 export function emptyCommand(): PlayerCommand {
-  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false };
+  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false };
 }

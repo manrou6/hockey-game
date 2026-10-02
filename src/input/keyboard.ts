@@ -19,6 +19,11 @@ export class KeyboardInput {
     target.addEventListener('blur', () => this.down.clear());
   }
 
+  /** J (PASE) held down. */
+  get passHeld(): boolean {
+    return this.down.has('KeyJ');
+  }
+
   private any(...codes: string[]): boolean {
     for (const c of codes) if (this.down.has(c)) return true;
     return false;

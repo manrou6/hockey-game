@@ -4,6 +4,7 @@ import { getLanguage, LANGUAGES, onLanguageChange, setLanguage, t, translateDom,
 import { el } from './dom';
 import { saveSettings, type Settings } from './settings';
 import { CAMERA_PRESET_IDS, type CameraPresetId } from '../render/cameraPresets';
+import { ASSIST_LEVELS, type AssistLevel } from '../sim/pass';
 
 export interface MenuCallbacks {
   /** "Play"/"Resume" pressed (inside a user gesture: safe to request fullscreen). */
@@ -14,6 +15,8 @@ export interface MenuCallbacks {
   onTuningModeChange: (on: boolean) => void;
   /** Camera preset chosen in settings. */
   onCameraChange: (id: CameraPresetId) => void;
+  /** Pass assist level chosen in settings. */
+  onAssistChange: (level: AssistLevel) => void;
 }
 
 /** Main menu + settings screen, as two full-screen overlays. */
@@ -53,6 +56,7 @@ export class Menu {
       el('h2', { className: 'subtitle', i18n: 'settings.title' }),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.language' }), this.languageChoices()]),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.camera' }), this.cameraChoices()]),
+      el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.assist' }), this.assistChoices()]),
       el('div', { className: 'setting' }, [
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
@@ -113,6 +117,21 @@ export class Menu {
     return group;
   }
 
+  private assistChoices(): HTMLElement {
+    const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
+    for (const level of ASSIST_LEVELS) {
+      const b = el('button', { className: 'choice', i18n: `assist.${level}`, attrs: { 'data-assist': level, id: `assist-${level}` } });
+      b.addEventListener('click', () => {
+        this.settings.assist = level;
+        saveSettings(this.settings);
+        this.callbacks.onAssistChange(level);
+        this.refreshTexts();
+      });
+      group.append(b);
+    }
+    return group;
+  }
+
   private tuningChoices(): HTMLElement {
     const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
     for (const on of [true, false]) {
@@ -149,6 +168,11 @@ export class Menu {
     });
     this.element.querySelectorAll<HTMLElement>('[data-camera]').forEach((b) => {
       const sel = b.dataset.camera === this.settings.camera;
+      b.classList.toggle('selected', sel);
+      b.setAttribute('aria-checked', String(sel));
+    });
+    this.element.querySelectorAll<HTMLElement>('[data-assist]').forEach((b) => {
+      const sel = b.dataset.assist === this.settings.assist;
       b.classList.toggle('selected', sel);
       b.setAttribute('aria-checked', String(sel));
     });

@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'assist' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -129,8 +129,41 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'dribble.pickupMaxHeight', min: 0.05, max: 1, step: 0.05, unit: 'm' },
       { path: 'dribble.pressureRadius', min: 0.5, max: 4, step: 0.1, unit: 'm' },
       { path: 'dribble.relockTime', min: 0, max: 1, step: 0.05, unit: 's' },
-      { path: 'dribble.passSpeed', min: 4, max: 25, step: 0.5, unit: 'm/s' },
       { path: 'dribble.shotSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+    ],
+  },
+  {
+    id: 'pass',
+    params: [
+      { path: 'pass.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
+      { path: 'pass.loftChargeTime', min: 0.1, max: 1.5, step: 0.05, unit: 's' },
+      { path: 'pass.groundArrivalSpeed', min: 1, max: 14, step: 0.5, unit: 'm/s' },
+      { path: 'pass.groundMinSpeed', min: 3, max: 15, step: 0.5, unit: 'm/s' },
+      { path: 'pass.groundMaxSpeed', min: 10, max: 30, step: 0.5, unit: 'm/s' },
+      { path: 'pass.groundNoTargetSpeed', min: 5, max: 25, step: 0.5, unit: 'm/s' },
+      { path: 'pass.loftAngle', min: 10, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'pass.loftLandShort', min: 0, max: 4, step: 0.25, unit: 'm' },
+      { path: 'pass.loftMaxSpeed', min: 10, max: 35, step: 0.5, unit: 'm/s' },
+      { path: 'pass.loftMinDistance', min: 2, max: 15, step: 0.5, unit: 'm' },
+      { path: 'pass.loftMaxDistance', min: 8, max: 40, step: 1, unit: 'm' },
+      { path: 'pass.lead', min: 0, max: 150, step: 5, unit: '%', scale: 100 },
+      { path: 'pass.errorBase', min: 0, max: 10, step: 0.5, unit: '°', scale: DEG },
+      { path: 'pass.errorSprint', min: 0, max: 20, step: 0.5, unit: '°', scale: DEG },
+      { path: 'pass.errorPressure', min: 0, max: 20, step: 0.5, unit: '°', scale: DEG },
+      { path: 'pass.errorOffBalance', min: 0, max: 25, step: 0.5, unit: '°', scale: DEG },
+      { path: 'pass.errorLoft', min: 1, max: 3, step: 0.1, unit: '×' },
+      { path: 'pass.errorPower', min: 0, max: 20, step: 1, unit: '%', scale: 100 },
+      { path: 'pass.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+    ],
+  },
+  {
+    id: 'assist',
+    params: [
+      { path: 'assist.lightCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'assist.lightCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'assist.strongCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'assist.strongCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'assist.targetRing', min: 0, max: 1, step: 1, unit: '', toggle: true },
     ],
   },
   {
@@ -141,7 +174,6 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'mates.move', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'mates.switchLatchAngle', min: 10, max: 120, step: 5, unit: '°', scale: DEG },
       { path: 'mates.returnDelay', min: 0, max: 2, step: 0.05, unit: 's' },
-      { path: 'mates.returnLead', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'mates.supportAhead', min: -4, max: 8, step: 0.5, unit: 'm' },
       { path: 'mates.supportSide', min: 2, max: 9, step: 0.5, unit: 'm' },
       { path: 'mates.supportSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },
@@ -150,6 +182,8 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'mates.interceptMaxTime', min: 0.5, max: 4, step: 0.1, unit: 's' },
       { path: 'mates.interceptSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'mates.fetchRadius', min: 0, max: 8, step: 0.5, unit: 'm' },
+      { path: 'mates.speedVariation', min: 0, max: 50, step: 5, unit: '%', scale: 100 },
+      { path: 'mates.spotVariation', min: 0, max: 4, step: 0.25, unit: 'm' },
     ],
   },
   {

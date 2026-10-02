@@ -23,3 +23,7 @@ export function cutFor(_p: PlayerState, tuning: Tuning): Tuning['cut'] {
 export function dribbleFor(_p: PlayerState, tuning: Tuning): Tuning['dribble'] {
   return tuning.dribble;
 }
+
+export function passFor(_p: PlayerState, tuning: Tuning): Tuning['pass'] {
+  return tuning.pass;
+}

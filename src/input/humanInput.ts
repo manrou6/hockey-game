@@ -15,7 +15,7 @@ export class HumanInput implements CommandSource {
   readonly joystick = new VirtualJoystick();
   readonly buttons = new ActionButtons(this.edges);
   private readonly keyboard = new KeyboardInput(this.edges);
-  private readonly tmp = { x: 0, y: 0, sprint: false };
+  private readonly tmp = { x: 0, y: 0, sprint: false, passHeld: false };
   private _enabled = false;
 
   get enabled(): boolean {
@@ -34,7 +34,7 @@ export class HumanInput implements CommandSource {
     out.moveX = 0;
     out.moveY = 0;
     out.sprint = false;
-    out.pass = out.shoot = out.dribble = false;
+    out.pass = out.shoot = out.dribble = out.passHeld = false;
     if (!this._enabled) {
       this.consumeEdges();
       return;
@@ -47,6 +47,7 @@ export class HumanInput implements CommandSource {
     const ky = t.y;
     const kSprint = t.sprint;
     readGamepad(t, this.edges);
+    const padPass = t.passHeld;
     if (this.joystick.active) {
       this.joystick.read(t);
     } else if (kx !== 0 || ky !== 0) {
@@ -60,6 +61,7 @@ export class HumanInput implements CommandSource {
     out.pass = this.edges.pass;
     out.shoot = this.edges.shoot;
     out.dribble = this.edges.dribble;
+    out.passHeld = this.buttons.held('pass') || this.keyboard.passHeld || padPass;
   }
 
   /** Called once a simulation tick has used the presses. */

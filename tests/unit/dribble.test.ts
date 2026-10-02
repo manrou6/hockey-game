@@ -9,7 +9,7 @@ import { createWorld, stepWorld, type WorldState } from '../../src/sim/world';
 import { placeBall } from '../../src/sim/ball';
 
 const cmd = (moveX: number, moveY: number, extra: Partial<PlayerCommand> = {}): PlayerCommand => ({
-  moveX, moveY, sprint: false, pass: false, shoot: false, dribble: false, ...extra,
+  moveX, moveY, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false, ...extra,
 });
 
 /** World with player 0 at (x,y) facing +x and the ball already on its stick. */

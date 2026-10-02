@@ -23,9 +23,10 @@ de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativ
 - [x] Guillem confirma que la trencada está bien (v0.1.10, cerrada)
 - [ ] F1.4 Pase (plan aprobado 2026-10-02; decisiones en DECISIONS.md: toque/mantener, asistencia Ligera + selector, control al receptor por defecto, compañeros que se mueven, escala de recepción, anillo)
   - [x] F1.4a Banco de pruebas: 2 compañeros (apoyo, ir a por el pase, recoger bola lenta, devolución si el control no cambia), control al receptor (FIFA) con interruptor (Sí por defecto), joystick "bloqueado" tras el cambio hasta soltar/girar, recepción automática con joystick suelto, anillo de jugador controlado + números, sección "Companys i control" en el panel, asistencia mínima PROVISIONAL al compañero (v0.1.11)
-  - [ ] F1.4b Pase real: toque = raso / mantener = elevado (arco de carga en el botón), elección de receptor + asistencia (cono/corrección/anticipación/error por atributo Pase), fuerza automática, selector Desactivada/Ligera/Fuerte en Configuració, anillo bajo el receptor, `passFor` en feel.ts (v0.1.12)
+  - [x] F1.4b Pase real: toque = raso / mantener = elevado (sale al soltar, arco en el botón, umbral 0,2 s ajustable), receptor por cono, asistencia Desactivada/Ligera (defecto)/Fuerte en Configuració, fuerza automática (raso y elevado) con anticipación, error por situación y atributo Pase (`passFor`), anillo celeste bajo el receptor (interruptor), secciones "Passada" y "Assistència a la passada" en el panel, compañeros con algo de variación de ritmo/posición (v0.1.12)
   - [ ] F1.4c Recepción: dificultad (velocidad relativa, dirección, altura, estado del receptor, Control) → limpio / pesado / rebote / pasa de largo; pase al primer toque con el búfer; `receiveFor` en feel.ts (v0.1.13)
   - [ ] F1.4d Pared con la valla, ajustes, docs → ronda de afinación del pase (v0.1.14)
+- Pendiente para F2 (IA de equipo): posicionamiento real de los compañeros por roles y desmarques (en el banco de pruebas solo acompañan con un poco de variación).
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
 - [ ] F1.6 Regates (≥5) + defensa estático + combo → ronda 3
 - [ ] F1.7 Gestos, editor de botones, vibración, mando, pantalla de controles

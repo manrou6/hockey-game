@@ -36,3 +36,45 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   await page.screenshot({ path: 'test-results/screenshots/f1-mates-switched.png' });
   expect(errors).toEqual([]);
 });
+
+test('holding PASSADA fills the arc, turns lofted past the tap time and the pass leaves on release', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  await page.keyboard.down('KeyD');
+  await expect.poll(async () => (await state(page)).owner, { timeout: 30_000 }).toBe(0);
+  await page.keyboard.up('KeyD');
+  await page.waitForTimeout(1500);
+  // The ring marks who the pass would go to (aiming up-right at a teammate).
+  await page.keyboard.down('KeyW');
+  await page.keyboard.down('KeyD');
+  await expect.poll(() => page.evaluate(() => (window as any).__PATINS__.game.world.aimTarget as number), { timeout: 5_000 }).toBeGreaterThan(0);
+
+  const btn = page.locator('#btn-pass');
+  await btn.dispatchEvent('pointerdown', { pointerId: 9, isPrimary: false });
+  await expect(btn).toHaveClass(/charging/);
+  await expect(btn).toHaveClass(/loft/, { timeout: 5_000 });
+  expect((await state(page)).owner).toBe(0); // nothing leaves while held
+  await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge.png' });
+  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false });
+  await page.keyboard.up('KeyW');
+  await page.keyboard.up('KeyD');
+  await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
+  await expect(btn).not.toHaveClass(/charging/);
+  const lofted = await page.evaluate(() => (window as any).__PATINS__.game.world.passLoft as boolean);
+  expect(lofted).toBe(true);
+});
+
+test('pass assist level is chosen in Settings (Lleugera by default) and remembered', async ({ page }) => {
+  await page.goto('./');
+  await page.click('#btn-settings');
+  await expect(page.locator('#assist-light')).toHaveClass(/selected/);
+  await page.click('#assist-strong');
+  await expect(page.locator('#assist-strong')).toHaveClass(/selected/);
+  expect(await page.evaluate(() => (window as any).__PATINS__.game.world.assist)).toBe('strong');
+  await page.reload();
+  expect(await page.evaluate(() => (window as any).__PATINS__.game.world.assist)).toBe('strong');
+  await page.click('#btn-settings');
+  await expect(page.locator('#assist-strong')).toHaveClass(/selected/);
+  await page.screenshot({ path: 'test-results/screenshots/f1-settings-assist.png' });
+});

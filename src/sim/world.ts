@@ -2,11 +2,12 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bufferActions, canPickUp, pickUp, provisionalActions, stepDribble } from './dribble';
+import { bufferActions, canPickUp, pickUp, provisionalShot, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
-import { dribbleFor, skatingFor } from './feel';
+import { skatingFor } from './feel';
+import { aimAngle, assistParams, choosePassTarget, performPass, updatePassButton, type AssistLevel, type AssistParams, type PassResult } from './pass';
 import { botCommand, findReceiver, interceptMove, type BotContext } from './mates';
 import { wrapAngle } from './player';
 
@@ -32,6 +33,13 @@ export interface WorldState {
    * holding (rad): it is ignored for the new player until released or turned (NaN = none).
    */
   latchDir: number;
+  /** Pass assist level of the human (Settings): who the pass goes to and how much it's corrected. */
+  assist: AssistLevel;
+  /** Teammate the controlled player's pass would go to right now (−1 = none): the ring. */
+  aimTarget: number;
+  /** Receiver of the last pass while it travels (−1 = none) and whether it was lofted. */
+  passTo: number;
+  passLoft: boolean;
 }
 
 const IDLE: PlayerCommand = emptyCommand();
@@ -56,6 +64,10 @@ export function createWorld(seed: number, mates = 0): WorldState {
     ballResetTicks: 0,
     controlled: 0,
     latchDir: Number.NaN,
+    assist: 'light',
+    aimTarget: -1,
+    passTo: -1,
+    passLoft: false,
   };
 }
 
@@ -92,7 +104,9 @@ function freePlayBallRules(world: WorldState): void {
 
 /** Per-player commands actually applied this tick (scratch, reused: no allocation). */
 const effective: PlayerCommand[] = [];
-const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1 };
+const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0 };
+const passResult: PassResult = { target: -1, loft: false };
+const assistTmp: AssistParams = { cone: 0, correction: 0 };
 
 function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.moveX = from.moveX;
@@ -101,6 +115,7 @@ function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.pass = from.pass;
   to.shoot = from.shoot;
   to.dribble = from.dribble;
+  to.passHeld = from.passHeld;
 }
 
 /**
@@ -144,6 +159,7 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   botCtx.ball = ball;
   botCtx.controlled = world.controlled;
   botCtx.receiver = receiver;
+  botCtx.time = world.tick * dt;
   while (effective.length < players.length) effective.push(emptyCommand());
   for (let i = 0; i < players.length; i++) {
     const out = effective[i]!;
@@ -156,6 +172,7 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const p = players[i]!;
     const cmd = effective[i]!;
     bufferActions(p, cmd, tuning);
+    updatePassButton(p, cmd, tuning, dt);
     stepPlayer(p, cmd, tuning, dt, ball.owner === i);
     p.holdTime = ball.owner === i ? p.holdTime + dt : 0;
   }
@@ -172,10 +189,9 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   // Ball: carried on a stick, or free physics (then maybe someone takes it).
   if (ball.owner >= 0) {
     const from = ball.owner;
-    const owner = players[from]!;
-    const released = provisionalActions(ball, owner, effective[from]!, tuning);
-    if (released) afterRelease(world, from, released, human, tuning);
-    else stepDribble(ball, owner, players, tuning, world.rng, dt);
+    if (!ballActions(world, from, from === world.controlled ? human : effective[from]!, human, tuning)) {
+      stepDribble(ball, players[from]!, players, tuning, world.rng, dt);
+    }
   }
   if (ball.owner < 0) {
     stepBall(ball, players, tuning, world.rng, dt, world.events);
@@ -184,41 +200,48 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       if (canPickUp(ball, p, tuning)) {
         pickUp(ball, i, p);
         p.holdTime = 0;
+        p.receivedLoft = i === world.passTo && world.passLoft;
+        world.passTo = -1;
         // A teammate who gets the ball becomes the controlled player.
         if (tuning.mates.switchControl >= 0.5 && p.bot && p.team === players[world.controlled]?.team) switchControl(world, i, human);
-        // Input buffer: a pass/shot pressed just before receiving fires now.
-        const released = provisionalActions(ball, p, i === world.controlled ? human : effective[i]!, tuning);
-        if (released) afterRelease(world, i, released, human, tuning);
+        // Input buffer: a pass/shot released just before receiving fires now (first touch).
+        ballActions(world, i, i === world.controlled ? human : effective[i]!, human, tuning);
         break;
       }
     }
   }
   freePlayBallRules(world);
+  // Who the controlled player's pass would go to right now (ring under that teammate).
+  const me = players[world.controlled];
+  world.aimTarget =
+    me && ball.owner === world.controlled
+      ? choosePassTarget(players, world.controlled, aimAngle(me, human), assistParams(world.assist, tuning, assistTmp).cone)
+      : -1;
   world.tick++;
 }
 
 /**
- * After the controlled player passes: PROVISIONAL aim assist until F1.4b (a teammate near the
- * pass line gets it straight to his stick, leading his movement), and the control goes
- * straight to that receiver (FIFA-like, docs/03 §3).
+ * The ball carrier shoots (provisional, F1.5) or passes if a press is queued. Teammates pass
+ * with full assist; the human with his Settings level. Returns true if the ball left.
  */
-function afterRelease(world: WorldState, from: number, how: 'shot' | 'pass', human: PlayerCommand, tuning: Tuning): void {
-  if (how !== 'pass' || from !== world.controlled) return;
-  const ball = world.ball;
-  const to = findReceiver(world.players, ball, tuning, from);
-  if (to < 0) return;
-  const r = world.players[to]!;
-  const speed = Math.hypot(ball.vx, ball.vy);
-  // Where his blade will be once he turns to face the ball: to the right of his body.
-  const face = Math.atan2(ball.y - r.y, ball.x - r.x);
-  const side = dribbleFor(r, tuning).stickSide;
-  const tx = r.x + Math.sin(face) * side;
-  const ty = r.y - Math.cos(face) * side;
-  const lead = Math.hypot(tx - ball.x, ty - ball.y) / Math.max(1, speed);
-  const a = Math.atan2(ty + r.vy * lead - ball.y, tx + r.vx * lead - ball.x);
-  ball.vx = Math.cos(a) * speed;
-  ball.vy = Math.sin(a) * speed;
-  if (tuning.mates.switchControl >= 0.5 && r.bot) switchControl(world, to, human);
+function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: PlayerCommand, tuning: Tuning): boolean {
+  const p = world.players[i]!;
+  if (provisionalShot(world.ball, p, tuning)) {
+    world.passTo = -1;
+    return true;
+  }
+  if (p.bufPass <= 0) return false;
+  const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
+  performPass(world.players, world.ball, i, cmd, level, world.rng, tuning, passResult);
+  world.passTo = passResult.target;
+  world.passLoft = passResult.loft;
+  // FIFA-like: the control goes straight to the receiver (or, with no assisted receiver,
+  // to the teammate the ball is heading to).
+  if (i === world.controlled && tuning.mates.switchControl >= 0.5) {
+    const to = passResult.target >= 0 ? passResult.target : findReceiver(world.players, world.ball, tuning, i);
+    if (to >= 0 && world.players[to]!.bot) switchControl(world, to, human);
+  }
+  return true;
 }
 
 /** Ball radius re-exported for the renderer. */
