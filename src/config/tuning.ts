@@ -85,28 +85,64 @@ export const TUNING = {
     /** Gamepad stick dead zone (raw axis units). */
     gamepadDeadZone: 0.15,
   },
-  /** TV broadcast camera (docs/03 §6). Distances in metres, angles in radians. */
+  /** Camera system shared settings (docs/03 §6). */
   camera: {
-    /** Camera height above the floor. */
+    /** Duration of the smooth blend when switching camera preset (s). */
+    transitionTime: 0.6,
+  },
+  /**
+   * Camera presets (docs/03 §6). All "broadcast rig" presets share the same parameters:
+   * - height / distance: camera height and its distance behind the action (m);
+   * - depthFollow: how much the camera moves across the rink width with the action (0 = stays in the stand);
+   * - trackFactor: how much it dollies along the rink length (0 = fixed, 1 = full);
+   * - lookAcrossFactor: how much the aim point follows the action across the width;
+   * - fov / fovSpeedGain / fovSpeedRef: zoom at rest, extra zoom-out at speed and the speed for full extra (rad, rad, m/s);
+   * - smoothTime: critically damped smoothing (s); lookaheadTime: aim ahead of the movement (s);
+   * - ballWeight: aim point between the controlled player (0) and the ball (1).
+   */
+  /** 1. TV side camera (default): broadcast view, wide. */
+  cameraTv: {
     height: 10,
-    /** Horizontal distance from the rink's long axis to the camera (behind the near boards). */
     distance: 21,
-    /** How much the camera dollies along the stand following the action (0 = fixed, 1 = full). */
+    depthFollow: 0,
     trackFactor: 0.82,
-    /** Look-ahead: aim this many seconds ahead of the followed target's velocity. */
-    lookaheadTime: 0.35,
-    /** Critically damped smoothing time (s). Lower = snappier, higher = smoother. */
-    smoothTime: 0.4,
-    /** How much the aim point follows the target across the rink width (0..1). */
     lookAcrossFactor: 0.45,
-    /** Vertical field of view at rest, and extra FOV at full speed (dynamic zoom). */
     fov: 0.6,
     fovSpeedGain: 0.06,
-    /** Speed (m/s) at which the full extra FOV is applied. */
     fovSpeedRef: 9,
-    /** Aim point between the controlled player (0) and the ball (1). */
+    smoothTime: 0.4,
+    lookaheadTime: 0.35,
     ballWeight: 0.65,
   },
+  /** 2. Close camera: tighter, follows player and ball, for dribbling and shooting detail. */
+  cameraClose: {
+    height: 5.5,
+    distance: 9.5,
+    depthFollow: 0.55,
+    trackFactor: 1,
+    lookAcrossFactor: 0.75,
+    fov: 0.62,
+    fovSpeedGain: 0.08,
+    fovSpeedRef: 9,
+    smoothTime: 0.28,
+    lookaheadTime: 0.3,
+    ballWeight: 0.5,
+  },
+  /** 3. High / tactical camera: higher and wider, to read passes and positions. */
+  cameraTactical: {
+    height: 26,
+    distance: 14,
+    depthFollow: 0.15,
+    trackFactor: 0.95,
+    lookAcrossFactor: 0.25,
+    fov: 0.8,
+    fovSpeedGain: 0.02,
+    fovSpeedRef: 9,
+    smoothTime: 0.6,
+    lookaheadTime: 0.5,
+    ballWeight: 0.7,
+  },
+
 };
 
 export type Tuning = typeof TUNING;

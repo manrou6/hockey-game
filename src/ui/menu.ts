@@ -3,6 +3,7 @@ import { APP_COMMIT, APP_VERSION } from '../config/version';
 import { getLanguage, LANGUAGES, onLanguageChange, setLanguage, t, translateDom, type Language, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { saveSettings, type Settings } from './settings';
+import { CAMERA_PRESET_IDS, type CameraPresetId } from '../render/cameraPresets';
 
 export interface MenuCallbacks {
   /** "Play"/"Resume" pressed (inside a user gesture: safe to request fullscreen). */
@@ -11,6 +12,8 @@ export interface MenuCallbacks {
   onQualityChange: (q: QualityLevel) => void;
   /** Tuning mode toggled (shows/hides the in-game ⚙ button). */
   onTuningModeChange: (on: boolean) => void;
+  /** Camera preset chosen in settings. */
+  onCameraChange: (id: CameraPresetId) => void;
 }
 
 /** Main menu + settings screen, as two full-screen overlays. */
@@ -49,6 +52,7 @@ export class Menu {
     this.settingsPanel = el('div', { className: 'overlay menu', attrs: { id: 'settings-screen' } }, [
       el('h2', { className: 'subtitle', i18n: 'settings.title' }),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.language' }), this.languageChoices()]),
+      el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.camera' }), this.cameraChoices()]),
       el('div', { className: 'setting' }, [
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
@@ -94,6 +98,21 @@ export class Menu {
     return group;
   }
 
+  private cameraChoices(): HTMLElement {
+    const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
+    for (const id of CAMERA_PRESET_IDS) {
+      const b = el('button', { className: 'choice', i18n: `camera.${id}`, attrs: { 'data-camera': id, id: `camera-${id}` } });
+      b.addEventListener('click', () => {
+        this.settings.camera = id;
+        saveSettings(this.settings);
+        this.callbacks.onCameraChange(id);
+        this.refreshTexts();
+      });
+      group.append(b);
+    }
+    return group;
+  }
+
   private tuningChoices(): HTMLElement {
     const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
     for (const on of [true, false]) {
@@ -115,6 +134,11 @@ export class Menu {
     setLanguage(lang);
   }
 
+  /** Re-read settings into the buttons (e.g. after the in-game camera button changed them). */
+  refresh(): void {
+    this.refreshTexts();
+  }
+
   private refreshTexts(): void {
     translateDom(this.element);
     this.playButton.textContent = t((this.started ? 'menu.resume' : 'menu.play') satisfies MessageKey);
@@ -122,6 +146,11 @@ export class Menu {
     this.element.querySelectorAll<HTMLElement>('[data-lang]').forEach((b) => {
       b.classList.toggle('selected', b.dataset.lang === getLanguage());
       b.setAttribute('aria-checked', String(b.dataset.lang === getLanguage()));
+    });
+    this.element.querySelectorAll<HTMLElement>('[data-camera]').forEach((b) => {
+      const sel = b.dataset.camera === this.settings.camera;
+      b.classList.toggle('selected', sel);
+      b.setAttribute('aria-checked', String(sel));
     });
     this.element.querySelectorAll<HTMLElement>('[data-tuning]').forEach((b) => {
       const sel = b.dataset.tuning === String(this.settings.tuningMode);

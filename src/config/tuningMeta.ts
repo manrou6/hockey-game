@@ -13,14 +13,42 @@ export interface TuningParamMeta {
   unit: string;
   /** stored × scale = displayed. Default 1. */
   scale?: number;
+  /** i18n key of the label when shared between sections (default `tuning.<path>`). */
+  labelKey?: string;
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'ball' | 'input' | 'camera';
+  id: 'skating' | 'ball' | 'input' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
 const DEG = 180 / Math.PI;
+
+/** Same parameters (and shared labels `tuning.cam.<key>`) for every camera preset. */
+function cameraPresetParams(section: string): TuningParamMeta[] {
+  const p = (key: string, min: number, max: number, step: number, unit: string, scale?: number): TuningParamMeta => ({
+    path: `${section}.${key}`,
+    min,
+    max,
+    step,
+    unit,
+    labelKey: `tuning.cam.${key}`,
+    ...(scale === undefined ? {} : { scale }),
+  });
+  return [
+    p('fov', 20, 80, 1, '°', DEG),
+    p('height', 2, 35, 0.5, 'm'),
+    p('distance', 3, 35, 0.5, 'm'),
+    p('ballWeight', 0, 1, 0.05, ''),
+    p('lookaheadTime', 0, 1, 0.05, 's'),
+    p('smoothTime', 0.05, 1.5, 0.05, 's'),
+    p('depthFollow', 0, 1, 0.05, ''),
+    p('trackFactor', 0, 1, 0.02, ''),
+    p('lookAcrossFactor', 0, 1, 0.05, ''),
+    p('fovSpeedGain', 0, 15, 0.5, '°', DEG),
+    p('fovSpeedRef', 3, 15, 0.5, 'm/s'),
+  ];
+}
 
 /** Sections and parameters in the order shown (most impactful first). `sim` is not tunable. */
 export const TUNING_SECTIONS: TuningSectionMeta[] = [
@@ -76,21 +104,14 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'input.gamepadDeadZone', min: 0, max: 0.5, step: 0.01, unit: '' },
     ],
   },
+  { id: 'cameraTv', params: cameraPresetParams('cameraTv') },
+  { id: 'cameraClose', params: cameraPresetParams('cameraClose') },
+  { id: 'cameraTactical', params: cameraPresetParams('cameraTactical') },
   {
     id: 'camera',
-    params: [
-      { path: 'camera.fov', min: 20, max: 70, step: 1, unit: '°', scale: DEG },
-      { path: 'camera.height', min: 4, max: 20, step: 0.5, unit: 'm' },
-      { path: 'camera.distance', min: 10, max: 35, step: 0.5, unit: 'm' },
-      { path: 'camera.lookaheadTime', min: 0, max: 1, step: 0.05, unit: 's' },
-      { path: 'camera.smoothTime', min: 0.05, max: 1.5, step: 0.05, unit: 's' },
-      { path: 'camera.trackFactor', min: 0, max: 1, step: 0.02, unit: '' },
-      { path: 'camera.lookAcrossFactor', min: 0, max: 1, step: 0.05, unit: '' },
-      { path: 'camera.fovSpeedGain', min: 0, max: 15, step: 0.5, unit: '°', scale: DEG },
-      { path: 'camera.fovSpeedRef', min: 3, max: 15, step: 0.5, unit: 'm/s' },
-      { path: 'camera.ballWeight', min: 0, max: 1, step: 0.05, unit: '' },
-    ],
+    params: [{ path: 'camera.transitionTime', min: 0, max: 2, step: 0.05, unit: 's' }],
   },
+
 ];
 
 export const TUNING_PARAMS: TuningParamMeta[] = TUNING_SECTIONS.flatMap((s) => s.params);

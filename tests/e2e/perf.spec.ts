@@ -6,10 +6,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 // frame time here is NOT representative of the Pixel 8a; the meaningful numbers are the
 // JS work per frame (sim + render submit) under 4× CPU throttling and the render budget
 // counters (draw calls, triangles) from docs/04.
-test('performance budget (4× CPU throttle, Pixel 8a landscape, medium quality)', async ({ page }) => {
+for (const camera of ['tv', 'close', 'tactical'] as const) test(`performance budget, ${camera} camera (4× CPU throttle, Pixel 8a landscape, medium quality)`, async ({ page }) => {
   test.setTimeout(90_000);
   const cdp = await page.context().newCDPSession(page);
   await page.goto('./?quality=medium');
+  await page.evaluate((c) => localStorage.setItem('patins.settings.v1', JSON.stringify({ camera: c })), camera);
+  await page.reload();
   await page.click('#btn-play');
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.keyboard.down('KeyD');
@@ -28,8 +30,8 @@ test('performance budget (4× CPU throttle, Pixel 8a landscape, medium quality)'
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 
   mkdirSync('test-results', { recursive: true });
-  writeFileSync('test-results/perf.json', JSON.stringify(perf, null, 2));
-  console.log('PERF', JSON.stringify(perf));
+  writeFileSync(`test-results/perf-${camera}.json`, JSON.stringify(perf, null, 2));
+  console.log('PERF', camera, JSON.stringify(perf));
 
   expect(perf.drawCalls).toBeLessThanOrEqual(120);
   expect(perf.triangles).toBeLessThanOrEqual(200_000);

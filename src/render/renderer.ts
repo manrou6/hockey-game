@@ -4,7 +4,7 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color';
 import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
@@ -21,7 +21,8 @@ import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
 import { BALL_RADIUS, type WorldState } from '../sim/world';
 import { TUNING } from '../config/tuning';
 import { buildRink } from './rinkBuilder';
-import { TvCamera } from './tvCamera';
+import { CameraRig } from './cameraRig';
+import type { CameraContext, CameraPresetId } from './cameraPresets';
 
 const PLAYER_RADIUS_VISUAL = 0.35;
 const PLAYER_HEIGHT_VISUAL = 1.75;
@@ -33,7 +34,8 @@ const PLAYER_HEIGHT_VISUAL = 1.75;
 export class Renderer {
   readonly engine: Engine;
   readonly scene: Scene;
-  readonly tvCamera: TvCamera;
+  readonly cameraRig: CameraRig;
+  private readonly camCtx: CameraContext = { playerX: 0, playerZ: 0, playerVx: 0, playerVz: 0, ballX: 0, ballZ: 0, ballVx: 0, ballVz: 0, dt: 0 };
   private shadows: ShadowGenerator | null = null;
   private readonly keyLight: DirectionalLight;
   private quality: QualityLevel;
@@ -43,7 +45,7 @@ export class Renderer {
   /** Index of the player the TV camera follows (until there is a ball). */
   followPlayer = 0;
 
-  constructor(canvas: HTMLCanvasElement, quality: QualityLevel) {
+  constructor(canvas: HTMLCanvasElement, quality: QualityLevel, cameraPreset: CameraPresetId = 'tv') {
     this.quality = quality;
     // MSAA is fixed at engine creation, so it is always on; presets only change things
     // that can be switched at runtime (pixel ratio, shadows).
@@ -76,8 +78,8 @@ export class Renderer {
     buildRink(this.scene);
     this.ballMesh = this.createBallMesh();
     this.ballMarker = this.createBallMarker();
-    this.tvCamera = new TvCamera(this.scene);
-    this.scene.activeCamera = this.tvCamera.camera;
+    this.cameraRig = new CameraRig(this.scene, cameraPreset);
+    this.scene.activeCamera = this.cameraRig.camera;
     this.setQuality(quality);
 
     // The canvas changes size on window resize, rotation and fullscreen; a ResizeObserver
@@ -224,19 +226,35 @@ export class Renderer {
       this.ballMarker.position.set(this.ballMesh.position.x, 0.006, this.ballMesh.position.z);
     }
 
-    // Camera aims between the controlled player and the ball.
+    // Camera: the active preset aims between the controlled player and the ball.
     const f = world.players[this.followPlayer];
     const followed = this.playerMeshes[this.followPlayer];
     if (f && followed) {
-      const w = TUNING.camera.ballWeight;
-      const ax = followed.position.x + (this.ballMesh.position.x - followed.position.x) * w;
-      const az = followed.position.z + (this.ballMesh.position.z - followed.position.z) * w;
-      this.tvCamera.update(ax, az, f.vx + (b.vx - f.vx) * w, f.vy + (b.vy - f.vy) * w, frameSeconds);
+      const c = this.camCtx;
+      c.playerX = followed.position.x;
+      c.playerZ = followed.position.z;
+      c.playerVx = f.vx;
+      c.playerVz = f.vy;
+      c.ballX = this.ballMesh.position.x;
+      c.ballZ = this.ballMesh.position.z;
+      c.ballVx = b.vx;
+      c.ballVz = b.vy;
+      c.dt = frameSeconds;
+      this.cameraRig.update(c);
     }
   }
 
   render(): void {
     this.scene.render();
+  }
+
+  /** Project a world point (Babylon coords) to CSS pixels in the landscape layout. */
+  projectToScreen(x: number, y: number, z: number): { x: number; y: number } {
+    const w = this.engine.getRenderWidth();
+    const h = this.engine.getRenderHeight();
+    const p = Vector3.Project(new Vector3(x, y, z), Matrix.IdentityReadOnly, this.scene.getTransformMatrix(), this.cameraRig.camera.viewport.toGlobal(w, h));
+    const ratio = 1 / this.engine.getHardwareScalingLevel();
+    return { x: p.x / ratio, y: p.y / ratio };
   }
 
   private instrumentation: SceneInstrumentation | null = null;

@@ -1,5 +1,6 @@
 import { DEFAULT_QUALITY, isQualityLevel, type QualityLevel } from '../config/quality';
 import { isLanguage, type Language } from '../i18n';
+import { isCameraPresetId, type CameraPresetId } from '../render/cameraPresets';
 
 /** Player-facing settings persisted on the device. */
 export interface Settings {
@@ -7,10 +8,12 @@ export interface Settings {
   quality: QualityLevel;
   /** Shows the in-game ⚙ tuning button. */
   tuningMode: boolean;
+  /** Last camera chosen (kept between matches). */
+  camera: CameraPresetId;
 }
 
 const STORAGE_KEY = 'patins.settings.v1';
-const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false };
+const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv' };
 
 export function loadSettings(): Settings {
   try {
@@ -21,6 +24,7 @@ export function loadSettings(): Settings {
       language: isLanguage(data.language) ? data.language : DEFAULTS.language,
       quality: isQualityLevel(data.quality) ? data.quality : DEFAULTS.quality,
       tuningMode: typeof data.tuningMode === 'boolean' ? data.tuningMode : DEFAULTS.tuningMode,
+      camera: isCameraPresetId(data.camera) ? data.camera : DEFAULTS.camera,
     };
   } catch {
     return { ...DEFAULTS };
