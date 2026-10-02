@@ -143,5 +143,17 @@
   "tuning.skating.skidMinSpeed": "Skid on release: min speed",
   "tuning.skating.skidReleaseStick": "Skid on release: min stick",
   "tuning.skating.skidReleaseWindow": "Skid on release: gesture speed",
-  "tuning.dribble.skidSeparation": "Extra separation when skid-stopping"
+  "tuning.dribble.skidSeparation": "Extra separation when skid-stopping",
+  "tuning.section.cut": "Skating: trencada (lateral cut)",
+  "tuning.cut.minAngle": "Minimum turn angle",
+  "tuning.cut.minSpeed": "Minimum speed",
+  "tuning.cut.gestureTime": "Gesture speed (max time)",
+  "tuning.cut.duration": "Cut duration",
+  "tuning.cut.redirect": "Speed redirected",
+  "tuning.cut.bodyTurn": "Body turn",
+  "tuning.cut.exitAccel": "Exit push: strength",
+  "tuning.cut.exitTime": "Exit push: duration",
+  "tuning.cut.cooldown": "Cooldown between cuts",
+  "tuning.cut.onlyWithSprint": "Only when sprinting",
+  "tuning.cut.ballSeparation": "Ball separation"
 }

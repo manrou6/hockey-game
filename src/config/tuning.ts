@@ -13,21 +13,21 @@ export const TUNING = {
   /** Skater movement (docs/03 §1). Speeds m/s, accelerations m/s², angles rad. */
   skating: {
     /** Collision radius of a player on the rink plane. */
-    radius: 0.35,
+    radius: 0.3,
     /** Top speed skating normally (also with the ball), and sprinting without the ball.
      * Round 1 (Guillem): +12 % over the initial 7.5 / 9. */
     maxSpeed: 8.4,
-    sprintSpeed: 10,
+    sprintSpeed: 12.6,
     /** Acceleration from standstill; it fades as speed nears the cap (strong start, ~1.5 s to 90 %). */
     accel: 11.2,
     /** The fade is computed against cap × this factor so the target speed is reached in finite time. */
-    accelCapFactor: 1.05,
+    accelCapFactor: 1.07,
     /** Angle between stick and motion beyond which the skater skid-stops instead of turning. */
     brakeAngle: 2.2,
     /** Sprint push: extra acceleration for a short time when a sprint starts, how far above
      * the sprint top speed it may briefly go, and the minimum time between two pushes. */
     sprintBoostTime: 0.25,
-    sprintBoostAccel: 9,
+    sprintBoostAccel: 24.5,
     sprintBoostOvershoot: 0.5,
     sprintBoostCooldown: 0.8,
     /** Four-wheel skid stop (stick reversed, or released abruptly at speed): time to lose all
@@ -36,26 +36,26 @@ export const TUNING = {
      * been pushed, and how recently (s), for a release to count as abrupt. */
     skidTime: 0.5,
     skidSlide: 1.25,
-    skidBodyTurn: 0.6,
+    skidBodyTurn: 1.27409,
     skidMinSpeed: 3.5,
-    skidReleaseStick: 0.5,
+    skidReleaseStick: 0.6,
     skidReleaseWindow: 0.1,
     /** Coasting when the stick is released: constant + proportional deceleration (smooth glide). */
-    glideDecel: 0.45,
-    glideDrag: 0.12,
+    glideDecel: 2.3,
+    glideDrag: 0.73,
     /** Natural slow-down when above the target speed (leaving a sprint, stick eased back). */
-    overspeedDecel: 3,
+    overspeedDecel: 7.2,
     /** Minimum turning radius = base + perSpeed2 × speed² (no sharp turns at full speed). */
     turnRadiusBase: 0.35,
-    turnRadiusPerSpeed2: 0.055,
+    turnRadiusPerSpeed2: 0.12,
     /** Max turning rate at low speed. */
-    maxTurnRate: 7,
+    maxTurnRate: 11.693706,
     /** Speed lost per radian turned at full lock (tight turns cost speed). */
-    turnSpeedLoss: 0.35,
+    turnSpeedLoss: 1.15,
     /** Below this speed the skater pivots on the spot towards the stick direction. */
-    pivotSpeed: 1.2,
+    pivotSpeed: 2.8,
     /** Turning rate while pivoting (nearly still). */
-    pivotTurnRate: 16,
+    pivotTurnRate: 30.019663,
     /** Bounce against boards/goals, and Coulomb friction coefficient (tangential loss ∝ impact). */
     wallRestitution: 0.2,
     wallFriction: 0.25,
@@ -91,6 +91,28 @@ export const TUNING = {
     /** Radius of the soft marker drawn on the floor under the ball (m, 0 = off). Helps read
      * where the ball is and how high it flies (render only). */
     markerRadius: 0.22,
+  },
+  /**
+   * Trencada: lateral four-wheel cut that redirects (docs/03 §1). Triggered at ≥ minSpeed when
+   * the stick is flicked (turned ≥ minAngle within gestureTime) to between minAngle and
+   * skating.brakeAngle from the travel direction. During `duration` the old speed fades and
+   * `redirect` of it goes to the new direction; the body turns bodyTurn towards the cut. Exit:
+   * push exitAccel for exitTime (shares the sprint push cooldown). Angles in rad.
+   */
+  cut: {
+    minAngle: 1.0471976,
+    minSpeed: 5,
+    gestureTime: 0.15,
+    duration: 0.25,
+    redirect: 0.5,
+    bodyTurn: 0.7853982,
+    exitAccel: 15,
+    exitTime: 0.2,
+    cooldown: 0.8,
+    /** 1 = only with the thumb in the sprint zone (option B), 0 = always (option A). */
+    onlyWithSprint: 0,
+    /** Extra ball separation during a cut at normal top speed (reduced by Control as usual). */
+    ballSeparation: 0.35,
   },
   /** Dribbling: carrying the ball on the stick (docs/03 §2). Distances in m. */
   dribble: {
@@ -150,9 +172,9 @@ export const TUNING = {
     /** Floating joystick: drag distance (CSS px) for a full push. */
     joystickRadiusPx: 60,
     /** Fraction of the screen width (from the left) where a touch spawns the joystick. */
-    joystickZone: 0.5,
+    joystickZone: 0.4,
     /** Gamepad stick dead zone (raw axis units). */
-    gamepadDeadZone: 0.15,
+    gamepadDeadZone: 0.29,
   },
   /** Right-thumb action buttons: distance from the right and bottom edges, and diameter
    * (CSS px of the landscape layout). Editable live from the tuning panel. */

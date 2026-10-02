@@ -15,10 +15,12 @@ export interface TuningParamMeta {
   scale?: number;
   /** i18n key of the label when shared between sections (default `tuning.<path>`). */
   labelKey?: string;
+  /** Shown as a Sí/No switch (stored as 0 / 1). */
+  toggle?: boolean;
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'dribble' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -84,6 +86,22 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'skating.wallFriction', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'skating.playerRestitution', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'skating.radius', min: 0.2, max: 0.6, step: 0.01, unit: 'm' },
+    ],
+  },
+  {
+    id: 'cut',
+    params: [
+      { path: 'cut.minAngle', min: 30, max: 120, step: 1, unit: '°', scale: DEG },
+      { path: 'cut.minSpeed', min: 1, max: 12, step: 0.5, unit: 'm/s' },
+      { path: 'cut.gestureTime', min: 0.05, max: 0.5, step: 0.01, unit: 's' },
+      { path: 'cut.duration', min: 0.1, max: 0.6, step: 0.01, unit: 's' },
+      { path: 'cut.redirect', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'cut.bodyTurn', min: 0, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'cut.exitAccel', min: 0, max: 40, step: 0.5, unit: 'm/s²' },
+      { path: 'cut.exitTime', min: 0, max: 0.6, step: 0.01, unit: 's' },
+      { path: 'cut.cooldown', min: 0, max: 3, step: 0.1, unit: 's' },
+      { path: 'cut.onlyWithSprint', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'cut.ballSeparation', min: 0, max: 1.2, step: 0.05, unit: 'm' },
     ],
   },
   {

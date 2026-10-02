@@ -101,4 +101,17 @@ describe('tuning overrides', () => {
     o.set('skating.maxSpeed', 8.2);
     expect(o.exportText('v0.1.1')).toBe('PATINS tuning v0.1.1\nskating.maxSpeed = 8.2 (default 7.5)');
   });
+
+  it("when the new factory value IS the player's saved value, it is adopted silently (no notice)", () => {
+    new TuningOverrides(makeDefaults(), makeDefaults(), storage).set('skating.maxSpeed', 8.2);
+    const newDefaults = makeDefaults();
+    newDefaults.skating.maxSpeed = 8.2; // Claude fixed the player's value as factory
+    const target = JSON.parse(JSON.stringify(newDefaults)) as ReturnType<typeof makeDefaults>;
+    const o = new TuningOverrides(target, newDefaults, storage);
+    o.load();
+    expect(o.stale).toEqual([]);
+    expect(target.skating.maxSpeed).toBe(8.2);
+    expect(o.modifiedPaths()).toEqual([]);
+    expect(storage.getItem(KEY)).toBeNull();
+  });
 });

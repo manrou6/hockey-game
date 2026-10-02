@@ -92,3 +92,19 @@ test('a saved value whose factory default changed is dropped with a notice', asy
   await page.click('#stale-notice-ok');
   await expect(notice).toHaveCount(0);
 });
+
+test('Sí/No switch in the panel (trencada "only with sprint")', async ({ page }) => {
+  await page.goto('./?quality=low&debug=1');
+  await page.click('#btn-play');
+  await page.click('#btn-tuning');
+  const panel = page.locator('#tuning-panel');
+  await panel.locator('summary', { hasText: 'Patinatge: trencada' }).click();
+  const row = panel.locator('.tp-row[data-path="cut.onlyWithSprint"]');
+  await expect(row.locator('.tp-label')).toHaveText('Només amb esprint');
+  await expect(row.locator('[data-on="false"]')).toHaveClass(/selected/);
+  await row.locator('[data-on="true"]').click();
+  await expect(row.locator('[data-on="true"]')).toHaveClass(/selected/);
+  await expect(row).toHaveClass(/modified/);
+  expect(await page.evaluate(() => (window as any).__PATINS__.tuning.get('cut.onlyWithSprint'))).toBe(1);
+  await expect(row.locator('.tp-factory')).toHaveText('fàbrica: No');
+});

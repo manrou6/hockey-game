@@ -50,7 +50,11 @@ export function targetSeparation(p: PlayerState, pressure: number, tuning: Tunin
   const control = Math.min(1, Math.max(0, p.control / 99));
   // Four-wheel skid stop at speed: the ball runs on ahead of the stick.
   const skid = p.skidTime > 0 ? Math.min(1, (p.skidSpeed0 * p.skidTime) / Math.max(1e-6, p.skidDuration * k.maxSpeed)) : 0;
-  const raw = d.baseSeparation + d.sprintSeparation * sprint + d.turnSeparation * turn + d.pressureSeparation * pressure + d.skidSeparation * skid;
+  // Trencada at speed: the ball runs on during the cut (Control reduces it as usual).
+  const cut = p.cutTime > 0 ? Math.min(1, p.cutSpeed0 / k.maxSpeed) : 0;
+  const raw =
+    d.baseSeparation + d.sprintSeparation * sprint + d.turnSeparation * turn + d.pressureSeparation * pressure + d.skidSeparation * skid +
+    tuning.cut.ballSeparation * cut;
   return raw * (1 - d.controlAdvantage * control);
 }
 
@@ -107,7 +111,7 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
   ball.touchPhase = (ball.touchPhase + (speed * dt) / Math.max(0.2, d.touchDistance)) % 1;
   // Touch push goes the way the skater travels (during a skid the body turns but the ball
   // keeps rolling on in the direction of travel).
-  const push = owner.skidTime > 0 ? ball.separation : ball.separation * 0.5 * (1 - Math.cos(ball.touchPhase * Math.PI * 2));
+  const push = owner.skidTime > 0 || owner.cutTime > 0 ? ball.separation : ball.separation * 0.5 * (1 - Math.cos(ball.touchPhase * Math.PI * 2));
   const t = bladePoint(owner, tuning);
   const travel = speed > 0.5 ? Math.atan2(owner.vy, owner.vx) : owner.heading;
   t.x += Math.cos(travel) * push;

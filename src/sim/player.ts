@@ -47,6 +47,22 @@ export interface PlayerState {
   stickPeak: number;
   /** Side of the last turn (+1 left / −1 right), used for the skid body turn. */
   lastTurnSign: number;
+  /** Strength of the current push (sprint push or trencada exit push), and whether it is the
+   * sprint one (that one stops when the sprint stops). */
+  boostAccel: number;
+  boostIsSprint: boolean;
+  /** Trencada (lateral cut): seconds left, total, start speed, old and new direction, body
+   * turn side, and time until another cut is allowed. */
+  cutTime: number;
+  cutDuration: number;
+  cutSpeed0: number;
+  cutFrom: number;
+  cutTo: number;
+  cutSide: number;
+  cutCooldown: number;
+  /** Recent stick directions (rad, NaN = no input), one per tick, to detect a flick. */
+  stickHist: number[];
+  stickHistIdx: number;
   /** Previous-tick pose, used by the renderer to interpolate between ticks. */
   prevX: number;
   prevY: number;
@@ -59,6 +75,9 @@ export function createPlayer(id: number, x: number, y: number, heading = 0): Pla
     team: 0, control: 75, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
+    boostAccel: 0, boostIsSprint: false,
+    cutTime: 0, cutDuration: 0, cutSpeed0: 0, cutFrom: 0, cutTo: 0, cutSide: 1, cutCooldown: 0,
+    stickHist: new Array<number>(STICK_HISTORY).fill(Number.NaN), stickHistIdx: 0,
     prevX: x, prevY: y, prevHeading: heading,
   };
 }
@@ -70,6 +89,35 @@ export function wrapAngle(a: number): number {
   if (a > Math.PI) a -= TAU;
   else if (a <= -Math.PI) a += TAU;
   return a;
+}
+
+/** Ticks of stick-direction history kept for flick detection (0.5 s at 60 Hz). */
+const STICK_HISTORY = 32;
+
+/** True while doing a trencada (lateral cut). */
+export function isCutting(p: PlayerState): boolean {
+  return p.cutTime > 0;
+}
+
+/** Did the stick direction turn by at least `angle` within the last `ticks` ticks? */
+function stickFlicked(p: PlayerState, want: number, angle: number, ticks: number): boolean {
+  const n = Math.min(STICK_HISTORY, Math.max(1, ticks));
+  for (let i = 1; i <= n; i++) {
+    const a = p.stickHist[(p.stickHistIdx - i + STICK_HISTORY * 2) % STICK_HISTORY]!;
+    if (!Number.isNaN(a) && Math.abs(wrapAngle(want - a)) >= angle) return true;
+  }
+  return false;
+}
+
+/** Timer countdown that lands exactly on 0 (no float residue keeping a state alive a tick longer). */
+function countDown(t: number, dt: number): number {
+  const left = t - dt;
+  return left <= 1e-9 ? 0 : left;
+}
+
+function smooth01(x: number): number {
+  const t = Math.min(1, Math.max(0, x));
+  return t * t * (3 - 2 * t);
 }
 
 /** True while doing the four-wheel skid stop. */
@@ -120,9 +168,34 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.braking = false;
   p.turnLock = 0;
   p.boostCooldown = Math.max(0, p.boostCooldown - dt);
+  p.cutCooldown = Math.max(0, p.cutCooldown - dt);
+
+  // --- Trencada (lateral cut that redirects) ------------------------------------------------
+  const c = tuning.cut;
+  if (hasInput && p.cutTime <= 0 && p.skidTime <= 0 && p.cutCooldown <= 0 && speed >= c.minSpeed && (c.onlyWithSprint < 0.5 || cmd.sprint)) {
+    const diff = wrapAngle(want - dir);
+    const gestureTicks = Math.round(c.gestureTime * tuning.sim.tickRate);
+    if (Math.abs(diff) >= c.minAngle && Math.abs(diff) <= k.brakeAngle && stickFlicked(p, want, c.minAngle, gestureTicks)) {
+      p.cutDuration = Math.max(0.05, c.duration);
+      p.cutTime = p.cutDuration;
+      p.cutSpeed0 = speed;
+      p.cutFrom = dir;
+      p.cutTo = want;
+      p.cutSide = diff >= 0 ? 1 : -1;
+      p.cutCooldown = c.cooldown;
+      p.boostTime = 0;
+    }
+  }
+  // Remember the stick direction (after detection, so the history is "before this tick").
+  p.stickHist[p.stickHistIdx] = hasInput ? want : Number.NaN;
+  p.stickHistIdx = (p.stickHistIdx + 1) % STICK_HISTORY;
+  // Taking the stick back to the old direction cancels the cut.
+  if (p.cutTime > 0 && hasInput && Math.abs(wrapAngle(want - p.cutFrom)) < c.minAngle / 2) {
+    p.cutTime = 0;
+  }
 
   // --- Four-wheel skid stop ----------------------------------------------------------------
-  if (p.skidTime <= 0 && speed > k.pivotSpeed) {
+  if (p.cutTime <= 0 && p.skidTime <= 0 && speed > k.pivotSpeed) {
     if (hasInput && Math.abs(wrapAngle(want - dir)) > k.brakeAngle) startSkid(p, speed, dir, Math.sign(wrapAngle(want - dir)) || p.lastTurnSign, tuning);
     else if (abruptRelease) startSkid(p, speed, dir, p.lastTurnSign, tuning);
   }
@@ -132,11 +205,38 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     p.heading = p.skidDir;
   }
 
-  if (p.skidTime > 0) {
+  if (p.cutTime > 0) {
+    // Sideways four-wheel slide: the old speed fades and part of it turns into the new direction.
+    p.braking = true;
+    if (hasInput && Math.abs(wrapAngle(want - p.cutFrom)) >= c.minAngle) p.cutTo = want; // can be steered
+    p.cutTime = countDown(p.cutTime, dt);
+    const u = 1 - p.cutTime / p.cutDuration;
+    const e = smooth01(u);
+    const oldPart = p.cutSpeed0 * (1 - e);
+    const newPart = p.cutSpeed0 * c.redirect * e;
+    const vx = Math.cos(p.cutFrom) * oldPart + Math.cos(p.cutTo) * newPart;
+    const vy = Math.sin(p.cutFrom) * oldPart + Math.sin(p.cutTo) * newPart;
+    speed = Math.hypot(vx, vy);
+    dir = speed > 1e-4 ? Math.atan2(vy, vx) : p.cutTo;
+    const facing = p.cutFrom + wrapAngle(p.cutTo - p.cutFrom) * e;
+    p.heading = wrapAngle(facing + p.cutSide * c.bodyTurn * skidBodyEnvelope(u));
+    p.wasSprinting = cmd.sprint;
+    if (p.cutTime === 0) {
+      dir = p.cutTo;
+      p.heading = dir;
+      // Exit push towards the new direction (shares the cooldown with the sprint push).
+      if (p.boostCooldown <= 0 && c.exitTime > 0) {
+        p.boostTime = c.exitTime;
+        p.boostAccel = c.exitAccel;
+        p.boostIsSprint = false;
+        p.boostCooldown = k.sprintBoostCooldown;
+      }
+    }
+  } else if (p.skidTime > 0) {
     // Keep sliding the way we were going, losing all speed over skidTime. skidSlide > 1 keeps
     // more speed early (longer slide), < 1 bites harder at the start.
     p.braking = true;
-    p.skidTime = Math.max(0, p.skidTime - dt);
+    p.skidTime = countDown(p.skidTime, dt);
     const u = 1 - p.skidTime / p.skidDuration;
     speed = p.skidSpeed0 * Math.pow(Math.max(0, 1 - u), 1 / Math.max(0.1, k.skidSlide));
     dir = p.skidDir;
@@ -155,11 +255,15 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     // Sprint push: a short burst of extra acceleration when a sprint starts.
     if (sprinting && !p.wasSprinting && p.boostCooldown <= 0) {
       p.boostTime = k.sprintBoostTime;
+      p.boostAccel = k.sprintBoostAccel;
+      p.boostIsSprint = true;
       p.boostCooldown = k.sprintBoostCooldown;
     }
     p.wasSprinting = sprinting;
-    const boosting = sprinting && p.boostTime > 0;
-    p.boostTime = sprinting ? Math.max(0, p.boostTime - dt) : 0;
+    // The sprint push stops when the sprint stops; the trencada exit push runs its course.
+    if (p.boostIsSprint && !sprinting) p.boostTime = 0;
+    const boosting = p.boostTime > 0;
+    p.boostTime = Math.max(0, p.boostTime - dt);
 
     const cap = sprinting ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
     const target = sprinting ? cap + (boosting ? k.sprintBoostOvershoot : 0) : cap * mag;
@@ -181,7 +285,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
       // Strong start that fades towards the cap. When pivoting, push only once facing
       // roughly the right way (turn first, then skate).
       const facing = pivoting ? Math.max(0, Math.cos(wrapAngle(want - dir))) : 1;
-      const a = k.accel * facing * Math.max(0, 1 - speed / (cap * k.accelCapFactor)) + (boosting ? k.sprintBoostAccel : 0);
+      const a = k.accel * facing * Math.max(0, 1 - speed / (cap * k.accelCapFactor)) + (boosting ? p.boostAccel : 0);
       speed = Math.min(target, speed + a * dt);
     } else if (speed > target) {
       // Above the target (sprint over, stick eased back): natural slow-down.
@@ -195,7 +299,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.x += p.vx * dt;
   p.y += p.vy * dt;
   resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
-  if (!hasInput && p.skidTime <= 0 && speed < 1e-3) p.heading = dir;
+  if (!hasInput && p.skidTime <= 0 && p.cutTime <= 0 && speed < 1e-3) p.heading = dir;
 }
 
 /** Separate two overlapping players and exchange the closing part of their velocities. */

@@ -93,6 +93,7 @@ export class TuningPanel {
   }
 
   private buildRow(meta: TuningParamMeta): HTMLElement {
+    if (meta.toggle) return this.buildToggleRow(meta);
     const value = el('span', { className: 'tp-value' });
     const factory = el('span', { className: 'tp-factory' });
     const resetBtn = el('button', { className: 'tp-icon-btn tp-reset', attrs: { 'data-i18n-aria': 'tuning.reset' } }, ['↺']);
@@ -108,6 +109,27 @@ export class TuningPanel {
     const root = el('div', { className: 'tp-row', attrs: { 'data-path': meta.path } }, [
       el('div', { className: 'tp-row-head' }, [el('span', { className: 'tp-label', i18n: (meta.labelKey ?? `tuning.${meta.path}`) as MessageKey }), value, resetBtn]),
       el('div', { className: 'tp-row-ctrl' }, [minus, slider, plus]),
+      factory,
+    ]);
+    this.rows.push({ meta, root, value, factory, slider, resetBtn });
+    return root;
+  }
+
+  /** Sí/No switch for 0/1 values. */
+  private buildToggleRow(meta: TuningParamMeta): HTMLElement {
+    const value = el('span', { className: 'tp-value' });
+    const factory = el('span', { className: 'tp-factory' });
+    const resetBtn = el('button', { className: 'tp-icon-btn tp-reset', attrs: { 'data-i18n-aria': 'tuning.reset' } }, ['↺']);
+    resetBtn.addEventListener('click', () => this.overrides.reset(meta.path));
+    const choice = (on: boolean): HTMLButtonElement => {
+      const b = el('button', { className: 'choice tp-toggle', i18n: on ? 'common.yes' : 'common.no', attrs: { 'data-on': String(on) } });
+      b.addEventListener('click', () => this.overrides.set(meta.path, on ? 1 : 0));
+      return b;
+    };
+    const slider = el('input', { attrs: { type: 'hidden' } });
+    const root = el('div', { className: 'tp-row', attrs: { 'data-path': meta.path, 'data-toggle': '1' } }, [
+      el('div', { className: 'tp-row-head' }, [el('span', { className: 'tp-label', i18n: (meta.labelKey ?? `tuning.${meta.path}`) as MessageKey }), resetBtn]),
+      el('div', { className: 'tp-row-ctrl' }, [choice(true), choice(false)]),
       factory,
     ]);
     this.rows.push({ meta, root, value, factory, slider, resetBtn });
@@ -150,6 +172,7 @@ export class TuningPanel {
   }
 
   private format(meta: TuningParamMeta, stored: number): string {
+    if (meta.toggle) return t(stored >= 0.5 ? 'common.yes' : 'common.no');
     const v = stored * (meta.scale ?? 1);
     return `${v.toFixed(decimalsOf(meta.step))}${meta.unit ? ` ${meta.unit}` : ''}`;
   }
@@ -165,6 +188,9 @@ export class TuningPanel {
       r.value.textContent = this.format(r.meta, v);
       r.factory.textContent = modified ? t('tuning.factory', { value: this.format(r.meta, def) }) : '';
       r.root.classList.toggle('modified', modified);
+      if (r.meta.toggle) {
+        r.root.querySelectorAll<HTMLElement>('[data-on]').forEach((b) => b.classList.toggle('selected', (b.dataset.on === 'true') === v >= 0.5));
+      }
       r.resetBtn.hidden = !modified;
       // Don't fight the finger while dragging the slider.
       if (document.activeElement !== r.slider) r.slider.value = String(v * (r.meta.scale ?? 1));
