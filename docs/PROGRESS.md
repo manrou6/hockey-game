@@ -14,7 +14,8 @@ de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativ
 - [x] F1.2b (pedido por Guillem) Sistema de cámara con presets: TV lateral (defecto) / Cercana / Alta-táctica; botón 🎥 en pantalla + opción en Configuració; se recuerda; transición suave; parámetros por preset en tuning + panel; docs/03 §6 y DECISIONS actualizados; tests de no tapar HUD (v0.1.3). Pendiente: Guillem confirma 60 fps de las 3 cámaras en el Pixel.
 - [x] F1.3 Conducción (pegada al stick, separación solo con sprint / giro muy cerrado / presión, Control reduce, pérdida si supera la separación segura), botones PASE/TIRO/REGATE (mantener REGATE = sprint), teclado J/K/L/Espacio, mando, buffer 150 ms, stick acompaña la bola, pase/tiro PROVISIONALES; tamaño de bola compensado por distancia + multiplicador por cámara (v0.1.4)
 - [x] Ronda de afinación 1, primera impresión de Guillem: conducción bien; botones cómodos por ahora. Cambio pedido: sprint analógico en el joystick (no en Regat) + sección "Botons" en el panel (v0.1.5)
-- [ ] Ronda 1, cierre: Guillem prueba el sprint nuevo y, si quiere, baja Regat desde el panel; pega "Copiar valors" para fijar valores de fábrica
+- [x] Ronda 1, ajustes de tacto (v0.1.6): +12 % velocidad/aceleración, sprint 10 m/s con empujón al entrar, frenada de 4 ruedas (derrape) que separa la bola
+- [ ] Ronda 1, cierre: Guillem prueba v0.1.6, ajusta en el panel y pega "Copiar valors" para fijar valores de fábrica
 - [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
 - [ ] F1.6 Regates (≥5) + defensa estático + combo → ronda 3

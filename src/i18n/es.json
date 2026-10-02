@@ -27,8 +27,7 @@
   "tuning.skating.turnRadiusBase": "Radio de giro mínimo",
   "tuning.skating.turnRadiusPerSpeed2": "Radio de giro extra con velocidad",
   "tuning.skating.turnSpeedLoss": "Velocidad perdida al girar cerrado",
-  "tuning.skating.brakeDecel": "Fuerza de frenada",
-  "tuning.skating.brakeAngle": "Ángulo para frenar en T",
+  "tuning.skating.brakeAngle": "Ángulo para derrapar (joystick contrario)",
   "tuning.skating.glideDecel": "Rozamiento al planear",
   "tuning.skating.glideDrag": "Frenado por velocidad al planear",
   "tuning.skating.overspeedDecel": "Frenado al soltar el sprint",
@@ -133,5 +132,16 @@
   "tuning.buttons.shootSize": "Tiro: tamaño",
   "tuning.buttons.dribbleBottom": "Regate: distancia abajo",
   "tuning.buttons.dribbleRight": "Regate: distancia a la derecha",
-  "tuning.buttons.dribbleSize": "Regate: tamaño"
+  "tuning.buttons.dribbleSize": "Regate: tamaño",
+  "tuning.skating.sprintBoostAccel": "Empujón de sprint: fuerza",
+  "tuning.skating.sprintBoostTime": "Empujón de sprint: duración",
+  "tuning.skating.sprintBoostOvershoot": "Empujón de sprint: exceso sobre el máximo",
+  "tuning.skating.sprintBoostCooldown": "Empujón de sprint: tiempo entre empujones",
+  "tuning.skating.skidTime": "Derrape: duración de la frenada",
+  "tuning.skating.skidSlide": "Derrape: cuánto desliza",
+  "tuning.skating.skidBodyTurn": "Derrape: giro del cuerpo",
+  "tuning.skating.skidMinSpeed": "Derrape al soltar: velocidad mínima",
+  "tuning.skating.skidReleaseStick": "Derrape al soltar: joystick mínimo",
+  "tuning.skating.skidReleaseWindow": "Derrape al soltar: rapidez del gesto",
+  "tuning.dribble.skidSeparation": "Separación extra al derrapar"
 }

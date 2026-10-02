@@ -27,8 +27,7 @@
   "tuning.skating.turnRadiusBase": "Radi de gir mínim",
   "tuning.skating.turnRadiusPerSpeed2": "Radi de gir extra amb velocitat",
   "tuning.skating.turnSpeedLoss": "Velocitat perduda en girar tancat",
-  "tuning.skating.brakeDecel": "Força de frenada",
-  "tuning.skating.brakeAngle": "Angle per frenar en T",
+  "tuning.skating.brakeAngle": "Angle per derrapar (joystick contrari)",
   "tuning.skating.glideDecel": "Fregament en planejar",
   "tuning.skating.glideDrag": "Frenada per velocitat en planejar",
   "tuning.skating.overspeedDecel": "Frenada en deixar l'esprint",
@@ -133,5 +132,16 @@
   "tuning.buttons.shootSize": "Xut: mida",
   "tuning.buttons.dribbleBottom": "Regat: distància a baix",
   "tuning.buttons.dribbleRight": "Regat: distància a la dreta",
-  "tuning.buttons.dribbleSize": "Regat: mida"
+  "tuning.buttons.dribbleSize": "Regat: mida",
+  "tuning.skating.sprintBoostAccel": "Empenta d'esprint: força",
+  "tuning.skating.sprintBoostTime": "Empenta d'esprint: durada",
+  "tuning.skating.sprintBoostOvershoot": "Empenta d'esprint: excés sobre el màxim",
+  "tuning.skating.sprintBoostCooldown": "Empenta d'esprint: temps entre empentes",
+  "tuning.skating.skidTime": "Derrapatge: durada de la frenada",
+  "tuning.skating.skidSlide": "Derrapatge: quant llisca",
+  "tuning.skating.skidBodyTurn": "Derrapatge: gir del cos",
+  "tuning.skating.skidMinSpeed": "Derrapatge en deixar anar: velocitat mínima",
+  "tuning.skating.skidReleaseStick": "Derrapatge en deixar anar: joystick mínim",
+  "tuning.skating.skidReleaseWindow": "Derrapatge en deixar anar: rapidesa del gest",
+  "tuning.dribble.skidSeparation": "Separació extra en derrapar"
 }

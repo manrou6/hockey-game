@@ -5,11 +5,12 @@ Todos los números son valores iniciales para afinar. Viven en src/config/tuning
 ## 1. Sensación de patinaje
 - Simulación a 60 Hz con paso fijo; render interpolado.
 - Jugador = cápsula en el plano de la pista con inercia real de patinador:
-  - Velocidad máx. conduciendo: ~7,5 m/s. Sprint sin bola: ~9 m/s (~32 km/h).
-  - Aceleración desde parado: ~0 → 7 m/s en ~1,8 s. Curva no lineal (arranca fuerte).
+  - Velocidad máx. normal (también conduciendo): ~8,4 m/s. Sprint sin bola: ~10 m/s (~36 km/h); con bola ~9,3 m/s. (Ronda de afinación 1, 2026-10-02: +12 % sobre los 7,5 / 9 iniciales a petición de Guillem.)
+  - Aceleración desde parado: curva no lineal (arranca fuerte), ~0 → 90 % de la máxima normal en ~1,5 s.
+  - **Empujón de sprint**: al entrar en sprint (zona exterior del joystick, Shift, mando) hay un impulso breve (~0,25 s de aceleración extra que puede pasar un poco del tope de sprint), con un tiempo de recarga para que no se pueda encadenar; al salir del sprint, desaceleración suave y natural hasta la velocidad normal.
   - Giro: radio mínimo crece con la velocidad (a tope no se gira en seco). Giro cerrado = pérdida de velocidad.
-  - Frenada "en T" o en cuña: animación + chispa de sonido, frena en ~0,6 s.
-  - Deslizamiento: al soltar el joystick el jugador planea y desacelera suave, nunca se para de golpe.
+  - **Frenada de 4 ruedas (derrape)** (sustituye a la frenada "en T" de F0; petición de Guillem): al llevar el joystick en sentido contrario a la marcha, o al soltarlo de golpe a velocidad (levantar el pulgar), el jugador no se para en seco: sigue deslizando en la dirección que llevaba, pierde la velocidad en ~0,4-0,6 s y gira un poco el cuerpo hacia el lado del derrape. Si se vuelve a empujar hacia delante, el derrape se cancela. Con la bola en el stick a velocidad alta, el derrape la separa del stick (misma regla de separación de la conducción). Sonido de ruedas y chispas: F4.
+  - Deslizamiento: si en vez de soltar de golpe se devuelve el joystick al centro poco a poco, el jugador planea y desacelera suave, nunca se para de golpe.
   - Contacto: empujones hombro con hombro según Físico; nunca atravesar jugadores ni la valla.
 - Resistencia: el sprint la gasta; baja → menor aceleración y peor control. Cambios recuperan.
 

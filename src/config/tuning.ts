@@ -14,22 +14,37 @@ export const TUNING = {
   skating: {
     /** Collision radius of a player on the rink plane. */
     radius: 0.35,
-    /** Top speed skating normally (with ball in F1+), and sprinting. */
-    maxSpeed: 7.5,
-    sprintSpeed: 9,
-    /** Acceleration from standstill; it fades as speed nears the cap (strong start, ~1.8 s to 7 m/s). */
-    accel: 10,
+    /** Top speed skating normally (also with the ball), and sprinting without the ball.
+     * Round 1 (Guillem): +12 % over the initial 7.5 / 9. */
+    maxSpeed: 8.4,
+    sprintSpeed: 10,
+    /** Acceleration from standstill; it fades as speed nears the cap (strong start, ~1.5 s to 90 %). */
+    accel: 11.2,
     /** The fade is computed against cap × this factor so the target speed is reached in finite time. */
     accelCapFactor: 1.05,
-    /** T-stop deceleration when the stick points against the motion (~0.6 s from top speed). */
-    brakeDecel: 12.5,
-    /** Angle between stick and motion beyond which the skater brakes instead of turning. */
+    /** Angle between stick and motion beyond which the skater skid-stops instead of turning. */
     brakeAngle: 2.2,
+    /** Sprint push: extra acceleration for a short time when a sprint starts, how far above
+     * the sprint top speed it may briefly go, and the minimum time between two pushes. */
+    sprintBoostTime: 0.25,
+    sprintBoostAccel: 9,
+    sprintBoostOvershoot: 0.5,
+    sprintBoostCooldown: 0.8,
+    /** Four-wheel skid stop (stick reversed, or released abruptly at speed): time to lose all
+     * speed, how much it slides (1 = even, > 1 slides longer, < 1 bites earlier), body turn
+     * towards the skid side (rad), min speed for a release to skid, how far the stick must have
+     * been pushed, and how recently (s), for a release to count as abrupt. */
+    skidTime: 0.5,
+    skidSlide: 1.25,
+    skidBodyTurn: 0.6,
+    skidMinSpeed: 3.5,
+    skidReleaseStick: 0.5,
+    skidReleaseWindow: 0.1,
     /** Coasting when the stick is released: constant + proportional deceleration (smooth glide). */
     glideDecel: 0.45,
     glideDrag: 0.12,
-    /** Deceleration when above the target speed (sprint released or stick half-pushed). */
-    overspeedDecel: 2.5,
+    /** Natural slow-down when above the target speed (leaving a sprint, stick eased back). */
+    overspeedDecel: 3,
     /** Minimum turning radius = base + perSpeed2 × speed² (no sharp turns at full speed). */
     turnRadiusBase: 0.35,
     turnRadiusPerSpeed2: 0.055,
@@ -93,6 +108,8 @@ export const TUNING = {
     pressureSeparation: 0.4,
     /** Only turns tighter than this fraction of the max turn rate separate the ball (0..1). */
     turnThreshold: 0.6,
+    /** Extra separation during a four-wheel skid stop at full normal speed (the ball runs on). */
+    skidSeparation: 0.4,
     /** Opponent distance at which pressure starts (full pressure at contact). */
     pressureRadius: 1.8,
     /** How much a perfect Control attribute (99) reduces separation (0 = no advantage, 1 = none at all). */
@@ -109,7 +126,7 @@ export const TUNING = {
     /** Time after passing/shooting/losing it before the same player can take the ball again (s). */
     relockTime: 0.3,
     /** Sprint top speed while carrying the ball (sprint without ball: skating.sprintSpeed). */
-    sprintSpeedWithBall: 8.3,
+    sprintSpeedWithBall: 9.3,
     /** PROVISIONAL until F1.4/F1.5: ground pass speed and quick shot speed (m/s). */
     passSpeed: 12,
     shotSpeed: 22,
