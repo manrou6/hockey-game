@@ -1,4 +1,5 @@
 import { TUNING } from '../config/tuning';
+import { capturePointer } from '../ui/dom';
 
 /**
  * Floating virtual joystick (docs/03 §3A): appears where the left thumb touches (left part
@@ -41,7 +42,7 @@ export class VirtualJoystick {
     if (e.clientX > window.innerWidth * TUNING.input.joystickZone) return;
     e.preventDefault();
     this.pointerId = e.pointerId;
-    this.element.setPointerCapture(e.pointerId);
+    capturePointer(this.element, e.pointerId);
     this.originX = e.clientX;
     this.originY = e.clientY;
     this.dx = 0;

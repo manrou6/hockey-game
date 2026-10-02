@@ -13,7 +13,7 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 - [x] F0.4 Pista con medidas, vallas, porterías, iluminación, cámara TV (v0.0.4)
 - [x] F0.5 Jugador cápsula con inercia, colisión valla/porterías, teclado + joystick virtual + mando (v0.0.5)
 - [x] F0.6 i18n ca/es/en, menú, pausa, ajustes (idioma, calidad) con versión (v0.0.6)
-- [ ] F0.7 Cierre: e2e móvil horizontal + captura, medición rendimiento, criterios, deploy, informe
+- [x] F0.7 Cierre: e2e móvil horizontal + capturas (docs/screenshots), medición rendimiento, criterios, deploy (v0.0.7)
 
 ## Cómo trabajar en este repo
 - `npm ci` → instalar. `npm run dev` → servidor local. `npm run build` → typecheck + build.
@@ -22,5 +22,20 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 - En este entorno cloud Playwright usa Chromium de /opt/pw-browsers (por eso @playwright/test fijado a 1.56.1).
 - Versión visible: `package.json` "version" (0.F.N); subir N en cada sub-paso.
 
+## Verificación de criterios F0 (2026-10-02)
+| Criterio (docs/06) | Estado | Cómo se comprobó |
+|---|---|---|
+| Vite + TS + Babylon, PWA, horizontal, pantalla completa, icono | OK | build; e2e `pwa.spec` (manifest fullscreen/landscape, SW activo) |
+| GitHub Actions: build + tests + deploy Pages | OK | `.github/workflows/deploy.yml`, CI verde en cada push |
+| Bucle paso fijo + interpolación, panel debug ?debug=1 | OK | unit `fixedStepLoop`, `determinism`; e2e `debug.spec` |
+| Pista con medidas, vallas, porterías, iluminación | OK | unit `rink.test`; capturas |
+| Jugador cápsula con joystick virtual y teclado (+ mando) | OK | unit `skating.test`; e2e `controls.spec`, `smoke.spec` |
+| i18n ca/es/en + ajustes con versión | OK | unit `i18n.test`; e2e `menu.spec` |
+| Enlace abre en el Pixel / se instala como app | Pendiente de Guillem | requiere el móvil real |
+| 60 fps estables | Pendiente de Guillem | entorno sin GPU; presupuesto: 9 draw calls (≤120), 2,2k triángulos (≤200k), 0,01 ms/tick sim con CPU ×4, descarga 1,7 MB (≤25 MB) |
+| El jugador patina con inercia | OK (falta sensación de Guillem) | unit `skating.test` (0→7 m/s ≈1,75 s, planeo, frenada ≈0,6 s, radio de giro) |
+
 ## Notas para la siguiente sesión
-- Nada pendiente fuera de la lista anterior.
+- F0 queda cerrada en código. Falta que Guillem pruebe en el Pixel 8a (instalar, fps con ?debug=1, sensación de patinaje) antes de empezar F1 (regla del roadmap).
+- Si Guillem reporta "se siente pesado / lento", tocar `TUNING.skating` (accel, maxTurnRate, turnRadius*, glide*) y `TUNING.camera`.
+- Rendimiento real: pedir a Guillem captura del panel `?debug=1` (fps, frame p95) en el Pixel.

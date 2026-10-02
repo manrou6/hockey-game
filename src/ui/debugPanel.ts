@@ -1,4 +1,3 @@
-import { SceneInstrumentation } from '@babylonjs/core/Instrumentation/sceneInstrumentation';
 import { TUNING } from '../config/tuning';
 import { APP_COMMIT, APP_VERSION } from '../config/version';
 import type { Game } from '../game/game';
@@ -23,8 +22,6 @@ export function createDebugPanel(game: Game, renderer: Renderer): HTMLElement {
 
   const panel = el('div', { className: 'debug-panel', attrs: { id: 'debug-panel' } }, [stats, toggle, tuningBox]);
 
-  const instr = new SceneInstrumentation(renderer.scene);
-  instr.captureFrameTime = false;
   let frames = 0;
   game.onFrame(() => {
     // Refresh text ~4 times per second to keep DOM work negligible.
@@ -32,12 +29,13 @@ export function createDebugPanel(game: Game, renderer: Renderer): HTMLElement {
     const fs = game.frameStats;
     const ws = game.workStats;
     const eng = renderer.engine;
+    const rs = renderer.renderStats();
     stats.textContent =
       `${APP_VERSION} (${APP_COMMIT})\n` +
       `fps ${fs.fps().toFixed(1)}  frame avg ${fs.average().toFixed(2)} p95 ${fs.percentile(95).toFixed(2)} max ${fs.max().toFixed(1)} ms\n` +
       `cpu avg ${ws.average().toFixed(2)} p95 ${ws.percentile(95).toFixed(2)} ms\n` +
       `tick ${game.world.tick}  steps/frame ${game.loop.lastSteps}  alpha ${game.loop.alpha.toFixed(2)}\n` +
-      `draws ${instr.drawCallsCounter.current}  meshes ${renderer.scene.getActiveMeshes().length}  tris ${Math.round(renderer.scene.getActiveIndices() / 3)}\n` +
+      `draws ${rs.drawCalls}  meshes ${rs.activeMeshes}  tris ${rs.triangles}\n` +
       `res ${eng.getRenderWidth()}x${eng.getRenderHeight()}  scale ${eng.getHardwareScalingLevel().toFixed(2)}`;
   });
   return panel;

@@ -11,3 +11,12 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   for (const c of children) node.append(c);
   return node;
 }
+
+/** Capture a pointer on an element; ignores the error thrown if the pointer is already gone. */
+export function capturePointer(target: Element, pointerId: number): void {
+  try {
+    target.setPointerCapture(pointerId);
+  } catch {
+    /* pointer already released or synthetic: capture is only a nicety */
+  }
+}

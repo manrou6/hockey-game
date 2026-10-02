@@ -29,3 +29,5 @@
 - 2026-10-02: Ajustes del jugador (idioma, calidad) en localStorage (`patins.settings.v1`) por simplicidad; IndexedDB se introducirá con ligas/carrera (F5), migrando los ajustes.
 - 2026-10-02: Menú principal (Jugar/Continuar, Configuració, ayuda de controles) y pantalla de ajustes (idioma, calidad gráfica, versión `vX.Y.Z (commit)`). La sim está en pausa mientras se ve el menú; botón de pausa arriba a la derecha. Cambiar la calidad recarga la app (el motor se crea con ella).
 - 2026-10-02: Nombres de idioma como endónimos (Català, Español, English) en los tres diccionarios.
+- 2026-10-02: Test de rendimiento (`tests/e2e/perf.spec.ts`): con CPU ×4 comprueba presupuestos de docs/04 (draw calls ≤ 120, triángulos ≤ 200k) y coste de la sim por tick; el frame time en headless no es representativo (SwiftShader) y solo se reporta. Hook `__PATINS__.perf()` / `benchSim()`.
+- 2026-10-02: `setPointerCapture` envuelto en try/catch (lanza si el puntero ya no existe).

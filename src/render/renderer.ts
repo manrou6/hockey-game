@@ -10,6 +10,7 @@ import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { SceneInstrumentation } from '@babylonjs/core/Instrumentation/sceneInstrumentation';
 import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
 import type { WorldState } from '../sim/world';
 import { buildRink } from './rinkBuilder';
@@ -122,6 +123,20 @@ export class Renderer {
 
   render(): void {
     this.scene.render();
+  }
+
+  private instrumentation: SceneInstrumentation | null = null;
+
+  /** Render counters for the performance budget (docs/04). Instrumentation starts on first call. */
+  renderStats(): { drawCalls: number; triangles: number; activeMeshes: number; width: number; height: number } {
+    this.instrumentation ??= new SceneInstrumentation(this.scene);
+    return {
+      drawCalls: this.instrumentation.drawCallsCounter.current,
+      triangles: Math.round(this.scene.getActiveIndices() / 3),
+      activeMeshes: this.scene.getActiveMeshes().length,
+      width: this.engine.getRenderWidth(),
+      height: this.engine.getRenderHeight(),
+    };
   }
 }
 

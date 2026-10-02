@@ -10,6 +10,8 @@ import { enterFullscreenLandscape } from './ui/fullscreen';
 import { createDebugPanel, isDebugEnabled } from './ui/debugPanel';
 import { loadSettings } from './ui/settings';
 import { Menu } from './ui/menu';
+import { TUNING } from './config/tuning';
+import { createWorld, stepWorld } from './sim/world';
 
 registerSW({ immediate: true });
 
@@ -59,4 +61,24 @@ onLanguageChange(() => translateDom(uiRoot));
 game.start();
 
 // Read-only hook for automated tests (Playwright perf/smoke checks).
-(window as unknown as { __PATINS__: unknown }).__PATINS__ = { game };
+(window as unknown as { __PATINS__: unknown }).__PATINS__ = {
+  game,
+  perf: () => ({
+    ...renderer.renderStats(),
+    frameAvg: game.frameStats.average(),
+    frameP95: game.frameStats.percentile(95),
+    cpuAvg: game.workStats.average(),
+    cpuP95: game.workStats.percentile(95),
+  }),
+  /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
+  benchSim: (ticks: number): number => {
+    const w = createWorld(7);
+    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true }];
+    const t0 = performance.now();
+    for (let i = 0; i < ticks; i++) {
+      if (i % 90 === 0) cmds[0]!.moveY = -cmds[0]!.moveY;
+      stepWorld(w, cmds, TUNING);
+    }
+    return (performance.now() - t0) / ticks;
+  },
+};

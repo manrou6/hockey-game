@@ -1,4 +1,4 @@
-import { el } from '../ui/dom';
+import { capturePointer, el } from '../ui/dom';
 
 /** Right-hand hold button. In F0 it only sprints; in F1 it becomes REGATE (tap) / sprint (hold). */
 export class SprintButton {
@@ -13,7 +13,7 @@ export class SprintButton {
     };
     this.element.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.element.setPointerCapture(e.pointerId);
+      capturePointer(this.element, e.pointerId);
       this.pointers.add(e.pointerId);
       this.element.classList.add('pressed');
     });
