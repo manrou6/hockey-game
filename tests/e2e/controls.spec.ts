@@ -15,17 +15,18 @@ test.beforeEach(async ({ page }) => {
 test('keyboard: D skates right (+x), W skates away from camera (+y)', async ({ page }) => {
   const p0 = await player(page);
   await page.keyboard.down('KeyD');
-  await page.waitForTimeout(1200);
+  await expect.poll(async () => (await player(page)).x - p0.x, { timeout: 15_000 }).toBeGreaterThan(1);
   await page.keyboard.up('KeyD');
   const p1 = await player(page);
-  expect(p1.x - p0.x).toBeGreaterThan(0.3);
   expect(Math.abs(p1.y - p0.y)).toBeLessThan(0.3);
 
+  // Let the skater stop first: a 90° key change at speed is a trencada (pre-brake first),
+  // which is covered by the simulation tests.
+  await expect.poll(async () => Math.hypot((await player(page)).vx, (await player(page)).vy), { timeout: 15_000 }).toBeLessThan(0.2);
+  const p1b = await player(page);
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(1200);
+  await expect.poll(async () => (await player(page)).y - p1b.y, { timeout: 15_000 }).toBeGreaterThan(0.3);
   await page.keyboard.up('KeyW');
-  const p2 = await player(page);
-  expect(p2.y - p1.y).toBeGreaterThan(0.3);
 });
 
 test('virtual joystick: dragging left-half thumb to the right skates right, release glides', async ({ page }) => {
