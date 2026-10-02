@@ -105,7 +105,7 @@ export const TUNING = {
     gestureTime: 0.15,
     /** Pre-brake before turning (s) along the old direction, and the share of speed it loses:
      * the defender's chance to react. */
-    prepTime: 0.5,
+    prepTime: 0.3,
     prepSpeedLoss: 0.35,
     duration: 0.25,
     /** Exit speed as a share of the speed you had before the trencada. */
