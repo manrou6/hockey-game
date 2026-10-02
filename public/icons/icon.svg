@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b1d33"/>
+  <!-- rink -->
+  <rect x="96" y="156" width="320" height="200" rx="34" fill="#2a6fb0" stroke="#ffffff" stroke-width="12"/>
+  <line x1="256" y1="162" x2="256" y2="350" stroke="#e8f1fb" stroke-width="5"/>
+  <circle cx="256" cy="256" r="30" fill="none" stroke="#e8f1fb" stroke-width="5"/>
+  <!-- stick -->
+  <path d="M168 118 L300 330 Q312 352 336 344 L372 330" fill="none" stroke="#f4b23c" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- ball -->
+  <circle cx="392" cy="300" r="22" fill="#e63946" stroke="#ffffff" stroke-width="4"/>
+</svg>

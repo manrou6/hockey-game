@@ -1,3 +1,33 @@
 # Registro de decisiones
 
 - 2026-10-02: Plataforma web 3D (TypeScript + Babylon.js, PWA). Nombre provisional PATINS; repo hockey-game.
+- 2026-10-02: Despliegue opción A: Claude trabaja en rama, abre PR a `main` y la fusiona con CI en verde.
+- 2026-10-02: TypeScript fijado a 5.9 (no 7.x) por estabilidad del tooling; Vite 8, Vitest 5, Babylon 9 (`@babylonjs/core` con imports profundos para tree-shaking).
+- 2026-10-02: `@playwright/test` fijado a 1.56.1 para usar el Chromium preinstalado del entorno cloud; en CI se instala el mismo.
+- 2026-10-02: Dos tsconfig: `tsconfig.json` (src + tests/unit, sin tipos de Node para que el juego no use APIs de Node) y `tsconfig.node.json` (configs + e2e).
+- 2026-10-02: Base de Vite `/hockey-game/` en build y preview (GitHub Pages), `/` en dev.
+- 2026-10-02: Versión visible = `package.json` version + commit corto (inyectados con `define`).
+- 2026-10-02: CI (`.github/workflows/deploy.yml`) corre en cada push a cualquier rama (build + Vitest + Playwright); solo `main` publica en Pages.
+- 2026-10-02: PWA con vite-plugin-pwa (`autoUpdate`, skipWaiting + clientsClaim) para que Guillem reciba siempre la última versión al reabrir. Manifest `display: fullscreen`, `orientation: landscape`.
+- 2026-10-02: Pantalla completa + bloqueo horizontal se piden al pulsar "Toca per jugar" (Chrome Android exige gesto del usuario). En vertical se muestra aviso "gira el mòbil".
+- 2026-10-02: Icono provisional SVG generado por código; PNGs rasterizados con `scripts/gen-icons.mjs` (Chromium de Playwright).
+- 2026-10-02: i18n propio mínimo (`src/i18n`, JSON por idioma, `data-i18n` en DOM), test que exige las mismas claves en ca/es/en.
+- 2026-10-02: RNG de la simulación = sfc32 sembrado con splitmix32 (`src/sim/rng.ts`), estado serializable (4 uint32).
+- 2026-10-02: Bucle: acumulador de paso fijo (`src/game/fixedStepLoop.ts`) con máx. 5 pasos por frame; el estado guarda la pose del tick anterior (`prevX/prevY/prevHeading`) y el render interpola con `alpha`.
+- 2026-10-02: Test `simPurity` vigila la regla 3 de CLAUDE.md: falla si src/sim importa Babylon/render/DOM o usa Math.random/Date/performance.now.
+- 2026-10-02: Panel de debug (`?debug=1`) es herramienta de desarrollo: sus etiquetas son identificadores de código sin traducir (excepción explícita a "ningún texto hardcodeado"). Tuning en vivo con sliders generados desde `TUNING`.
+- 2026-10-02: Hook de solo lectura `window.__PATINS__` para tests automáticos (Playwright).
+- 2026-10-02: Medidas de pista en `src/config/rink.ts` (dato de reglamento, no tuning). Confirmadas por búsqueda web (reglas WS): área 9 × 5,4 m, penalti a 5,4 m, directa a 7,4 m, línea de gol a 2,7-3,3 m de la valla (usamos 2,8), círculo central r = 3 m. Pendientes de verificar (no se pudo abrir el PDF oficial desde el entorno): radio de esquina 1 m, altura de valla 1 m, fondo de portería 0,92 m (suelo) / 0,50 m (larguero), radio área portero 1,5 m, bola.
+- 2026-10-02: Suelo de pista = textura generada en canvas (todas las líneas), sin assets. Vallas = una malla propia con colores por vértice (1 draw call). Porterías: tubos fusionados (1 draw call) + red con textura alfa (1 draw call). Grada provisional de cajas fusionadas.
+- 2026-10-02: Coordenadas: sim (x largo, y ancho) → Babylon (x, 0, z). Cámara TV en -z mirando a +z, así "arriba" en pantalla = +y en la sim.
+- 2026-10-02: Presets de calidad (`src/config/quality.ts`): bajo/medio/alto limitan el devicePixelRatio (1,25 / 1,75 / 2,625) y el mapa de sombras (0 / 1024 / 2048). Por defecto "medio"; `?quality=` para probar. Autodetección y escalado dinámico: F6.
+- 2026-10-02: Cámara TV con suavizado críticamente amortiguado (`smoothDamp`), look-ahead por velocidad y zoom ligero con la velocidad; parámetros en `TUNING.camera`.
+- 2026-10-02: Playwright con 1 worker: el WebGL headless va por CPU (SwiftShader, pocos fps); los tests e2e no miden 60 Hz reales (eso lo cubren los unit tests y la prueba en el Pixel).
+- 2026-10-02: Física de patinaje (`src/sim/player.ts`, valores en `TUNING.skating`): aceleración que se desvanece hacia el tope (0→7 m/s ≈ 1,75 s), radio de giro mínimo = 0,35 + 0,055·v² (≈3,4 m a 7,5 m/s), giro a tope cuesta velocidad, frenada en T si el stick apunta a >126° del movimiento (≈0,6 s), planeo suave al soltar, pivote rápido casi parado (gira y luego empuja).
+- 2026-10-02: Colisión con valla y porterías: empuje fuera + rebote (restitución 0,2) + rozamiento de Coulomb proporcional al impacto (permite deslizar pegado a la valla). Porterías sólidas como caja en el suelo. Jugador-jugador: separación + intercambio de velocidad con masas iguales (atributo Físico en F2).
+- 2026-10-02: Entrada: joystick flotante en la mitad izquierda (pointer events, también funciona con ratón), botón derecho "Esprint" (en F1 pasa a ser REGATE: toque = regate, mantener = sprint), teclado WASD/flechas + Shift o L, mando (stick izq. + RB/RT). Prioridad de dirección: joystick > teclado > mando. Botón táctil oculto en dispositivos con ratón.
+- 2026-10-02: Ajustes del jugador (idioma, calidad) en localStorage (`patins.settings.v1`) por simplicidad; IndexedDB se introducirá con ligas/carrera (F5), migrando los ajustes.
+- 2026-10-02: Menú principal (Jugar/Continuar, Configuració, ayuda de controles) y pantalla de ajustes (idioma, calidad gráfica, versión `vX.Y.Z (commit)`). La sim está en pausa mientras se ve el menú; botón de pausa arriba a la derecha. Cambiar la calidad recarga la app (el motor se crea con ella).
+- 2026-10-02: Nombres de idioma como endónimos (Català, Español, English) en los tres diccionarios.
+- 2026-10-02: Test de rendimiento (`tests/e2e/perf.spec.ts`): con CPU ×4 comprueba presupuestos de docs/04 (draw calls ≤ 120, triángulos ≤ 200k) y coste de la sim por tick; el frame time en headless no es representativo (SwiftShader) y solo se reporta. Hook `__PATINS__.perf()` / `benchSim()`.
+- 2026-10-02: `setPointerCapture` envuelto en try/catch (lanza si el puntero ya no existe).

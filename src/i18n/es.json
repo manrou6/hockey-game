@@ -1,0 +1,22 @@
+{
+  "app.title": "PATINS",
+  "menu.play": "Jugar",
+  "menu.resume": "Continuar",
+  "menu.settings": "Ajustes",
+  "menu.back": "Volver",
+  "menu.controlsHint": "Móvil: dedo izquierdo para patinar, botón derecho para esprintar · PC: WASD/flechas + Shift",
+  "hud.pause": "Pausa",
+  "settings.title": "Ajustes",
+  "settings.language": "Idioma",
+  "settings.quality": "Calidad gráfica",
+  "settings.qualityNote": "Al cambiarla, el juego se reinicia",
+  "settings.version": "Versión {version}",
+  "quality.low": "Baja",
+  "quality.medium": "Media",
+  "quality.high": "Alta",
+  "lang.ca": "Català",
+  "lang.es": "Español",
+  "lang.en": "English",
+  "controls.sprint": "Sprint",
+  "rotate.hint": "Gira el móvil en horizontal"
+}

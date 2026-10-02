@@ -1,0 +1,22 @@
+{
+  "app.title": "PATINS",
+  "menu.play": "Play",
+  "menu.resume": "Resume",
+  "menu.settings": "Settings",
+  "menu.back": "Back",
+  "menu.controlsHint": "Mobile: left thumb to skate, right button to sprint · PC: WASD/arrows + Shift",
+  "hud.pause": "Pause",
+  "settings.title": "Settings",
+  "settings.language": "Language",
+  "settings.quality": "Graphics quality",
+  "settings.qualityNote": "Changing it restarts the game",
+  "settings.version": "Version {version}",
+  "quality.low": "Low",
+  "quality.medium": "Medium",
+  "quality.high": "High",
+  "lang.ca": "Català",
+  "lang.es": "Español",
+  "lang.en": "English",
+  "controls.sprint": "Sprint",
+  "rotate.hint": "Turn your phone to landscape"
+}
