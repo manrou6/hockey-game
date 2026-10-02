@@ -70,6 +70,10 @@ export interface PlayerState {
   /** Recent stick directions (rad, NaN = no input), one per tick, to detect a flick. */
   stickHist: number[];
   stickHistIdx: number;
+  /** Moves on its own (sim AI) whenever the human is not controlling it (teammates). */
+  bot: boolean;
+  /** Seconds this bot has been holding the ball (to give it back after a delay). */
+  holdTime: number;
   /** Previous-tick pose, used by the renderer to interpolate between ticks. */
   prevX: number;
   prevY: number;
@@ -86,6 +90,7 @@ export function createPlayer(id: number, x: number, y: number, heading = 0): Pla
     cutTime: 0, cutDuration: 0, cutSpeed0: 0, cutFrom: 0, cutTo: 0, cutSide: 1, cutCooldown: 0,
     cutPrep: 0, cutPrepDuration: 0, cutSpeedMid: 0, cutRecovery: 0,
     stickHist: new Array<number>(STICK_HISTORY).fill(Number.NaN), stickHistIdx: 0,
+    bot: false, holdTime: 0,
     prevX: x, prevY: y, prevHeading: heading,
   };
 }

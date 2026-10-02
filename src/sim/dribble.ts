@@ -185,9 +185,10 @@ export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning
 
 /**
  * PROVISIONAL pass and quick shot (replaced by the full mechanics in F1.4 / F1.5), so the
- * ball can already be released while tuning the dribble. Returns true if the ball left.
+ * ball can already be released while tuning the dribble. Returns what made the ball leave
+ * ('shot' / 'pass'), or null if the player still has it.
  */
-export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): boolean {
+export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): 'shot' | 'pass' | null {
   const d = dribbleFor(p, tuning);
   if (p.bufShoot > 0) {
     // Towards the centre of the goal being attacked if roughly facing it, else straight ahead.
@@ -202,7 +203,7 @@ export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerC
     ball.vz = 1.2;
     p.bufShoot = 0;
     p.bufPass = 0;
-    return true;
+    return 'shot';
   }
   if (p.bufPass > 0) {
     const m = Math.hypot(cmd.moveX, cmd.moveY);
@@ -212,7 +213,7 @@ export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerC
     ball.vy = Math.sin(a) * d.passSpeed;
     ball.vz = 0;
     p.bufPass = 0;
-    return true;
+    return 'pass';
   }
-  return false;
+  return null;
 }

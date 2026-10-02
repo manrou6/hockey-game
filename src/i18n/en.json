@@ -158,5 +158,20 @@
   "tuning.cut.ballSeparation": "Ball separation",
   "tuning.cut.prepTime": "Pre-brake",
   "tuning.cut.prepSpeedLoss": "Speed lost in the pre-brake",
-  "tuning.cut.noSprintTime": "No-sprint time after"
+  "tuning.cut.noSprintTime": "No-sprint time after",
+  "tuning.section.mates": "Teammates and control",
+  "tuning.mates.switchControl": "Control goes to the receiver",
+  "tuning.mates.autoReceive": "With the stick released, go and meet the pass",
+  "tuning.mates.move": "Teammates move (No = stand still)",
+  "tuning.mates.switchLatchAngle": "After a switch: stick turn to take control",
+  "tuning.mates.returnDelay": "Return: time on the ball (only without switch)",
+  "tuning.mates.returnLead": "Return: lead on your movement",
+  "tuning.mates.supportAhead": "Support: distance ahead",
+  "tuning.mates.supportSide": "Support: distance to the side",
+  "tuning.mates.supportSpeed": "Support: speed",
+  "tuning.mates.arriveRadius": "Support: slow-down distance on arrival",
+  "tuning.mates.interceptRadius": "Pass is his if it passes within",
+  "tuning.mates.interceptMaxTime": "Pass is his if it arrives within",
+  "tuning.mates.interceptSpeed": "Speed to go and meet the pass",
+  "tuning.mates.fetchRadius": "Picks up a slow ball within"
 }

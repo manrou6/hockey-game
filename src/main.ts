@@ -4,7 +4,7 @@ import { setLanguage, translateDom, onLanguageChange, t } from './i18n';
 import { isQualityLevel } from './config/quality';
 import { TUNING, TUNING_DEFAULTS } from './config/tuning';
 import { TUNING_PARAMS } from './config/tuningMeta';
-import { Game } from './game/game';
+import { Game, TEAMMATES } from './game/game';
 import { TuningOverrides, type KeyValueStorage } from './game/tuningOverrides';
 import { Renderer } from './render/renderer';
 import { HumanInput } from './input/humanInput';
@@ -156,7 +156,7 @@ game.start();
   }),
   /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
   benchSim: (ticks: number): number => {
-    const w = createWorld(7);
+    const w = createWorld(7, TEAMMATES);
     const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false }];
     const t0 = performance.now();
     for (let i = 0; i < ticks; i++) {

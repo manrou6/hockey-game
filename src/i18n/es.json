@@ -158,5 +158,20 @@
   "tuning.cut.ballSeparation": "Separación de la bola",
   "tuning.cut.prepTime": "Frenada previa",
   "tuning.cut.prepSpeedLoss": "Velocidad perdida en la frenada previa",
-  "tuning.cut.noSprintTime": "Tiempo sin sprint después"
+  "tuning.cut.noSprintTime": "Tiempo sin sprint después",
+  "tuning.section.mates": "Compañeros y control",
+  "tuning.mates.switchControl": "El control pasa al receptor",
+  "tuning.mates.autoReceive": "Con el joystick suelto, vas a buscar el pase",
+  "tuning.mates.move": "Los compañeros se mueven (No = quietos)",
+  "tuning.mates.switchLatchAngle": "Tras el cambio: giro del joystick para tomar el control",
+  "tuning.mates.returnDelay": "Devolución: tiempo con la bola (solo sin cambio)",
+  "tuning.mates.returnLead": "Devolución: anticipación a tu movimiento",
+  "tuning.mates.supportAhead": "Apoyo: distancia por delante",
+  "tuning.mates.supportSide": "Apoyo: distancia al lado",
+  "tuning.mates.supportSpeed": "Apoyo: velocidad",
+  "tuning.mates.arriveRadius": "Apoyo: distancia donde frenan para llegar",
+  "tuning.mates.interceptRadius": "Pase para él si pasa a menos de",
+  "tuning.mates.interceptMaxTime": "Pase para él si llega en menos de",
+  "tuning.mates.interceptSpeed": "Velocidad para ir a buscar el pase",
+  "tuning.mates.fetchRadius": "Recoge bola lenta a menos de"
 }

@@ -31,6 +31,12 @@ Todos los números son valores iniciales para afinar. Viven en src/config/tuning
   - TIRO: toque = tiro rápido. Mantener = carga (barra) y soltar. Deslizar el dedo al soltar = dirección/efecto (arriba = tiro alto).
   - REGATE: pulsar = finta/regate contextual según dirección (sale al pulsar). Ya no hace sprint.
   - En defensa: PASE → cambiar jugador, TIRO → entrada/robo, REGATE (mantener) → presionar. El sprint, también en defensa, es la zona exterior del joystick.
+- **Quién controlas (diseño final, decidido por Guillem 2026-10-02, "como el FIFA")**:
+  - En ataque, **el control pasa al receptor del pase**: en cuanto sale el pase hacia un compañero, controlas a ese compañero (la cámara y el joystick lo siguen con una transición suave) y el que pasó se mueve solo con un movimiento de apoyo. Si un compañero recoge una bola suelta, también pasas a controlarlo a él.
+  - Tras el cambio, el joystick que llevabas apretado (apuntando el pase) no mueve al nuevo jugador: él va solo a por la bola hasta que sueltas el joystick o lo giras claramente (≥ 45°). Con el joystick suelto, el jugador controlado va a buscar el pase que le llega.
+  - Un anillo amarillo en el suelo marca al jugador controlado; cada jugador lleva su número encima (provisional hasta F4).
+  - **En defensa (F2, no implementado aún)**: cambio de jugador **automático al más cercano a la bola** y/o con un **botón "Canvi"**, configurable en Configuració (automático / botón / los dos).
+  - Banco de pruebas F1.4 (sin rivales): 2 compañeros que ofrecen línea de pase a los lados y por delante del que lleva la bola, van a buscar el pase, recogen bolas lentas cerca de ellos. Interruptor de afinación "El control passa al receptor" (Sí por defecto); con No, sigues con tu jugador y el compañero te devuelve la bola a los 0,5 s.
 - Buffer de input de 150 ms (si pulsas un poco antes de recibir, la acción sale al recibir).
 - Asistencia al pase y apuntado configurable (Desactivada / Ligera / Fuerte).
 
