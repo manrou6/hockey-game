@@ -5,7 +5,7 @@ import { isQualityLevel } from './config/quality';
 import { Game } from './game/game';
 import { Renderer } from './render/renderer';
 import { HumanInput } from './input/humanInput';
-import { createPauseButton, createRotateHint } from './ui/overlays';
+import { createPauseButton } from './ui/overlays';
 import { enterFullscreenLandscape } from './ui/fullscreen';
 import { createDebugPanel, isDebugEnabled } from './ui/debugPanel';
 import { loadSettings } from './ui/settings';
@@ -36,7 +36,7 @@ const menu = new Menu(settings, {
     hud.hidden = false;
     void enterFullscreenLandscape();
   },
-  onQualityChange: () => location.reload(),
+  onQualityChange: (q) => renderer.setQuality(q),
 });
 
 const pauseButton = createPauseButton(() => {
@@ -53,7 +53,7 @@ hud.id = 'hud';
 hud.hidden = true;
 hud.append(input.joystick.element, input.sprintButton.element, pauseButton);
 
-uiRoot.append(hud, menu.element, createRotateHint());
+uiRoot.append(hud, menu.element);
 if (isDebugEnabled()) uiRoot.append(createDebugPanel(game, renderer));
 translateDom(uiRoot);
 onLanguageChange(() => translateDom(uiRoot));

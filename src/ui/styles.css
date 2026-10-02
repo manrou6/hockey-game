@@ -43,13 +43,6 @@
 }
 
 .overlay[hidden] { display: none; }
-.rotate-hint { display: none; z-index: 100; background: #0b1d33; padding: 24px; }
-.rotate-text { margin: 0; font-size: 22px; font-weight: 800; }
-@media (orientation: portrait) {
-  .rotate-hint { display: flex; }
-}
-.rotate-icon { font-size: 64px; animation: rotate-phone 1.6s ease-in-out infinite; }
-@keyframes rotate-phone { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
 
 /* Debug panel (?debug=1) */
 .debug-panel {

@@ -9,7 +9,6 @@
   "settings.title": "Settings",
   "settings.language": "Language",
   "settings.quality": "Graphics quality",
-  "settings.qualityNote": "Changing it restarts the game",
   "settings.version": "Version {version}",
   "quality.low": "Low",
   "quality.medium": "Medium",
@@ -17,8 +16,5 @@
   "lang.ca": "Català",
   "lang.es": "Español",
   "lang.en": "English",
-  "controls.sprint": "Sprint",
-  "rotate.hint": "Turn your phone to landscape",
-  "rotate.autoRotateTip": "If it doesn't rotate, auto-rotate may be off: tap the button and the game will switch to landscape.",
-  "rotate.button": "Play in landscape"
+  "controls.sprint": "Sprint"
 }
