@@ -17,3 +17,9 @@
 - 2026-10-02: Test `simPurity` vigila la regla 3 de CLAUDE.md: falla si src/sim importa Babylon/render/DOM o usa Math.random/Date/performance.now.
 - 2026-10-02: Panel de debug (`?debug=1`) es herramienta de desarrollo: sus etiquetas son identificadores de código sin traducir (excepción explícita a "ningún texto hardcodeado"). Tuning en vivo con sliders generados desde `TUNING`.
 - 2026-10-02: Hook de solo lectura `window.__PATINS__` para tests automáticos (Playwright).
+- 2026-10-02: Medidas de pista en `src/config/rink.ts` (dato de reglamento, no tuning). Confirmadas por búsqueda web (reglas WS): área 9 × 5,4 m, penalti a 5,4 m, directa a 7,4 m, línea de gol a 2,7-3,3 m de la valla (usamos 2,8), círculo central r = 3 m. Pendientes de verificar (no se pudo abrir el PDF oficial desde el entorno): radio de esquina 1 m, altura de valla 1 m, fondo de portería 0,92 m (suelo) / 0,50 m (larguero), radio área portero 1,5 m, bola.
+- 2026-10-02: Suelo de pista = textura generada en canvas (todas las líneas), sin assets. Vallas = una malla propia con colores por vértice (1 draw call). Porterías: tubos fusionados (1 draw call) + red con textura alfa (1 draw call). Grada provisional de cajas fusionadas.
+- 2026-10-02: Coordenadas: sim (x largo, y ancho) → Babylon (x, 0, z). Cámara TV en -z mirando a +z, así "arriba" en pantalla = +y en la sim.
+- 2026-10-02: Presets de calidad (`src/config/quality.ts`): bajo/medio/alto limitan el devicePixelRatio (1,25 / 1,75 / 2,625) y el mapa de sombras (0 / 1024 / 2048). Por defecto "medio"; `?quality=` para probar. Autodetección y escalado dinámico: F6.
+- 2026-10-02: Cámara TV con suavizado críticamente amortiguado (`smoothDamp`), look-ahead por velocidad y zoom ligero con la velocidad; parámetros en `TUNING.camera`.
+- 2026-10-02: Playwright con 1 worker: el WebGL headless va por CPU (SwiftShader, pocos fps); los tests e2e no miden 60 Hz reales (eso lo cubren los unit tests y la prueba en el Pixel).

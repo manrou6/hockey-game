@@ -17,6 +17,8 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60_000,
   retries: 0,
+  // One worker: tests share a CPU-rendered WebGL and timing checks need stable frames.
+  workers: 1,
   reporter: [['list']],
   use: {
     baseURL: `http://localhost:${PORT}/hockey-game/`,

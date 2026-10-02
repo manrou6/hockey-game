@@ -51,7 +51,7 @@ export class Game {
 
     if (this.input) this.input.read(this.commands[0]!);
     this.loop.advance(frameMs / 1000, () => stepWorld(this.world, this.commands, TUNING));
-    this.renderer.sync(this.world, this.loop.alpha);
+    this.renderer.sync(this.world, this.loop.alpha, Math.min(frameMs, 100) / 1000);
     this.renderer.render();
     this.workStats.push(performance.now() - now);
     for (const cb of this.onFrameCallbacks) cb();

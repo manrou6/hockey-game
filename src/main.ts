@@ -6,13 +6,15 @@ import { Renderer } from './render/renderer';
 import { createRotateHint, createStartOverlay } from './ui/overlays';
 import { enterFullscreenLandscape } from './ui/fullscreen';
 import { createDebugPanel, isDebugEnabled } from './ui/debugPanel';
+import { DEFAULT_QUALITY, isQualityLevel } from './config/quality';
 
 registerSW({ immediate: true });
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui-root') as HTMLDivElement;
 
-const renderer = new Renderer(canvas);
+const qualityParam = new URLSearchParams(location.search).get('quality');
+const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : DEFAULT_QUALITY);
 const game = new Game(renderer, null);
 
 uiRoot.append(
