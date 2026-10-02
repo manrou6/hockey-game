@@ -32,6 +32,21 @@ export interface PlayerState {
   bufPass: number;
   bufShoot: number;
   bufDribble: number;
+  /** Sprint push: seconds left of the extra acceleration, and until another one is allowed. */
+  boostTime: number;
+  boostCooldown: number;
+  wasSprinting: boolean;
+  /** Four-wheel skid stop: seconds left (0 = not skidding), total, start speed, travel
+   * direction, side the body turns to (+1 left / −1 right). */
+  skidTime: number;
+  skidDuration: number;
+  skidSpeed0: number;
+  skidDir: number;
+  skidSide: number;
+  /** Recent stick magnitude (decays over input.skidReleaseWindow) to detect an abrupt release. */
+  stickPeak: number;
+  /** Side of the last turn (+1 left / −1 right), used for the skid body turn. */
+  lastTurnSign: number;
   /** Previous-tick pose, used by the renderer to interpolate between ticks. */
   prevX: number;
   prevY: number;
@@ -42,6 +57,8 @@ export function createPlayer(id: number, x: number, y: number, heading = 0): Pla
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
     team: 0, control: 75, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    boostTime: 0, boostCooldown: 0, wasSprinting: false,
+    skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     prevX: x, prevY: y, prevHeading: heading,
   };
 }
@@ -55,10 +72,35 @@ export function wrapAngle(a: number): number {
   return a;
 }
 
+/** True while doing the four-wheel skid stop. */
+export function isSkidding(p: PlayerState): boolean {
+  return p.skidTime > 0;
+}
+
+function startSkid(p: PlayerState, speed: number, dir: number, side: number, tuning: Tuning): void {
+  const k = tuning.skating;
+  p.skidDuration = Math.max(0.05, k.skidTime);
+  p.skidTime = p.skidDuration;
+  p.skidSpeed0 = speed;
+  p.skidDir = dir;
+  p.skidSide = side >= 0 ? 1 : -1;
+  p.boostTime = 0;
+}
+
+/** 0 → 1 → 0 envelope of the body turn during a skid (quick in, hold, ease back at the end). */
+function skidBodyEnvelope(u: number): number {
+  const ease = (a: number, b: number, x: number): number => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  return ease(0, 0.2, u) * (1 - ease(0.7, 1, u));
+}
+
 /**
  * One fixed tick of skating (docs/03 §1). The skater has momentum: the stick sets a desired
- * direction and speed, and the body gets there through acceleration, a speed-dependent
- * turning radius, T-stop braking and a soft glide when the stick is released.
+ * direction and speed, and the body gets there through acceleration (with a short push when a
+ * sprint starts), a speed-dependent turning radius, a four-wheel skid stop (stick reversed or
+ * released abruptly at speed) and a soft glide when the stick is brought back gently.
  */
 export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number, hasBall = false): void {
   const k = tuning.skating;
@@ -71,45 +113,81 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
 
   let mag = Math.hypot(cmd.moveX, cmd.moveY);
   if (mag > 1) mag = 1;
+  const hasInput = mag >= MOVE_EPSILON;
+  const want = hasInput ? Math.atan2(cmd.moveY, cmd.moveX) : dir;
+  const abruptRelease = !hasInput && p.stickPeak >= k.skidReleaseStick && speed >= k.skidMinSpeed;
+  p.stickPeak = Math.max(mag, p.stickPeak - dt / Math.max(0.01, k.skidReleaseWindow));
   p.braking = false;
   p.turnLock = 0;
+  p.boostCooldown = Math.max(0, p.boostCooldown - dt);
 
-  if (mag < MOVE_EPSILON) {
-    // Glide: no input → slow, smooth deceleration, never a sudden stop.
-    speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
-  } else {
-    const want = Math.atan2(cmd.moveY, cmd.moveX);
-    const cap = cmd.sprint ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
-    const target = cmd.sprint ? cap : cap * mag;
-    const diff = wrapAngle(want - dir);
+  // --- Four-wheel skid stop ----------------------------------------------------------------
+  if (p.skidTime <= 0 && speed > k.pivotSpeed) {
+    if (hasInput && Math.abs(wrapAngle(want - dir)) > k.brakeAngle) startSkid(p, speed, dir, Math.sign(wrapAngle(want - dir)) || p.lastTurnSign, tuning);
+    else if (abruptRelease) startSkid(p, speed, dir, p.lastTurnSign, tuning);
+  }
+  // Pushing forward again (within the brake angle) cancels the skid.
+  if (p.skidTime > 0 && hasInput && Math.abs(wrapAngle(want - p.skidDir)) <= k.brakeAngle) {
+    p.skidTime = 0;
+    p.heading = p.skidDir;
+  }
 
-    if (speed > k.pivotSpeed && Math.abs(diff) > k.brakeAngle) {
-      // T-stop: stick pulled against the motion.
-      p.braking = true;
-      speed = Math.max(0, speed - k.brakeDecel * dt);
-    } else {
-      const pivoting = speed <= k.pivotSpeed;
-      // Turning: max angular rate limited by the minimum radius at this speed.
-      const maxRate = pivoting ? k.pivotTurnRate : Math.min(k.maxTurnRate, speed / (k.turnRadiusBase + k.turnRadiusPerSpeed2 * speed * speed));
-      const maxTurn = maxRate * dt;
-      const turn = diff > maxTurn ? maxTurn : diff < -maxTurn ? -maxTurn : diff;
-      dir = wrapAngle(dir + turn);
-      if (maxTurn > 0) p.turnLock = Math.abs(turn) / maxTurn;
-      if (!pivoting && maxTurn > 0) {
-        // Turning at full lock bleeds speed; gentle curves are almost free.
-        const lock = Math.abs(turn) / maxTurn;
-        speed -= k.turnSpeedLoss * Math.abs(turn) * speed * lock * lock;
-      }
-      if (speed < target) {
-        // Strong start that fades towards the cap. When pivoting, push only once facing
-        // roughly the right way (turn first, then skate).
-        const facing = pivoting ? Math.max(0, Math.cos(wrapAngle(want - dir))) : 1;
-        const a = k.accel * facing * Math.max(0, 1 - speed / (cap * k.accelCapFactor));
-        speed = Math.min(target, speed + a * dt);
-      } else if (speed > target) {
-        speed = Math.max(target, speed - k.overspeedDecel * dt);
-      }
+  if (p.skidTime > 0) {
+    // Keep sliding the way we were going, losing all speed over skidTime. skidSlide > 1 keeps
+    // more speed early (longer slide), < 1 bites harder at the start.
+    p.braking = true;
+    p.skidTime = Math.max(0, p.skidTime - dt);
+    const u = 1 - p.skidTime / p.skidDuration;
+    speed = p.skidSpeed0 * Math.pow(Math.max(0, 1 - u), 1 / Math.max(0.1, k.skidSlide));
+    dir = p.skidDir;
+    p.wasSprinting = false;
+    p.heading = wrapAngle(dir + p.skidSide * k.skidBodyTurn * skidBodyEnvelope(u));
+    if (p.skidTime === 0) {
+      speed = 0;
+      p.heading = dir;
     }
+  } else if (!hasInput) {
+    // Glide: stick brought back gently → slow, smooth deceleration, never a sudden stop.
+    speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
+    p.wasSprinting = false;
+  } else {
+    const sprinting = cmd.sprint;
+    // Sprint push: a short burst of extra acceleration when a sprint starts.
+    if (sprinting && !p.wasSprinting && p.boostCooldown <= 0) {
+      p.boostTime = k.sprintBoostTime;
+      p.boostCooldown = k.sprintBoostCooldown;
+    }
+    p.wasSprinting = sprinting;
+    const boosting = sprinting && p.boostTime > 0;
+    p.boostTime = sprinting ? Math.max(0, p.boostTime - dt) : 0;
+
+    const cap = sprinting ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
+    const target = sprinting ? cap + (boosting ? k.sprintBoostOvershoot : 0) : cap * mag;
+    const diff = wrapAngle(want - dir);
+    const pivoting = speed <= k.pivotSpeed;
+    // Turning: max angular rate limited by the minimum radius at this speed.
+    const maxRate = pivoting ? k.pivotTurnRate : Math.min(k.maxTurnRate, speed / (k.turnRadiusBase + k.turnRadiusPerSpeed2 * speed * speed));
+    const maxTurn = maxRate * dt;
+    const turn = diff > maxTurn ? maxTurn : diff < -maxTurn ? -maxTurn : diff;
+    dir = wrapAngle(dir + turn);
+    if (maxTurn > 0) p.turnLock = Math.abs(turn) / maxTurn;
+    if (Math.abs(turn) > 1e-4) p.lastTurnSign = turn > 0 ? 1 : -1;
+    if (!pivoting && maxTurn > 0) {
+      // Turning at full lock bleeds speed; gentle curves are almost free.
+      const lock = Math.abs(turn) / maxTurn;
+      speed -= k.turnSpeedLoss * Math.abs(turn) * speed * lock * lock;
+    }
+    if (speed < target) {
+      // Strong start that fades towards the cap. When pivoting, push only once facing
+      // roughly the right way (turn first, then skate).
+      const facing = pivoting ? Math.max(0, Math.cos(wrapAngle(want - dir))) : 1;
+      const a = k.accel * facing * Math.max(0, 1 - speed / (cap * k.accelCapFactor)) + (boosting ? k.sprintBoostAccel : 0);
+      speed = Math.min(target, speed + a * dt);
+    } else if (speed > target) {
+      // Above the target (sprint over, stick eased back): natural slow-down.
+      speed = Math.max(target, speed - k.overspeedDecel * dt);
+    }
+    p.heading = dir;
   }
 
   p.vx = Math.cos(dir) * speed;
@@ -117,9 +195,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.x += p.vx * dt;
   p.y += p.vy * dt;
   resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
-
-  // Facing follows the direction of travel; when (almost) still it turns to the stick.
-  if (!p.braking) p.heading = dir;
+  if (!hasInput && p.skidTime <= 0 && speed < 1e-3) p.heading = dir;
 }
 
 /** Separate two overlapping players and exchange the closing part of their velocities. */

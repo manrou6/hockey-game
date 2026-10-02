@@ -24,13 +24,13 @@ test('tuning mode: change a value on the phone, it persists, only changed values
 
   const row = panel.locator('.tp-row[data-path="skating.maxSpeed"]');
   await expect(row.locator('.tp-label')).toHaveText('Velocitat màxima');
-  await expect(row.locator('.tp-value')).toHaveText('7.5 m/s');
+  await expect(row.locator('.tp-value')).toHaveText('8.4 m/s');
   await row.locator('.tp-step', { hasText: '+' }).click();
   await row.locator('.tp-step', { hasText: '+' }).click();
-  await expect(row.locator('.tp-value')).toHaveText('7.7 m/s');
+  await expect(row.locator('.tp-value')).toHaveText('8.6 m/s');
   await expect(row).toHaveClass(/modified/);
-  await expect(row.locator('.tp-factory')).toHaveText('fàbrica: 7.5 m/s');
-  expect(await tuningGet(page, 'skating.maxSpeed')).toBeCloseTo(7.7, 6);
+  await expect(row.locator('.tp-factory')).toHaveText('fàbrica: 8.4 m/s');
+  expect(await tuningGet(page, 'skating.maxSpeed')).toBeCloseTo(8.6, 6);
   await expect(page.locator('#tuning-chip')).toHaveText('1 modificats');
 
   // Degrees are shown for angles but stored in radians.
@@ -51,20 +51,20 @@ test('tuning mode: change a value on the phone, it persists, only changed values
       return '';
     }
   });
-  if (copied) expect(copied).toContain('skating.maxSpeed = 7.7 (default 7.5)');
+  if (copied) expect(copied).toContain('skating.maxSpeed = 8.6 (default 8.4)');
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('patins.tuning.v1')!));
   expect(Object.keys(stored).sort()).toEqual(['cameraTv.fov', 'skating.maxSpeed']);
 
   await page.reload();
-  expect(await tuningGet(page, 'skating.maxSpeed')).toBeCloseTo(7.7, 6);
+  expect(await tuningGet(page, 'skating.maxSpeed')).toBeCloseTo(8.6, 6);
 
   await page.click('#btn-play');
   await page.click('#btn-tuning');
   page.once('dialog', (d) => void d.accept());
   await page.click('#tp-reset-all');
   await expect(page.locator('#tuning-chip')).toBeHidden();
-  expect(await tuningGet(page, 'skating.maxSpeed')).toBe(7.5);
+  expect(await tuningGet(page, 'skating.maxSpeed')).toBe(8.4);
   expect(await page.evaluate(() => localStorage.getItem('patins.tuning.v1'))).toBeNull();
 });
 
@@ -75,8 +75,8 @@ test('a saved value whose factory default changed is dropped with a notice', asy
     localStorage.setItem(
       'patins.tuning.v1',
       JSON.stringify({
-        'skating.maxSpeed': { v: 9, base: 7.0 }, // factory was 7.0 when changed → now 7.5: stale
-        'skating.accel': { v: 12, base: 10 }, // still valid
+        'skating.maxSpeed': { v: 9, base: 7.0 }, // factory was 7.0 when changed → now 8.4: stale
+        'skating.accel': { v: 12, base: 11.2 }, // still valid
       }),
     );
   });
@@ -85,7 +85,7 @@ test('a saved value whose factory default changed is dropped with a notice', asy
   await expect(notice).toBeVisible();
   await expect(notice).toContainText('Velocitat màxima');
   await expect(notice).not.toContainText('Acceleració inicial');
-  expect(await tuningGet(page, 'skating.maxSpeed')).toBe(7.5);
+  expect(await tuningGet(page, 'skating.maxSpeed')).toBe(8.4);
   expect(await tuningGet(page, 'skating.accel')).toBe(12);
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('patins.tuning.v1')!));
   expect(Object.keys(stored)).toEqual(['skating.accel']);

@@ -24,10 +24,10 @@ function timeUntil(p: PlayerState, c: PlayerCommand, cond: (p: PlayerState) => b
   return Infinity;
 }
 
-/** A player already cruising along +x at top speed, at rink centre. */
+/** A player already cruising along +x at the normal top speed, moved to rink centre. */
 function cruising(): PlayerState {
-  const p = createPlayer(0, -10, 0, 0);
-  run(p, cmd(1, 0), 4);
+  const p = createPlayer(0, -18, 4, 0);
+  run(p, cmd(1, 0), 3);
   p.x = 0;
   p.y = 0;
   return p;
@@ -36,22 +36,22 @@ function cruising(): PlayerState {
 describe('skating: acceleration', () => {
   let p: PlayerState;
   beforeEach(() => {
-    p = createPlayer(0, -12, 0, 0);
+    p = createPlayer(0, -18, 4, 0);
   });
-  it('reaches 7 m/s in ~1.8 s from standstill', () => {
-    const t = timeUntil(p, cmd(1, 0), (q) => speed(q) >= 7);
-    expect(t).toBeGreaterThan(1.5);
-    expect(t).toBeLessThan(2.1);
+  it('reaches 90% of the normal top speed in ~1.5 s from standstill', () => {
+    const t = timeUntil(p, cmd(1, 0), (q) => speed(q) >= 0.9 * K.maxSpeed);
+    expect(t).toBeGreaterThan(1.3);
+    expect(t).toBeLessThan(1.9);
   });
   it('has a strong start (non-linear curve)', () => {
     run(p, cmd(1, 0), 0.5);
-    expect(speed(p)).toBeGreaterThan(3); // > 40% of 7 m/s in the first 28% of the time
+    expect(speed(p)).toBeGreaterThan(3);
   });
   it('caps at maxSpeed without sprint and sprintSpeed with sprint', () => {
     run(p, cmd(1, 0), 3);
     expect(speed(p)).toBeCloseTo(K.maxSpeed, 5);
-    p.x = -12;
-    run(p, cmd(1, 0, true), 3);
+    p.x = -18;
+    run(p, cmd(1, 0, true), 3.2);
     expect(speed(p)).toBeCloseTo(K.sprintSpeed, 5);
   });
   it('a half-pushed stick gives a lower cruising speed', () => {
@@ -61,30 +61,100 @@ describe('skating: acceleration', () => {
   });
 });
 
-describe('skating: glide and brake', () => {
-  it('glides smoothly when the stick is released (never stops dead)', () => {
+describe('skating: sprint push', () => {
+  it('entering a sprint gives a short push that briefly goes above the sprint top speed, then settles', () => {
     const p = cruising();
+    let peak = 0;
+    let after03 = 0;
+    for (let i = 0; i < 120; i++) {
+      stepPlayer(p, cmd(1, 0, true), TUNING, DT);
+      peak = Math.max(peak, speed(p));
+      if (i === 17) after03 = speed(p);
+      p.x = 0; // stay in the middle of the rink
+    }
+    // The push is noticeable: +~2 m/s in 0.3 s (normal acceleration alone is much slower near the cap).
+    expect(after03 - K.maxSpeed).toBeGreaterThan(1.5);
+    expect(peak).toBeGreaterThan(K.sprintSpeed);
+    expect(peak).toBeLessThanOrEqual(K.sprintSpeed + K.sprintBoostOvershoot + 1e-6);
+    expect(speed(p)).toBeCloseTo(K.sprintSpeed, 3);
+  });
+  it('no second push when flicking in and out of sprint (cooldown)', () => {
+    const p = cruising();
+    stepPlayer(p, cmd(1, 0, true), TUNING, DT);
+    expect(p.boostTime).toBeGreaterThan(0);
+    stepPlayer(p, cmd(1, 0, false), TUNING, DT);
+    stepPlayer(p, cmd(1, 0, true), TUNING, DT);
+    expect(p.boostTime).toBe(0);
+  });
+  it('leaving the sprint slows down naturally (not instantly) to the normal top speed', () => {
+    const p = cruising();
+    for (let i = 0; i < 150; i++) {
+      stepPlayer(p, cmd(1, 0, true), TUNING, DT);
+      p.x = 0;
+    }
     const v0 = speed(p);
-    stepPlayer(p, cmd(0, 0), TUNING, DT);
-    expect(v0 - speed(p)).toBeLessThan(0.1); // no sudden drop on release
-    p.x = -15;
+    stepPlayer(p, cmd(1, 0), TUNING, DT);
+    expect(v0 - speed(p)).toBeLessThan(0.1);
+    run(p, cmd(1, 0), 1.5);
+    expect(speed(p)).toBeCloseTo(K.maxSpeed, 3);
+  });
+});
+
+describe('skating: glide and four-wheel skid stop', () => {
+  it('bringing the stick back gently glides smoothly (never stops dead)', () => {
+    const p = cruising();
+    for (let i = 0; i < 30; i++) stepPlayer(p, cmd(1 - i / 30, 0), TUNING, DT);
+    p.x = -10;
     run(p, cmd(0, 0), 1);
     expect(speed(p)).toBeGreaterThan(5);
+    expect(p.skidTime).toBe(0);
     p.x = -15;
     run(p, cmd(0, 0), 15);
     expect(speed(p)).toBe(0);
   });
-  it('T-stop: pulling the stick back stops from top speed in ~0.6 s', () => {
-    const p = cruising();
-    // Forward motion is gone once vx drops to ~0 (then the skater pivots and pushes back).
-    const t = timeUntil(p, cmd(-1, 0), (q) => q.vx < 0.3);
-    expect(t).toBeGreaterThan(0.45);
-    expect(t).toBeLessThan(0.75);
-  });
-  it('flags braking while doing the T-stop', () => {
+
+  for (const [name, c] of [['stick reversed', cmd(-1, 0)], ['stick released abruptly', cmd(0, 0)]] as const) {
+    it(`${name} at speed: skids on in the same direction and stops in ~0.4-0.6 s`, () => {
+      const p = cruising();
+      const v0 = speed(p);
+      stepPlayer(p, c, TUNING, DT);
+      expect(p.braking).toBe(true);
+      expect(v0 - speed(p)).toBeLessThan(0.6); // not a dead stop
+      let t = DT;
+      let maxBodyTurn = 0;
+      while (speed(p) > 0.3 && t < 2) {
+        expect(p.vx).toBeGreaterThan(0); // still sliding the way it was going
+        maxBodyTurn = Math.max(maxBodyTurn, Math.abs(p.heading));
+        stepPlayer(p, c, TUNING, DT);
+        t += DT;
+      }
+      expect(t).toBeGreaterThan(0.4);
+      expect(t).toBeLessThan(0.65);
+      // The body turns towards the skid side, then comes back.
+      expect(maxBodyTurn).toBeGreaterThan(K.skidBodyTurn * 0.8);
+    });
+  }
+
+  it('pushing forward again cancels the skid', () => {
     const p = cruising();
     stepPlayer(p, cmd(-1, 0), TUNING, DT);
-    expect(p.braking).toBe(true);
+    expect(p.skidTime).toBeGreaterThan(0);
+    stepPlayer(p, cmd(1, 0), TUNING, DT);
+    expect(p.skidTime).toBe(0);
+    expect(speed(p)).toBeGreaterThan(K.maxSpeed * 0.9);
+  });
+
+  it('after the skid with the stick still reversed, the skater turns and goes the other way', () => {
+    const p = cruising();
+    run(p, cmd(-1, 0), 1.5);
+    expect(p.vx).toBeLessThan(-1);
+  });
+
+  it('releasing the stick at low speed just glides (no skid)', () => {
+    const p = createPlayer(0, 0, 4, 0);
+    run(p, cmd(0.3, 0), 2);
+    stepPlayer(p, cmd(0, 0), TUNING, DT);
+    expect(p.skidTime).toBe(0);
   });
 });
 

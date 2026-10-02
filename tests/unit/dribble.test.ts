@@ -119,6 +119,17 @@ describe('dribbling: feel at normal speed', () => {
   });
 });
 
+describe('dribbling: skid stop', () => {
+  it('a skid stop at speed makes the ball run on ahead of the stick', () => {
+    const w = carrying(-18, 3);
+    run(w, cmd(1, 0), 150);
+    const before = w.ball.separation;
+    let maxSep = 0;
+    run(w, cmd(-1, 0), 20, (ww) => (maxSep = Math.max(maxSep, ww.ball.separation)));
+    expect(maxSep).toBeGreaterThan(before + 0.12);
+  });
+});
+
 describe('dribbling: losing the ball', () => {
   it('normal-speed slaloms for a minute never lose the ball', () => {
     const w = carrying(0, 0);

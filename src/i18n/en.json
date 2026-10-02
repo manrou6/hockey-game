@@ -27,8 +27,7 @@
   "tuning.skating.turnRadiusBase": "Minimum turn radius",
   "tuning.skating.turnRadiusPerSpeed2": "Extra turn radius at speed",
   "tuning.skating.turnSpeedLoss": "Speed lost in tight turns",
-  "tuning.skating.brakeDecel": "Braking power",
-  "tuning.skating.brakeAngle": "Angle to T-stop",
+  "tuning.skating.brakeAngle": "Angle to skid-stop (stick reversed)",
   "tuning.skating.glideDecel": "Glide friction",
   "tuning.skating.glideDrag": "Speed-based glide drag",
   "tuning.skating.overspeedDecel": "Slow-down after sprint",
@@ -133,5 +132,16 @@
   "tuning.buttons.shootSize": "Shoot: size",
   "tuning.buttons.dribbleBottom": "Dribble: from bottom",
   "tuning.buttons.dribbleRight": "Dribble: from right",
-  "tuning.buttons.dribbleSize": "Dribble: size"
+  "tuning.buttons.dribbleSize": "Dribble: size",
+  "tuning.skating.sprintBoostAccel": "Sprint push: strength",
+  "tuning.skating.sprintBoostTime": "Sprint push: duration",
+  "tuning.skating.sprintBoostOvershoot": "Sprint push: overshoot above top speed",
+  "tuning.skating.sprintBoostCooldown": "Sprint push: cooldown",
+  "tuning.skating.skidTime": "Skid stop: stopping time",
+  "tuning.skating.skidSlide": "Skid stop: how much it slides",
+  "tuning.skating.skidBodyTurn": "Skid stop: body turn",
+  "tuning.skating.skidMinSpeed": "Skid on release: min speed",
+  "tuning.skating.skidReleaseStick": "Skid on release: min stick",
+  "tuning.skating.skidReleaseWindow": "Skid on release: gesture speed",
+  "tuning.dribble.skidSeparation": "Extra separation when skid-stopping"
 }
