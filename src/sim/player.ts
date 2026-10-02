@@ -27,6 +27,15 @@ export interface PlayerState {
   control: number;
   /** How hard the skater is turning, 0 (straight) .. 1 (full lock), last tick. */
   turnLock: number;
+  /** Pase attribute 0-99 (docs/01): smaller pass errors. */
+  passing: number;
+  /** PASE held for this long (s); −1 = not held. On release the pass is queued in bufPass
+   * with its kind (lofted or ground) and charge 0..1 (lofted pass to nobody: distance). */
+  passHold: number;
+  passLoft: boolean;
+  passCharge: number;
+  /** The last pass this player received was lofted (teammates give it back the same way). */
+  receivedLoft: boolean;
   /** Ticks during which this player can't take the ball (just passed / shot / lost it). */
   noPickupTicks: number;
   /** Input buffer (docs/03 §3): ticks left for a PASE / TIRO / REGATE press to still fire. */
@@ -74,6 +83,8 @@ export interface PlayerState {
   bot: boolean;
   /** Seconds this bot has been holding the ball (to give it back after a delay). */
   holdTime: number;
+  /** Supporting teammate standing at his spot (waits until it moves away enough). */
+  botSettled: boolean;
   /** Previous-tick pose, used by the renderer to interpolate between ticks. */
   prevX: number;
   prevY: number;
@@ -83,14 +94,14 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, passHold: -1, passLoft: false, passCharge: 0, receivedLoft: false, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,
     cutTime: 0, cutDuration: 0, cutSpeed0: 0, cutFrom: 0, cutTo: 0, cutSide: 1, cutCooldown: 0,
     cutPrep: 0, cutPrepDuration: 0, cutSpeedMid: 0, cutRecovery: 0,
     stickHist: new Array<number>(STICK_HISTORY).fill(Number.NaN), stickHistIdx: 0,
-    bot: false, holdTime: 0,
+    bot: false, holdTime: 0, botSettled: false,
     prevX: x, prevY: y, prevHeading: heading,
   };
 }

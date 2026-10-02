@@ -10,8 +10,9 @@ export interface ActionEdges {
 }
 
 /**
- * Right-thumb buttons (docs/03 §3A): PASE, TIRO, REGATE. All fire on touch-down (fastest
- * response). Sprint is not on a button any more: it's the outer zone of the joystick.
+ * Right-thumb buttons (docs/03 §3A): PASE, TIRO, REGATE. Presses register on touch-down
+ * (fastest response); PASE also reports when it is held (tap = ground pass, hold = lofted,
+ * the pass leaves on release). Sprint is not on a button any more: it's the outer zone of the joystick.
  * Position and size come from TUNING.buttons (editable live in the tuning panel).
  */
 export class ActionButtons {
@@ -63,6 +64,11 @@ export class ActionButtons {
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
     b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  /** Is this button being held down right now? */
+  held(id: ActionId): boolean {
+    return this.pointers[id].size > 0;
   }
 
   /** Release everything (e.g. when pausing). */

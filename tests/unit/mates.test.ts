@@ -93,7 +93,7 @@ describe('teammates test bench (F1.4a)', () => {
     expect(w.controlled).toBe(0);
   });
 
-  it('provisional aim (until F1.4b): a pass roughly towards a teammate goes to his stick', () => {
+  it('Light assist: a pass 20° off a teammate still reaches his stick (he steps across)', () => {
     const tuning = tuningWith({ move: 0 });
     const w = createWorld(9, 2);
     takeBall(w, tuning);
@@ -115,7 +115,7 @@ describe('teammates test bench (F1.4a)', () => {
   });
 
   it('teammates offer a passing line beside and ahead of the carrier, or stand still', () => {
-    const tuning = tuningWith({ switchControl: 0 });
+    const tuning = tuningWith({ switchControl: 0, spotVariation: 0, speedVariation: 0 });
     const w = createWorld(6, 2);
     takeBall(w, tuning);
     // Carry the ball up the rink, then stop and let them arrive.
@@ -138,6 +138,14 @@ describe('teammates test bench (F1.4a)', () => {
     const [a, b] = w3.players.slice(1);
     expect(w3.players[0]!.y).toBeGreaterThan(6);
     expect(Math.abs(a!.y - b!.y)).toBeGreaterThan(2 * m.supportSide - 1);
+
+    // With variation each teammate has his own rhythm: they don't arrive in lockstep.
+    const varied = tuningWith({ switchControl: 0 });
+    const w4 = createWorld(6, 2);
+    takeBall(w4, varied);
+    step(w4, cmd(1, 0), varied, 40);
+    const [s1, s2] = w4.players.slice(1).map((p) => Math.hypot(p.vx, p.vy));
+    expect(Math.abs(s1! - s2!)).toBeGreaterThan(0.2);
 
     const still = tuningWith({ move: 0, switchControl: 0 });
     const w2 = createWorld(6, 2);

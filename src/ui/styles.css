@@ -105,6 +105,16 @@
 }
 .touch-btn.pressed { background: rgba(244, 178, 60, 0.55); border-color: var(--ui-accent); }
 .action-btn { font-size: 15px !important; }
+/* PASE charge arc: fills while held; past the tap time (lofted pass) it turns accent. */
+.action-pass::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(rgba(255, 255, 255, 0.85) calc(var(--charge, 0) * 360deg), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  opacity: 0; transition: opacity 80ms;
+}
+.action-pass.charging::after { opacity: 1; }
+.action-pass.loft::after { background: conic-gradient(var(--ui-accent) calc(var(--charge, 0) * 360deg), transparent 0); }
 .action-shoot { font-size: 17px !important; background: rgba(230, 57, 70, 0.22); border-color: rgba(255, 140, 140, 0.7); }
 .action-dribble { font-size: 14px !important; }
 @media (hover: hover) and (pointer: fine) {
@@ -113,7 +123,12 @@
 
 /* Menus */
 .menu-root { position: absolute; inset: 0; pointer-events: none; }
-.menu { gap: 12px; padding: 12px calc(24px + var(--safe-r)) 12px calc(24px + var(--safe-l)); overflow-y: auto; justify-content: center; }
+.menu { gap: 12px; padding: 12px calc(24px + var(--safe-r)) 12px calc(24px + var(--safe-l)); overflow-y: auto; justify-content: safe center; }
+/* Settings has many rows: tighter so it fits a phone in landscape (and scrolls if not). */
+#settings-screen { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+#settings-screen .subtitle { font-size: 22px; margin: 0; }
+#settings-screen .choice { min-height: 40px; padding: 4px 12px; }
+#settings-screen .hint { margin: 0; }
 .subtitle { margin: 0 0 4px; font-size: 26px; font-weight: 800; }
 .btn-secondary {
   min-width: 220px;

@@ -157,9 +157,59 @@ export const TUNING = {
     relockTime: 0.3,
     /** Sprint top speed while carrying the ball (sprint without ball: skating.sprintSpeed). */
     sprintSpeedWithBall: 9.3,
-    /** PROVISIONAL until F1.4/F1.5: ground pass speed and quick shot speed (m/s). */
-    passSpeed: 12,
+    /** PROVISIONAL until F1.5: quick shot speed (m/s). */
     shotSpeed: 22,
+  },
+  /**
+   * Passing (docs/03 §3, F1.4b). PASE tap = ground pass, hold = lofted pass; the pass leaves
+   * when the button is released. Values of an AVERAGE player (Pase attribute modulates them
+   * through src/sim/feel.ts in F2).
+   */
+  pass: {
+    /** Held shorter than this = ground pass; longer = lofted pass (s). */
+    tapTime: 0.2,
+    /** Lofted pass to nobody: holding this long beyond tapTime gives the maximum distance (s). */
+    loftChargeTime: 0.6,
+    /** Ground pass to a teammate: launch speed so it reaches him at arrivalSpeed, within
+     * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). */
+    groundArrivalSpeed: 6,
+    groundMinSpeed: 8,
+    groundMaxSpeed: 20,
+    groundNoTargetSpeed: 14,
+    /** Lofted pass: launch angle (rad), lands this far before the receiver so it bounces into
+     * his stick (m), maximum launch speed (m/s), and distance range to nobody (by charge). */
+    loftAngle: 0.5235988,
+    loftLandShort: 1,
+    loftMaxSpeed: 24,
+    loftMinDistance: 6,
+    loftMaxDistance: 22,
+    /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be). */
+    lead: 1,
+    /** Direction error (rad, random but deterministic, about ±1 standard deviation): always,
+     * at full sprint, under full pressure and when off balance (skid / trencada). */
+    errorBase: 0.0261799,
+    errorSprint: 0.0872665,
+    errorPressure: 0.0698132,
+    errorOffBalance: 0.1047198,
+    /** Lofted passes multiply the direction error by this. */
+    errorLoft: 1.5,
+    /** Strength error (fraction of the speed, ±1 standard deviation). */
+    errorPower: 0.04,
+    /** How much a perfect Pase attribute (99) reduces the errors (0 = nothing, 1 = no error). */
+    attributeAdvantage: 0.5,
+  },
+  /**
+   * Pass assist (docs/03 §3): the teammate closest to the aimed direction inside the cone is
+   * the receiver; the direction is corrected towards him by `correction` (0..1) and the
+   * strength is automatic. Level chosen in Settings (Desactivada / Ligera / Fuerte).
+   */
+  assist: {
+    lightCone: 0.4363323,
+    lightCorrection: 0.7,
+    strongCone: 0.7853982,
+    strongCorrection: 1,
+    /** 1 = ring on the floor under the teammate the pass would go to. */
+    targetRing: 1,
   },
   /**
    * Teammates test bench (F1.4) and who the human controls. Final design (docs/03 §3): after
@@ -192,10 +242,12 @@ export const TUNING = {
     /** A slow loose ball this close (m) to a teammate (and closer to him than to you) is
      * picked up by him. */
     fetchRadius: 4,
-    /** Only with switchControl = 0: time a teammate keeps the ball before giving it back (s),
-     * and how much the return pass leads your movement (0 = to where you are, 1 = full). */
+    /** Only with switchControl = 0: time a teammate keeps the ball before giving it back (s). */
     returnDelay: 0.5,
-    returnLead: 1,
+    /** So they don't mirror you: each teammate has his own rhythm (speed ± this fraction)
+     * and his support spot drifts slowly by up to this many metres. */
+    speedVariation: 0.15,
+    spotVariation: 1.5,
   },
   /** Human input devices (docs/03 §3). */
   input: {

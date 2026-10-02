@@ -177,43 +177,31 @@ export function pickUp(ball: BallState, index: number, p: PlayerState): void {
 /** Record button presses in the player's input buffer (docs/03 §3: 150 ms). */
 export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning): void {
   const ticks = Math.max(1, Math.round(tuning.input.bufferTime * tuning.sim.tickRate));
-  p.bufPass = cmd.pass ? ticks : Math.max(0, p.bufPass - 1);
+  // PASE is queued on release (src/sim/pass.ts updatePassButton), not on the press.
+  p.bufPass = Math.max(0, p.bufPass - 1);
   p.bufShoot = cmd.shoot ? ticks : Math.max(0, p.bufShoot - 1);
   p.bufDribble = cmd.dribble ? ticks : Math.max(0, p.bufDribble - 1);
   if (p.noPickupTicks > 0) p.noPickupTicks--;
 }
 
 /**
- * PROVISIONAL pass and quick shot (replaced by the full mechanics in F1.4 / F1.5), so the
- * ball can already be released while tuning the dribble. Returns what made the ball leave
- * ('shot' / 'pass'), or null if the player still has it.
+ * PROVISIONAL quick shot (replaced by the full mechanics in F1.5): towards the centre of the
+ * attacked goal if roughly facing it, else straight ahead. Returns true if the ball left.
  */
-export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): 'shot' | 'pass' | null {
+export function provisionalShot(ball: BallState, p: PlayerState, tuning: Tuning): boolean {
+  if (p.bufShoot <= 0) return false;
   const d = dribbleFor(p, tuning);
-  if (p.bufShoot > 0) {
-    // Towards the centre of the goal being attacked if roughly facing it, else straight ahead.
-    const goalX = (p.team === 0 ? 1 : -1) * (RINK.length / 2 - RINK.goalLineFromEnd);
-    const toGoal = Math.atan2(-p.y, goalX - p.x);
-    let diff = toGoal - p.heading;
-    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    const a = Math.abs(diff) < 1.3 ? toGoal : p.heading;
-    releaseBall(ball, p, tuning);
-    ball.vx = Math.cos(a) * d.shotSpeed;
-    ball.vy = Math.sin(a) * d.shotSpeed;
-    ball.vz = 1.2;
-    p.bufShoot = 0;
-    p.bufPass = 0;
-    return 'shot';
-  }
-  if (p.bufPass > 0) {
-    const m = Math.hypot(cmd.moveX, cmd.moveY);
-    const a = m > 0.05 ? Math.atan2(cmd.moveY, cmd.moveX) : p.heading;
-    releaseBall(ball, p, tuning);
-    ball.vx = Math.cos(a) * d.passSpeed;
-    ball.vy = Math.sin(a) * d.passSpeed;
-    ball.vz = 0;
-    p.bufPass = 0;
-    return 'pass';
-  }
-  return null;
+  const goalX = (p.team === 0 ? 1 : -1) * (RINK.length / 2 - RINK.goalLineFromEnd);
+  const toGoal = Math.atan2(-p.y, goalX - p.x);
+  let diff = toGoal - p.heading;
+  diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  const a = Math.abs(diff) < 1.3 ? toGoal : p.heading;
+  releaseBall(ball, p, tuning);
+  ball.vx = Math.cos(a) * d.shotSpeed;
+  ball.vy = Math.sin(a) * d.shotSpeed;
+  ball.vz = 1.2;
+  p.bufShoot = 0;
+  p.bufPass = 0;
+  p.passHold = -1;
+  return true;
 }

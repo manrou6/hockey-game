@@ -59,6 +59,8 @@ function pause(): void {
   if (game.paused) return;
   game.paused = true;
   input.enabled = false;
+  // A PASE held when pausing is cancelled (it must not fire on resume).
+  for (const p of game.world.players) p.passHold = -1;
   hud.hidden = true;
   tuningPanel.close();
   menu.showMain();
@@ -72,6 +74,22 @@ const menu = new Menu(settings, {
   onQualityChange: (q) => renderer.setQuality(q),
   onTuningModeChange: () => updateTuningUi(),
   onCameraChange: (id) => setCamera(id),
+  onAssistChange: (level) => {
+    game.world.assist = level;
+  },
+});
+game.world.assist = settings.assist;
+
+// PASE button: an arc fills while it's held; past the tap time it turns into a lofted pass.
+const passButton = input.buttons.buttons.pass;
+game.onFrame(() => {
+  const p = game.world.players[game.world.controlled];
+  const hold = p ? p.passHold : -1;
+  const k = TUNING.pass;
+  const charging = hold >= 0;
+  passButton.classList.toggle('charging', charging);
+  passButton.classList.toggle('loft', charging && hold >= k.tapTime);
+  if (charging) passButton.style.setProperty('--charge', String(Math.min(1, hold / (k.tapTime + k.loftChargeTime))));
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.
@@ -157,7 +175,7 @@ game.start();
   /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
   benchSim: (ticks: number): number => {
     const w = createWorld(7, TEAMMATES);
-    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false }];
+    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false, passHeld: false }];
     const t0 = performance.now();
     for (let i = 0; i < ticks; i++) {
       if (i % 90 === 0) cmds[0]!.moveY = -cmds[0]!.moveY;

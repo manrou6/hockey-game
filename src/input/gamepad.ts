@@ -11,7 +11,8 @@ let stickSprinting = false;
 const mapped: MappedStick = { x: 0, y: 0, sprint: false };
 
 /** First connected gamepad. Writes movement/sprint into `out` and button presses into `edges`. */
-export function readGamepad(out: { x: number; y: number; sprint: boolean }, edges: ActionEdges | null): boolean {
+export function readGamepad(out: { x: number; y: number; sprint: boolean; passHeld?: boolean }, edges: ActionEdges | null): boolean {
+  out.passHeld = false;
   out.x = 0;
   out.y = 0;
   out.sprint = false;
@@ -30,6 +31,7 @@ export function readGamepad(out: { x: number; y: number; sprint: boolean }, edge
     out.y = mapped.y;
     const pressed = (b: number): boolean => Boolean(pad.buttons[b]?.pressed);
     out.sprint = (mapped.x !== 0 || mapped.y !== 0) && (mapped.sprint || pressed(5) || pressed(7));
+    out.passHeld = pressed(0);
     if (edges) {
       if (pressed(0) && !prev[0]) edges.pass = true;
       if (pressed(1) && !prev[1]) edges.shoot = true;

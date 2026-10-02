@@ -61,6 +61,8 @@ export class Renderer {
   private readonly ballMarker: Mesh;
   /** Bright ring on the floor under the player the human controls. */
   private readonly controlRing: Mesh;
+  /** Ring under the teammate the controlled player's pass would go to (assist target). */
+  private readonly targetRing: Mesh;
   /** Shirt number floating above each player's head (always facing the camera). */
   private readonly numberLabels: Mesh[] = [];
 
@@ -97,7 +99,8 @@ export class Renderer {
     buildRink(this.scene);
     this.ballMesh = this.createBallMesh();
     this.ballMarker = this.createBallMarker();
-    this.controlRing = this.createControlRing();
+    this.controlRing = this.createRing('controlRing', 'rgba(255,214,40,0.95)', 0.62, 12);
+    this.targetRing = this.createRing('targetRing', 'rgba(110,235,255,1)', 0.6, 14);
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
     this.setQuality(quality);
@@ -198,21 +201,21 @@ export class Renderer {
     return disc;
   }
 
-  /** Yellow ring on the floor marking the controlled player (FIFA-like). */
-  private createControlRing(): Mesh {
-    const disc = CreateDisc('controlRing', { radius: 0.62, tessellation: 32 }, this.scene);
+  /** Ring on the floor: yellow for the controlled player (FIFA-like), cyan for the pass target. */
+  private createRing(name: string, color: string, radius: number, width: number): Mesh {
+    const disc = CreateDisc(name, { radius, tessellation: 32 }, this.scene);
     disc.rotation.x = Math.PI / 2;
-    const tex = new DynamicTexture('controlRingTex', { width: 128, height: 128 }, this.scene, false);
+    const tex = new DynamicTexture(`${name}Tex`, { width: 128, height: 128 }, this.scene, false);
     const ctx = tex.getContext() as CanvasRenderingContext2D;
     ctx.clearRect(0, 0, 128, 128);
-    ctx.strokeStyle = 'rgba(255,214,40,0.95)';
-    ctx.lineWidth = 12;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
     ctx.beginPath();
     ctx.arc(64, 64, 56, 0, Math.PI * 2);
     ctx.stroke();
     tex.update();
     tex.hasAlpha = true;
-    const mat = new StandardMaterial('controlRingMat', this.scene);
+    const mat = new StandardMaterial(`${name}Mat`, this.scene);
     mat.diffuseTexture = tex;
     mat.useAlphaFromDiffuseTexture = true;
     mat.emissiveColor = new Color3(1, 1, 1);
@@ -330,6 +333,9 @@ export class Renderer {
     const controlled = this.playerMeshes[world.controlled];
     this.controlRing.isVisible = Boolean(controlled) && world.players.length > 1;
     if (controlled) this.controlRing.position.set(controlled.position.x, 0.008, controlled.position.z);
+    const target = this.playerMeshes[world.aimTarget];
+    this.targetRing.isVisible = Boolean(target) && TUNING.assist.targetRing >= 0.5;
+    if (target) this.targetRing.position.set(target.position.x, 0.007, target.position.z);
     // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
     // compensated by the distance to the camera (last frame's pose) and multiplied by the
     // current camera's own factor; never smaller than the real ball.
