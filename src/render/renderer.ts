@@ -4,17 +4,22 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color';
 import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
+import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
+import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
+import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
-import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { SceneInstrumentation } from '@babylonjs/core/Instrumentation/sceneInstrumentation';
 import { EngineInstrumentation } from '@babylonjs/core/Instrumentation/engineInstrumentation';
 import '@babylonjs/core/Engines/Extensions/engine.query';
 import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
-import type { WorldState } from '../sim/world';
+import { BALL_RADIUS, type WorldState } from '../sim/world';
+import { TUNING } from '../config/tuning';
 import { buildRink } from './rinkBuilder';
 import { TvCamera } from './tvCamera';
 
@@ -33,6 +38,8 @@ export class Renderer {
   private readonly keyLight: DirectionalLight;
   private quality: QualityLevel;
   private readonly playerMeshes: Mesh[] = [];
+  private readonly ballMesh: Mesh;
+  private readonly ballMarker: Mesh;
   /** Index of the player the TV camera follows (until there is a ball). */
   followPlayer = 0;
 
@@ -67,6 +74,8 @@ export class Renderer {
     this.keyLight = key;
 
     buildRink(this.scene);
+    this.ballMesh = this.createBallMesh();
+    this.ballMarker = this.createBallMarker();
     this.tvCamera = new TvCamera(this.scene);
     this.scene.activeCamera = this.tvCamera.camera;
     this.setQuality(quality);
@@ -123,9 +132,70 @@ export class Renderer {
       noseMat.diffuseColor = new Color3(1, 0.85, 0.2);
       nose.material = noseMat;
       nose.parent = body;
+      this.createStick(i).parent = body;
       this.shadows?.addShadowCaster(body, true);
       this.playerMeshes.push(body);
     }
+  }
+
+  private createBallMesh(): Mesh {
+    const ball = CreateSphere('ball', { diameter: BALL_RADIUS * 2, segments: 12 }, this.scene);
+    const mat = new StandardMaterial('ballMat', this.scene);
+    mat.diffuseColor = new Color3(1, 0.5, 0.08);
+    mat.emissiveColor = new Color3(0.35, 0.15, 0.02);
+    mat.specularColor = new Color3(0.5, 0.5, 0.5);
+    ball.material = mat;
+    ball.isPickable = false;
+    this.shadows?.addShadowCaster(ball);
+    return ball;
+  }
+
+  /** Soft disc on the floor under the ball (readability; fades as the ball rises). */
+  private createBallMarker(): Mesh {
+    const disc = CreateDisc('ballMarker', { radius: 1, tessellation: 24 }, this.scene);
+    disc.rotation.x = Math.PI / 2;
+    const tex = new DynamicTexture('ballMarkerTex', { width: 64, height: 64 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 32);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.6, 'rgba(255,255,255,0.25)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+    tex.update();
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial('ballMarkerMat', this.scene);
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    disc.material = mat;
+    disc.isPickable = false;
+    return disc;
+  }
+
+  /** Placeholder rink-hockey stick (shaft + curved blade), held on the right side. */
+  private createStick(i: number): Mesh {
+    // Local frame of the body: +x forward, -z right, origin at mid-height (0.875 m).
+    const bar = (a: Vector3, b: Vector3, d: number): Mesh => {
+      const c = CreateCylinder('stickPart', { height: Vector3.Distance(a, b), diameter: d, tessellation: 6 }, this.scene);
+      c.position = a.add(b).scale(0.5);
+      c.rotationQuaternion = Quaternion.FromUnitVectorsToRef(Vector3.Up(), b.subtract(a).normalize(), new Quaternion());
+      return c;
+    };
+    const hand = new Vector3(0.12, 0.12, -0.3);
+    const heel = new Vector3(0.48, -0.82, -0.26);
+    const toe = new Vector3(0.74, -0.84, -0.18);
+    const stick = Mesh.MergeMeshes([bar(hand, heel, 0.05), bar(heel, toe, 0.07)], true) as Mesh;
+    stick.name = `stick${i}`;
+    const mat = new StandardMaterial(`stickMat${i}`, this.scene);
+    mat.diffuseColor = new Color3(0.9, 0.8, 0.6);
+    mat.emissiveColor = new Color3(0.2, 0.18, 0.12);
+    mat.specularColor = new Color3(0.2, 0.2, 0.2);
+    stick.material = mat;
+    stick.isPickable = false;
+    return stick;
   }
 
   /** Update meshes and camera from the sim state, interpolating between ticks. */
@@ -138,9 +208,31 @@ export class Renderer {
       // Sim heading is CCW in the (x, y) plane; Babylon's Y rotation is CW seen from above.
       mesh.rotation.y = -lerpAngle(p.prevHeading, p.heading, alpha);
     }
+    // Ball: interpolated, drawn slightly bigger (tunable) with its bottom on the floor.
+    const b = world.ball;
+    const scale = TUNING.ball.visualScale;
+    const by = b.prevZ + (b.z - b.prevZ) * alpha;
+    this.ballMesh.scaling.setAll(scale);
+    this.ballMesh.position.set(b.prevX + (b.x - b.prevX) * alpha, by + BALL_RADIUS * (scale - 1), b.prevY + (b.y - b.prevY) * alpha);
+    const mr = TUNING.ball.markerRadius;
+    this.ballMarker.isVisible = mr > 0;
+    if (mr > 0) {
+      // Grows and fades with height so it also tells how high the ball is.
+      const lift = Math.max(0, by - BALL_RADIUS);
+      this.ballMarker.scaling.setAll(mr * (1 + lift * 0.8));
+      this.ballMarker.visibility = 1 / (1 + lift * 1.5);
+      this.ballMarker.position.set(this.ballMesh.position.x, 0.006, this.ballMesh.position.z);
+    }
+
+    // Camera aims between the controlled player and the ball.
     const f = world.players[this.followPlayer];
     const followed = this.playerMeshes[this.followPlayer];
-    if (f && followed) this.tvCamera.update(followed.position.x, followed.position.z, f.vx, f.vy, frameSeconds);
+    if (f && followed) {
+      const w = TUNING.camera.ballWeight;
+      const ax = followed.position.x + (this.ballMesh.position.x - followed.position.x) * w;
+      const az = followed.position.z + (this.ballMesh.position.z - followed.position.z) * w;
+      this.tvCamera.update(ax, az, f.vx + (b.vx - f.vx) * w, f.vy + (b.vy - f.vy) * w, frameSeconds);
+    }
   }
 
   render(): void {

@@ -2,6 +2,9 @@ import type { Tuning } from '../config/tuning';
 import type { PlayerCommand } from './commands';
 import { resolveStatic } from './rink';
 
+/** Player body height for ball contact (m). */
+export const PLAYER_HEIGHT = 1.75;
+
 export interface PlayerState {
   id: number;
   /** Position on the rink plane (m). Origin = centre spot, x along length, y along width. */

@@ -68,5 +68,21 @@
   "common.no": "Off",
   "hud.tuning": "Tuning",
   "settings.tuningMode": "Tuning mode",
-  "settings.tuningModeHint": "Shows the ⚙ button in game to adjust the game-feel numbers."
+  "settings.tuningModeHint": "Shows the ⚙ button in game to adjust the game-feel numbers.",
+  "tuning.section.ball": "Ball",
+  "tuning.ball.boardRestitution": "Board bounce",
+  "tuning.ball.rollingDecel": "Rolling friction",
+  "tuning.ball.rollingDrag": "Speed-based rolling drag",
+  "tuning.ball.floorRestitution": "Floor bounce",
+  "tuning.ball.floorFriction": "Bounce friction",
+  "tuning.ball.boardFriction": "Board friction",
+  "tuning.ball.boardJitter": "Random board deflection",
+  "tuning.ball.postRestitution": "Post/crossbar bounce",
+  "tuning.ball.netRestitution": "Net bounce (outside)",
+  "tuning.ball.netDamping": "Braking inside the goal",
+  "tuning.ball.playerRestitution": "Bounce off players",
+  "tuning.ball.airDrag": "Air drag",
+  "tuning.ball.visualScale": "Ball visual size",
+  "tuning.camera.ballWeight": "Centre on ball (vs player)",
+  "tuning.ball.markerRadius": "Floor marker under the ball"
 }

@@ -68,5 +68,21 @@
   "common.no": "No",
   "hud.tuning": "Afinació",
   "settings.tuningMode": "Mode afinació",
-  "settings.tuningModeHint": "Mostra el botó ⚙ durant el joc per ajustar els números de la sensació de joc."
+  "settings.tuningModeHint": "Mostra el botó ⚙ durant el joc per ajustar els números de la sensació de joc.",
+  "tuning.section.ball": "Bola",
+  "tuning.ball.boardRestitution": "Rebot a la tanca",
+  "tuning.ball.rollingDecel": "Fregament rodant",
+  "tuning.ball.rollingDrag": "Frenada rodant per velocitat",
+  "tuning.ball.floorRestitution": "Bot a terra",
+  "tuning.ball.floorFriction": "Fregament en botar",
+  "tuning.ball.boardFriction": "Fregament a la tanca",
+  "tuning.ball.boardJitter": "Desviació aleatòria a la tanca",
+  "tuning.ball.postRestitution": "Rebot al pal i al travesser",
+  "tuning.ball.netRestitution": "Rebot a la xarxa (per fora)",
+  "tuning.ball.netDamping": "Frenada dins la porteria",
+  "tuning.ball.playerRestitution": "Rebot als jugadors",
+  "tuning.ball.airDrag": "Fregament de l'aire",
+  "tuning.ball.visualScale": "Mida visual de la bola",
+  "tuning.camera.ballWeight": "Centrar en la bola (vs jugador)",
+  "tuning.ball.markerRadius": "Marca a terra sota la bola"
 }

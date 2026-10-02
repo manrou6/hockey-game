@@ -16,7 +16,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'input' | 'camera';
+  id: 'skating' | 'ball' | 'input' | 'camera';
   params: TuningParamMeta[];
 }
 
@@ -50,6 +50,25 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     ],
   },
   {
+    id: 'ball',
+    params: [
+      { path: 'ball.boardRestitution', min: 0.2, max: 1, step: 0.05, unit: '' },
+      { path: 'ball.rollingDecel', min: 0, max: 3, step: 0.05, unit: 'm/s²' },
+      { path: 'ball.rollingDrag', min: 0, max: 0.5, step: 0.01, unit: '/s' },
+      { path: 'ball.floorRestitution', min: 0, max: 0.9, step: 0.05, unit: '' },
+      { path: 'ball.floorFriction', min: 0, max: 0.6, step: 0.02, unit: '' },
+      { path: 'ball.boardFriction', min: 0, max: 0.6, step: 0.02, unit: '' },
+      { path: 'ball.boardJitter', min: 0, max: 15, step: 0.5, unit: '°', scale: DEG },
+      { path: 'ball.postRestitution', min: 0.1, max: 1, step: 0.05, unit: '' },
+      { path: 'ball.netRestitution', min: 0, max: 0.6, step: 0.05, unit: '' },
+      { path: 'ball.netDamping', min: 1, max: 20, step: 0.5, unit: '/s' },
+      { path: 'ball.playerRestitution', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'ball.airDrag', min: 0, max: 0.03, step: 0.0005, unit: '/m' },
+      { path: 'ball.visualScale', min: 1, max: 3, step: 0.1, unit: '×' },
+      { path: 'ball.markerRadius', min: 0, max: 0.6, step: 0.02, unit: 'm' },
+    ],
+  },
+  {
     id: 'input',
     params: [
       { path: 'input.joystickRadiusPx', min: 30, max: 140, step: 2, unit: 'px' },
@@ -69,6 +88,7 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'camera.lookAcrossFactor', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'camera.fovSpeedGain', min: 0, max: 15, step: 0.5, unit: '°', scale: DEG },
       { path: 'camera.fovSpeedRef', min: 3, max: 15, step: 0.5, unit: 'm/s' },
+      { path: 'camera.ballWeight', min: 0, max: 1, step: 0.05, unit: '' },
     ],
   },
 ];

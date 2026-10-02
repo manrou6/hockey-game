@@ -49,6 +49,33 @@ export const TUNING = {
     /** Bounce between two players (shoulder contact; proper physical duels in F1+). */
     playerRestitution: 0.3,
   },
+  /** Ball physics (docs/03 §2). Size/mass are rule data (config/rink.ts). */
+  ball: {
+    /** Rolling resistance on the floor: constant (m/s²) and speed-proportional (1/s) parts. */
+    rollingDecel: 0.45,
+    rollingDrag: 0.06,
+    /** Air drag: deceleration = airDrag × v² (≈ real value for a 155 g, 7.3 cm ball). */
+    airDrag: 0.0076,
+    /** Bounce on the floor (vertical restitution) and grip that slows sliding on each bounce. */
+    floorRestitution: 0.45,
+    floorFriction: 0.1,
+    /** Bounce off the boards: restitution (~0.7 per docs) and tangential friction. */
+    boardRestitution: 0.7,
+    boardFriction: 0.12,
+    /** Deterministic random deflection on each board hit (max angle, rad) so it's never a billiard table. */
+    boardJitter: 0.05,
+    /** Bounce off posts/crossbar, off the outside of the goal net, and off players' bodies. */
+    postRestitution: 0.6,
+    netRestitution: 0.15,
+    playerRestitution: 0.35,
+    /** How fast the net kills the ball's speed once inside the goal (1/s). */
+    netDamping: 8,
+    /** Visual size multiplier so the 7.3 cm ball reads from the TV camera (render only). */
+    visualScale: 2,
+    /** Radius of the soft marker drawn on the floor under the ball (m, 0 = off). Helps read
+     * where the ball is and how high it flies (render only). */
+    markerRadius: 0.22,
+  },
   /** Human input devices (docs/03 §3). */
   input: {
     /** Floating joystick: drag distance (CSS px) for a full push. */
@@ -77,6 +104,8 @@ export const TUNING = {
     fovSpeedGain: 0.06,
     /** Speed (m/s) at which the full extra FOV is applied. */
     fovSpeedRef: 9,
+    /** Aim point between the controlled player (0) and the ball (1). */
+    ballWeight: 0.65,
   },
 };
 

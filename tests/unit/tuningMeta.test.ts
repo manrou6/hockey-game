@@ -29,6 +29,6 @@ describe('tuning panel metadata', () => {
   it('every parameter and section has a label', () => {
     const dict = ca as Record<string, string>;
     for (const p of TUNING_PARAMS) expect(dict[`tuning.${p.path}`], p.path).toBeTruthy();
-    for (const s of ['skating', 'input', 'camera']) expect(dict[`tuning.section.${s}`], s).toBeTruthy();
+    for (const s of ['skating', 'ball', 'input', 'camera']) expect(dict[`tuning.section.${s}`], s).toBeTruthy();
   });
 });
