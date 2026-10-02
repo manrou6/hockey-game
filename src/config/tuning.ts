@@ -107,7 +107,7 @@ export const TUNING = {
      * the defender's chance to react. */
     prepTime: 0.3,
     prepSpeedLoss: 0.35,
-    duration: 0.25,
+    duration: 0.18,
     /** Exit speed as a share of the speed you had before the trencada. */
     redirect: 0.38,
     bodyTurn: 0.7853982,
