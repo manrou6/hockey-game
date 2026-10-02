@@ -34,10 +34,10 @@ test('tuning mode: change a value on the phone, it persists, only changed values
   await expect(page.locator('#tuning-chip')).toHaveText('1 modificats');
 
   // Degrees are shown for angles but stored in radians.
-  const fovRow = panel.locator('.tp-row[data-path="camera.fov"]');
-  await panel.locator('summary', { hasText: 'Càmera' }).click();
+  const fovRow = panel.locator('.tp-row[data-path="cameraTv.fov"]');
+  await panel.locator('summary', { hasText: /^Càmera TV$/ }).click();
   await fovRow.locator('.tp-step', { hasText: '−' }).click();
-  expect(await tuningGet(page, 'camera.fov')).toBeCloseTo((33 * Math.PI) / 180, 6);
+  expect(await tuningGet(page, 'cameraTv.fov')).toBeCloseTo((33 * Math.PI) / 180, 6);
 
   // Copy values: clipboard or the manual-copy fallback, both contain the changes.
   await page.click('#tp-copy');
@@ -54,7 +54,7 @@ test('tuning mode: change a value on the phone, it persists, only changed values
   if (copied) expect(copied).toContain('skating.maxSpeed = 7.7 (default 7.5)');
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('patins.tuning.v1')!));
-  expect(Object.keys(stored).sort()).toEqual(['camera.fov', 'skating.maxSpeed']);
+  expect(Object.keys(stored).sort()).toEqual(['cameraTv.fov', 'skating.maxSpeed']);
 
   await page.reload();
   expect(await tuningGet(page, 'skating.maxSpeed')).toBeCloseTo(7.7, 6);

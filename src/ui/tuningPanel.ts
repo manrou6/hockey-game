@@ -1,4 +1,4 @@
-import { TUNING_SECTIONS, type TuningParamMeta } from '../config/tuningMeta';
+import { TUNING_PARAMS, TUNING_SECTIONS, type TuningParamMeta } from '../config/tuningMeta';
 import { APP_VERSION } from '../config/version';
 import type { TuningOverrides } from '../game/tuningOverrides';
 import { onLanguageChange, t, translateDom, type MessageKey } from '../i18n';
@@ -106,7 +106,7 @@ export class TuningPanel {
     const plus = this.stepButton('+', meta, +1);
 
     const root = el('div', { className: 'tp-row', attrs: { 'data-path': meta.path } }, [
-      el('div', { className: 'tp-row-head' }, [el('span', { className: 'tp-label', i18n: `tuning.${meta.path}` as MessageKey }), value, resetBtn]),
+      el('div', { className: 'tp-row-head' }, [el('span', { className: 'tp-label', i18n: (meta.labelKey ?? `tuning.${meta.path}`) as MessageKey }), value, resetBtn]),
       el('div', { className: 'tp-row-ctrl' }, [minus, slider, plus]),
       factory,
     ]);
@@ -187,10 +187,18 @@ export class TuningPanel {
   }
 }
 
+/** Human label for a tuning path; shared labels get their section name ("Càmera propera: Alçada"). */
+export function tuningLabel(path: string): string {
+  const meta = TUNING_PARAMS.find((p) => p.path === path);
+  if (!meta?.labelKey) return t(`tuning.${path}` as MessageKey);
+  const section = path.split('.')[0] ?? '';
+  return `${t(`tuning.section.${section}` as MessageKey)}: ${t(meta.labelKey as MessageKey)}`;
+}
+
 /** One-off notice listing saved overrides dropped because their factory value changed. */
 export function createStaleNotice(paths: string[]): HTMLElement | null {
   if (paths.length === 0) return null;
-  const list = (): string => paths.map((p) => t(`tuning.${p}` as MessageKey)).join(', ');
+  const list = (): string => paths.map(tuningLabel).join(', ');
   const text = el('p', { attrs: { id: 'stale-notice-text' } }, [t('tuning.staleNotice', { list: list() })]);
   const ok = el('button', { className: 'btn-secondary', i18n: 'common.ok', attrs: { id: 'stale-notice-ok' } });
   const box = el('div', { className: 'notice', attrs: { id: 'stale-notice', role: 'alert' } }, [text, ok]);

@@ -15,6 +15,8 @@ import { loadSettings } from './ui/settings';
 import { Menu } from './ui/menu';
 import { createStaleNotice, TuningPanel } from './ui/tuningPanel';
 import { el } from './ui/dom';
+import { CAMERA_PRESET_IDS, type CameraPresetId } from './render/cameraPresets';
+import { saveSettings } from './ui/settings';
 import { createWorld, stepWorld } from './sim/world';
 
 registerSW({ immediate: true });
@@ -40,7 +42,7 @@ const debug = isDebugEnabled();
 
 // ?quality= overrides the saved setting (handy for testing on the device).
 const qualityParam = new URLSearchParams(location.search).get('quality');
-const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : settings.quality);
+const renderer = new Renderer(canvas, isQualityLevel(qualityParam) ? qualityParam : settings.quality, settings.camera);
 const input = new HumanInput();
 const game = new Game(renderer, input);
 game.paused = true;
@@ -69,7 +71,27 @@ const menu = new Menu(settings, {
   },
   onQualityChange: (q) => renderer.setQuality(q),
   onTuningModeChange: () => updateTuningUi(),
+  onCameraChange: (id) => setCamera(id),
 });
+
+// Camera: in-game button cycles TV → close → tactical; the choice is remembered.
+const cameraButton = el('button', { className: 'hud-btn btn-camera', attrs: { id: 'btn-camera', 'data-i18n-aria': 'hud.camera' } });
+function setCamera(id: CameraPresetId): void {
+  renderer.cameraRig.setPreset(id);
+  if (settings.camera !== id) {
+    settings.camera = id;
+    saveSettings(settings);
+    menu.refresh();
+  }
+  cameraButton.textContent = `🎥 ${t(`camera.${id}`)}`;
+  cameraButton.dataset.camera = id;
+}
+cameraButton.addEventListener('click', () => {
+  const i = CAMERA_PRESET_IDS.indexOf(settings.camera);
+  setCamera(CAMERA_PRESET_IDS[(i + 1) % CAMERA_PRESET_IDS.length]!);
+});
+onLanguageChange(() => setCamera(settings.camera));
+setCamera(settings.camera);
 
 // In-game layer: joystick surface, sprint button, pause and tuning buttons.
 const tuningButton = el('button', { className: 'hud-btn btn-tuning', attrs: { id: 'btn-tuning', 'data-i18n-aria': 'hud.tuning' } }, ['⚙']);
@@ -89,9 +111,7 @@ onLanguageChange(updateTuningUi);
 const hud = el('div', { className: 'hud', attrs: { id: 'hud' } }, [
   input.joystick.element,
   input.sprintButton.element,
-  createPauseButton(pause),
-  tuningButton,
-  tuningChip,
+  el('div', { className: 'hud-top' }, [createPauseButton(pause), tuningButton, cameraButton, tuningChip]),
 ]);
 hud.hidden = true;
 
@@ -121,6 +141,7 @@ game.start();
 (window as unknown as { __PATINS__: unknown }).__PATINS__ = {
   game,
   tuning,
+  renderer,
   perf: () => ({
     ...renderer.renderStats(),
     frameAvg: game.frameStats.average(),

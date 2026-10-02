@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TUNING_DEFAULTS } from '../../src/config/tuning';
-import { TUNING_PARAMS } from '../../src/config/tuningMeta';
+import { TUNING_PARAMS, TUNING_SECTIONS } from '../../src/config/tuningMeta';
 import ca from '../../src/i18n/ca.json';
 
 const leaves = Object.entries(TUNING_DEFAULTS as unknown as Record<string, Record<string, unknown>>)
@@ -28,7 +28,7 @@ describe('tuning panel metadata', () => {
 
   it('every parameter and section has a label', () => {
     const dict = ca as Record<string, string>;
-    for (const p of TUNING_PARAMS) expect(dict[`tuning.${p.path}`], p.path).toBeTruthy();
-    for (const s of ['skating', 'ball', 'input', 'camera']) expect(dict[`tuning.section.${s}`], s).toBeTruthy();
+    for (const p of TUNING_PARAMS) expect(dict[p.labelKey ?? `tuning.${p.path}`], p.path).toBeTruthy();
+    for (const s of TUNING_SECTIONS) expect(dict[`tuning.section.${s.id}`], s.id).toBeTruthy();
   });
 });

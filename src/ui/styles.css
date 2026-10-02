@@ -145,7 +145,19 @@
   pointer-events: auto;
   cursor: pointer;
 }
-.btn-pause { top: 10px; right: calc(12px + var(--safe-r)); }
+/* Top-right row: pause, tuning, camera, "modified" chip (flex, so hidden ones collapse). */
+.hud-top {
+  position: absolute;
+  top: 10px;
+  right: calc(12px + var(--safe-r));
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.hud-top .hud-btn { position: static; }
+.btn-camera { width: auto !important; min-width: 48px; padding: 0 10px; font-size: 14px !important; font-weight: 700; white-space: nowrap; }
 
 /* Tuning drawer */
 .tuning-panel {
@@ -215,12 +227,8 @@
 .tp-factory:empty { display: none; }
 
 /* HUD tuning button + modified chip, notices */
-.btn-tuning { top: 10px; right: calc(70px + var(--safe-r)); }
 .btn-tuning[hidden] { display: none; }
 .tuning-chip {
-  position: absolute;
-  top: 14px;
-  right: calc(128px + var(--safe-r));
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(244, 178, 60, 0.85);

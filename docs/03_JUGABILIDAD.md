@@ -59,11 +59,19 @@ Se ejecutan con REGATE + dirección relativa al defensor. Éxito según atributo
 - IA de portero: posición según ángulo de la bola, anticipa pase atrás, sale en 1 vs 1, reacciona a amagos (puede picar).
 - Control manual del portero opcional en libres directos/penaltis cuando defiende el jugador humano: deslizar para estirarse.
 
-## 6. Cámara (retransmisión TV)
-- Cámara lateral elevada desde la grada central, sigue la bola con anticipación (lookahead según velocidad), suavizado crítico (sin vibrar).
-- Zoom dinámico: más abierto en transición, más cerrado en ataque posicional.
-- Cámaras especiales: detrás del lanzador en directas/penaltis; repeticiones (detrás de portería, a ras de pista, cenital).
-- Opciones: distancia de cámara (3 niveles).
+## 6. Cámara (sistema de presets)
+Cambio de diseño pedido por Guillem (2026-10-02, F1.2b): en vez de una sola cámara con "distancia en 3 niveles", hay **un único sistema de cámara con presets**. Cada preset calcula una pose (posición, punto al que mira, apertura); al cambiar de preset la cámara hace una **transición suave** (sin salto). Las cámaras especiales se añadirán como presets nuevos sin rehacer el sistema.
+
+Presets elegibles por el jugador (botón pequeño en pantalla 🎥 y opción en Configuració; se recuerda la última elegida entre partidas):
+1. **TV lateral** (por defecto): cámara elevada en la grada central, vista de retransmisión abierta; sigue un punto entre el jugador controlado y la bola con anticipación (lookahead según velocidad), suavizado crítico (sin vibrar) y algo de zoom abierto a velocidad.
+2. **Cercana**: más baja y cerca, sigue al jugador y a la bola también a lo ancho de la pista; para regatear y tirar con detalle.
+3. **Alta / táctica**: más elevada y abierta (en el centro se ve la pista entera); para leer pases y posiciones.
+
+Todos los parámetros de cada preset (altura, distancia, apertura/zoom, suavizado, anticipación, peso bola/jugador, seguimiento a lo largo y a lo ancho) viven en `src/config/tuning.ts` (`cameraTv`, `cameraClose`, `cameraTactical`, y `camera.transitionTime`) y se ajustan desde el panel de afinación del móvil.
+
+Ninguna cámara debe dejar al jugador ni a la bola bajo el joystick o los botones (test e2e), y todas deben mantener 60 fps en el Pixel 8a.
+
+Presets especiales futuros (F3+): detrás del lanzador en directas/penaltis; repeticiones (detrás de portería, a ras de pista, cenital).
 
 ## 7. IA de equipo
 - Arquitectura: equipo (táctica) → roles → jugador (decisiones con utilidad + steering).
