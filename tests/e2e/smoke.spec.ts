@@ -26,7 +26,7 @@ test('mobile landscape: menu → play → 10 s skating without console errors', 
   const cy = vp.height * 0.65;
   await page.mouse.move(cx, cy);
   await page.mouse.down();
-  const sprint = page.locator('#btn-sprint');
+  const sprint = page.locator('#btn-dribble');
   for (let i = 0; i < 20; i++) {
     const a = (i / 20) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * 55, cy - Math.sin(a) * 55, { steps: 3 });

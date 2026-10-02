@@ -12,7 +12,8 @@ de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativ
 - [x] F1.1 Afinación desde el móvil (panel táctil, guardado de cambios, copiar valores, aviso de valores de fábrica cambiados) + bloqueo de orientación durante la partida + etiqueta de resolución clara (v0.1.1)
 - [x] F1.2 Bola física 3D (bote, rodadura, valla ~0,7, postes/larguero con colisión continua, red, gol) + render bola/stick + cámara sigue bola (v0.1.2)
 - [x] F1.2b (pedido por Guillem) Sistema de cámara con presets: TV lateral (defecto) / Cercana / Alta-táctica; botón 🎥 en pantalla + opción en Configuració; se recuerda; transición suave; parámetros por preset en tuning + panel; docs/03 §6 y DECISIONS actualizados; tests de no tapar HUD (v0.1.3). Pendiente: Guillem confirma 60 fps de las 3 cámaras en el Pixel.
-- [ ] F1.3 Conducción (imán con margen, toques, perder/recoger), botones PASE/TIRO/REGATE, teclado J/K/L/Espacio, buffer 150 ms → ronda de afinación 1 (¿editor de botones?)
+- [x] F1.3 Conducción (pegada al stick, separación solo con sprint / giro muy cerrado / presión, Control reduce, pérdida si supera la separación segura), botones PASE/TIRO/REGATE (mantener REGATE = sprint), teclado J/K/L/Espacio, mando, buffer 150 ms, stick acompaña la bola, pase/tiro PROVISIONALES; tamaño de bola compensado por distancia + multiplicador por cámara (v0.1.4)
+- [ ] Ronda de afinación 1 con Guillem (velocidad, conducción, comodidad de botones). Si los botones no son cómodos → adelantar editor de posición (F1.7)
 - [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
 - [ ] F1.6 Regates (≥5) + defensa estático + combo → ronda 3

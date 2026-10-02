@@ -17,6 +17,18 @@ export interface PlayerState {
   heading: number;
   /** True while doing a T-stop (stick against the motion). */
   braking: boolean;
+  /** Team (0 = human side). Opponents put pressure on the ball carrier. */
+  team: number;
+  /** Ball control attribute 0-99 (docs/01): less separation and fewer losses when dribbling. */
+  control: number;
+  /** How hard the skater is turning, 0 (straight) .. 1 (full lock), last tick. */
+  turnLock: number;
+  /** Ticks during which this player can't take the ball (just passed / shot / lost it). */
+  noPickupTicks: number;
+  /** Input buffer (docs/03 §3): ticks left for a PASE / TIRO / REGATE press to still fire. */
+  bufPass: number;
+  bufShoot: number;
+  bufDribble: number;
   /** Previous-tick pose, used by the renderer to interpolate between ticks. */
   prevX: number;
   prevY: number;
@@ -24,7 +36,11 @@ export interface PlayerState {
 }
 
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
-  return { id, x, y, vx: 0, vy: 0, heading, braking: false, prevX: x, prevY: y, prevHeading: heading };
+  return {
+    id, x, y, vx: 0, vy: 0, heading, braking: false,
+    team: 0, control: 75, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    prevX: x, prevY: y, prevHeading: heading,
+  };
 }
 
 /** Wrap an angle to (-π, π]. */
@@ -41,7 +57,7 @@ export function wrapAngle(a: number): number {
  * direction and speed, and the body gets there through acceleration, a speed-dependent
  * turning radius, T-stop braking and a soft glide when the stick is released.
  */
-export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number): void {
+export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number, hasBall = false): void {
   const k = tuning.skating;
   p.prevX = p.x;
   p.prevY = p.y;
@@ -53,13 +69,14 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   let mag = Math.hypot(cmd.moveX, cmd.moveY);
   if (mag > 1) mag = 1;
   p.braking = false;
+  p.turnLock = 0;
 
   if (mag < k.deadZone) {
     // Glide: no input → slow, smooth deceleration, never a sudden stop.
     speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
   } else {
     const want = Math.atan2(cmd.moveY, cmd.moveX);
-    const cap = cmd.sprint ? k.sprintSpeed : k.maxSpeed;
+    const cap = cmd.sprint ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
     const target = cap * Math.min(1, (mag - k.deadZone) / (1 - k.deadZone));
     const diff = wrapAngle(want - dir);
 
@@ -74,6 +91,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
       const maxTurn = maxRate * dt;
       const turn = diff > maxTurn ? maxTurn : diff < -maxTurn ? -maxTurn : diff;
       dir = wrapAngle(dir + turn);
+      if (maxTurn > 0) p.turnLock = Math.abs(turn) / maxTurn;
       if (!pivoting && maxTurn > 0) {
         // Turning at full lock bleeds speed; gentle curves are almost free.
         const lock = Math.abs(turn) / maxTurn;

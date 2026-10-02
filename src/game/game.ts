@@ -8,6 +8,8 @@ import { FrameStats } from './frameStats';
 /** Source of the human player's command, polled once per rendered frame. */
 export interface CommandSource {
   read(out: PlayerCommand): void;
+  /** Button presses were used by a tick: clear them (so they fire exactly once). */
+  consumeEdges?(): void;
 }
 
 /** Main loop: real time → fixed sim ticks → interpolated render. */
@@ -18,7 +20,8 @@ export class Game {
   readonly frameStats = new FrameStats(240);
   /** CPU time spent inside our frame callback (sim + render submit), ms. */
   readonly workStats = new FrameStats(240);
-  private readonly commands: PlayerCommand[] = [emptyCommand()];
+  /** Current command per controlled player (read-only outside; exposed for tests). */
+  readonly commands: PlayerCommand[] = [emptyCommand()];
   private lastTime = -1;
   private running = false;
   /** While paused the sim does not advance (the scene is still drawn behind the menu). */
@@ -53,7 +56,14 @@ export class Game {
 
     if (!this.paused) {
       if (this.input) this.input.read(this.commands[0]!);
-      this.loop.advance(frameMs / 1000, () => stepWorld(this.world, this.commands, TUNING));
+      const cmd = this.commands[0]!;
+      this.loop.advance(frameMs / 1000, () => {
+        stepWorld(this.world, this.commands, TUNING);
+        if (cmd.pass || cmd.shoot || cmd.dribble) {
+          cmd.pass = cmd.shoot = cmd.dribble = false;
+          this.input?.consumeEdges?.();
+        }
+      });
     }
     this.renderer.sync(this.world, this.loop.alpha, Math.min(frameMs, 100) / 1000);
     this.renderer.render();

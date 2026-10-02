@@ -52,7 +52,7 @@ test('HUD buttons never overlap each other or the thumb controls', async ({ page
   await page.evaluate(() => (window as any).__PATINS__.tuning.set('skating.maxSpeed', 8));
   for (const label of ['🎥 TV', '🎥 Propera', '🎥 Tàctica']) {
     await expect(page.locator('#btn-camera')).toHaveText(label);
-    const ids = ['#btn-pause', '#btn-tuning', '#btn-camera', '#tuning-chip', '#btn-sprint', '.joy-base'];
+    const ids = ['#btn-pause', '#btn-tuning', '#btn-camera', '#tuning-chip', '#btn-pass', '#btn-shoot', '#btn-dribble', '.joy-base'];
     const rects: Rect[] = [];
     for (const id of ids) rects.push((await page.locator(id).boundingBox())!);
     for (let i = 0; i < rects.length; i++) {
@@ -70,7 +70,7 @@ for (const preset of PRESETS) {
     await page.reload();
     await page.click('#btn-play');
     const controls: Rect[] = [];
-    for (const id of ['#btn-sprint', '.joy-base', '#btn-pause', '#btn-camera']) controls.push((await page.locator(id).boundingBox())!);
+    for (const id of ['#btn-pass', '#btn-shoot', '#btn-dribble', '.joy-base', '#btn-pause', '#btn-camera']) controls.push((await page.locator(id).boundingBox())!);
     const vp = page.viewportSize()!;
     for (const [x, y] of [[0, 0], [0, -8], [0, 8], [-15, -7], [15, -7], [-15, 7], [15, 7], [18.8, 0]] as const) {
       await placeAndSettle(page, x, y);
@@ -92,3 +92,24 @@ for (const preset of PRESETS) {
     await page.screenshot({ path: `test-results/screenshots/f1-camera-${preset}.png` });
   });
 }
+
+test('ball size is compensated by camera distance and each camera has its own multiplier', async ({ page }) => {
+  test.setTimeout(120_000);
+  const scaleIn = async (preset: string): Promise<number> => {
+    await page.evaluate((p) => localStorage.setItem('patins.settings.v1', JSON.stringify({ camera: p })), preset);
+    await page.reload();
+    await page.click('#btn-play');
+    await page.waitForTimeout(2500);
+    return page.evaluate(() => (window as any).__PATINS__.renderer.ballVisualScale as number);
+  };
+  await page.goto('./?quality=low');
+  const tv = await scaleIn('tv');
+  const tactical = await scaleIn('tactical');
+  const close = await scaleIn('close');
+  expect(tactical).toBeGreaterThan(tv * 1.3);
+  expect(close).toBeGreaterThanOrEqual(1);
+  // Per-camera multiplier from the tuning panel applies live.
+  await page.evaluate(() => (window as any).__PATINS__.tuning.set('cameraClose.ballScale', 3));
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => (window as any).__PATINS__.renderer.ballVisualScale as number)).toBeGreaterThan(close * 1.4);
+});

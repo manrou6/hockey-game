@@ -27,6 +27,11 @@ export class CameraRig {
     this.director = new CameraDirector(createPresets(), initial, () => TUNING.camera.transitionTime);
   }
 
+  /** Ball size multiplier of the current view (blended during transitions). */
+  get ballScale(): number {
+    return this.director.pose.ballScale;
+  }
+
   get preset(): CameraPresetId {
     return this.director.activeId;
   }

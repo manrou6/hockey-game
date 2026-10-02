@@ -70,14 +70,58 @@ export const TUNING = {
     playerRestitution: 0.35,
     /** How fast the net kills the ball's speed once inside the goal (1/s). */
     netDamping: 8,
-    /** Visual size multiplier so the 7.3 cm ball reads from the TV camera (render only). */
+    /** Visual size multiplier so the 7.3 cm ball reads from the TV camera (render only).
+     * It is compensated by camera distance: at `visualRefDistance` it is exactly this value,
+     * further away it grows, closer it shrinks (never below real size). */
     visualScale: 2,
+    visualRefDistance: 23,
     /** Radius of the soft marker drawn on the floor under the ball (m, 0 = off). Helps read
      * where the ball is and how high it flies (render only). */
     markerRadius: 0.22,
   },
+  /** Dribbling: carrying the ball on the stick (docs/03 §2). Distances in m. */
+  dribble: {
+    /** Where the stick blade carries the ball: ahead of the body centre and to the right. */
+    stickForward: 0.55,
+    stickSide: 0.14,
+    /** How quickly the ball follows the blade (s). Small = glued, larger = more lag/wobble. */
+    followTime: 0.035,
+    /** Separation at normal speed: tiny push-and-catch on each touch (very controlled). */
+    baseSeparation: 0.03,
+    /** Extra separation when sprinting beyond normal top speed, in a tight turn at speed,
+     * and under pressure from a nearby opponent (each at its maximum). */
+    sprintSeparation: 0.45,
+    turnSeparation: 0.5,
+    pressureSeparation: 0.4,
+    /** Only turns tighter than this fraction of the max turn rate separate the ball (0..1). */
+    turnThreshold: 0.6,
+    /** Opponent distance at which pressure starts (full pressure at contact). */
+    pressureRadius: 1.8,
+    /** How much a perfect Control attribute (99) reduces separation (0 = no advantage, 1 = none at all). */
+    controlAdvantage: 0.5,
+    /** Metres skated between two stick touches. */
+    touchDistance: 2,
+    /** Separation above which the ball can get away, and how fast (per metre of excess, per second). */
+    safeSeparation: 0.35,
+    lossRate: 3,
+    /** Taking a loose ball: reach from the blade, max height and max relative speed. */
+    pickupRadius: 0.45,
+    pickupMaxHeight: 0.35,
+    pickupMaxRelSpeed: 11,
+    /** Time after passing/shooting/losing it before the same player can take the ball again (s). */
+    relockTime: 0.3,
+    /** Sprint top speed while carrying the ball (sprint without ball: skating.sprintSpeed). */
+    sprintSpeedWithBall: 8.3,
+    /** PROVISIONAL until F1.4/F1.5: ground pass speed and quick shot speed (m/s). */
+    passSpeed: 12,
+    shotSpeed: 22,
+  },
   /** Human input devices (docs/03 §3). */
   input: {
+    /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */
+    bufferTime: 0.15,
+    /** REGATE pressed shorter than this is a tap (dribble move); longer is a hold (sprint) (s). */
+    tapTime: 0.2,
     /** Floating joystick: drag distance (CSS px) for a full push. */
     joystickRadiusPx: 60,
     /** Fraction of the screen width (from the left) where a touch spawns the joystick. */
@@ -99,6 +143,7 @@ export const TUNING = {
    * - fov / fovSpeedGain / fovSpeedRef: zoom at rest, extra zoom-out at speed and the speed for full extra (rad, rad, m/s);
    * - smoothTime: critically damped smoothing (s); lookaheadTime: aim ahead of the movement (s);
    * - ballWeight: aim point between the controlled player (0) and the ball (1).
+   * - ballScale: extra multiplier on the ball's visual size for this camera (render only).
    */
   /** 1. TV side camera (default): broadcast view, wide. */
   cameraTv: {
@@ -113,6 +158,7 @@ export const TUNING = {
     smoothTime: 0.4,
     lookaheadTime: 0.35,
     ballWeight: 0.65,
+    ballScale: 1,
   },
   /** 2. Close camera: tighter, follows player and ball, for dribbling and shooting detail. */
   cameraClose: {
@@ -127,6 +173,7 @@ export const TUNING = {
     smoothTime: 0.28,
     lookaheadTime: 0.3,
     ballWeight: 0.5,
+    ballScale: 1.8,
   },
   /** 3. High / tactical camera: higher and wider, to read passes and positions. */
   cameraTactical: {
@@ -141,6 +188,7 @@ export const TUNING = {
     smoothTime: 0.6,
     lookaheadTime: 0.5,
     ballWeight: 0.7,
+    ballScale: 1.25,
   },
 
 };

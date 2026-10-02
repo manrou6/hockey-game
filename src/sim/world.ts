@@ -1,7 +1,8 @@
 import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
-import type { PlayerCommand } from './commands';
+import { emptyCommand, type PlayerCommand } from './commands';
+import { bufferActions, canPickUp, pickUp, provisionalActions, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
@@ -23,7 +24,7 @@ export interface WorldState {
   ballResetTicks: number;
 }
 
-const IDLE: PlayerCommand = { moveX: 0, moveY: 0, sprint: false };
+const IDLE: PlayerCommand = emptyCommand();
 
 export function createWorld(seed: number): WorldState {
   return {
@@ -63,7 +64,13 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   const dt = 1 / tuning.sim.tickRate;
   const players = world.players;
   world.events.length = 0;
-  for (let i = 0; i < players.length; i++) stepPlayer(players[i]!, commands[i] ?? IDLE, tuning, dt);
+  const ball = world.ball;
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i]!;
+    const cmd = commands[i] ?? IDLE;
+    bufferActions(p, cmd, tuning);
+    stepPlayer(p, cmd, tuning, dt, ball.owner === i);
+  }
   if (players.length > 1) {
     for (let i = 0; i < players.length; i++) {
       for (let j = i + 1; j < players.length; j++) collidePlayers(players[i]!, players[j]!, tuning);
@@ -72,7 +79,25 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const k = tuning.skating;
     for (const p of players) resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
   }
-  stepBall(world.ball, players, tuning, world.rng, dt, world.events);
+  // Ball: carried on a stick, or free physics (then maybe someone takes it).
+  if (ball.owner >= 0) {
+    const owner = players[ball.owner]!;
+    if (!provisionalActions(ball, owner, commands[ball.owner] ?? IDLE, tuning)) {
+      stepDribble(ball, owner, players, tuning, world.rng, dt);
+    }
+  }
+  if (ball.owner < 0) {
+    stepBall(ball, players, tuning, world.rng, dt, world.events);
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i]!;
+      if (canPickUp(ball, p, tuning)) {
+        pickUp(ball, i, p);
+        // Input buffer: a pass/shot pressed just before receiving fires now.
+        provisionalActions(ball, p, commands[i] ?? IDLE, tuning);
+        break;
+      }
+    }
+  }
   freePlayBallRules(world);
   world.tick++;
 }

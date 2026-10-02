@@ -110,7 +110,7 @@ onLanguageChange(updateTuningUi);
 
 const hud = el('div', { className: 'hud', attrs: { id: 'hud' } }, [
   input.joystick.element,
-  input.sprintButton.element,
+  input.buttons.element,
   el('div', { className: 'hud-top' }, [createPauseButton(pause), tuningButton, cameraButton, tuningChip]),
 ]);
 hud.hidden = true;
@@ -152,7 +152,7 @@ game.start();
   /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
   benchSim: (ticks: number): number => {
     const w = createWorld(7);
-    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true }];
+    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false }];
     const t0 = performance.now();
     for (let i = 0; i < ticks; i++) {
       if (i % 90 === 0) cmds[0]!.moveY = -cmds[0]!.moveY;

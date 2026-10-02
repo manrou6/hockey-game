@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('skating into the ball pushes it; pushing it into the goal scores and it comes back to the centre', async ({ page }) => {
+test('skating onto the ball takes it; carrying it into the goal scores and it comes back to the centre', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -11,7 +11,7 @@ test('skating into the ball pushes it; pushing it into the goal scores and it co
   await page.keyboard.down('KeyD');
   await page.keyboard.down('ShiftLeft');
   await expect.poll(async () => (await ball()).x, { timeout: 30_000 }).toBeGreaterThan(b0.x + 1);
-  // Keep pushing towards the right goal until it scores (headless renders slowly).
+  // Keep carrying it towards the right goal until it scores (headless renders slowly).
   await expect.poll(async () => (await ball()).scored, { timeout: 60_000 }).toBe(true);
   await page.keyboard.up('KeyD');
   await page.keyboard.up('ShiftLeft');
