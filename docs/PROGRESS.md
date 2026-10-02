@@ -1,6 +1,26 @@
 # Estado actual
 
-Fase actual: **F0 — Cimientos: CERRADA (2026-10-02)**. Siguiente: F1 (empezar en modo plan).
+Fase actual: **F1 — Game feel: conducción, pase, tiro** (plan aprobado 2026-10-02).
+F0 — Cimientos: CERRADA (2026-10-02), detalle más abajo.
+
+## Plan F1 (aprobado)
+Prioridad de Guillem: que conducción, pase y tiro se sientan bien por encima de todo; Entrenamiento y portero al final.
+Condiciones de Guillem: (1) 2 compañeros "pared" quietos en la pista libre para afinar el pase; (2) afinación guardada en el
+móvil = solo los valores cambiados, aplicada siempre hasta "Restablir"; si Claude cambia el valor de fábrica de un ajuste,
+el guardado de ese ajuste se borra y sale aviso; (3) si en F1.3 los botones no son cómodos, adelantar el editor de posición
+de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativa probada: 59,6 fps, p95 17,5 ms).
+- [x] F1.1 Afinación desde el móvil (panel táctil, guardado de cambios, copiar valores, aviso de valores de fábrica cambiados) + bloqueo de orientación durante la partida + etiqueta de resolución clara (v0.1.1)
+- [ ] F1.2 Bola física 3D (bote, rodadura, valla ~0,7, postes/larguero con colisión continua, red, gol) + render bola/stick + cámara sigue bola
+- [ ] F1.3 Conducción (imán con margen, toques, perder/recoger), botones PASE/TIRO/REGATE, teclado J/K/L/Espacio, buffer 150 ms → ronda de afinación 1 (¿editor de botones?)
+- [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
+- [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
+- [ ] F1.6 Regates (≥5) + defensa estático + combo → ronda 3
+- [ ] F1.7 Gestos, editor de botones, vibración, mando, pantalla de controles
+- [ ] F1.8 Portero IA básico
+- [ ] F1.9 Modo Entrenamiento (libre + 3 retos)
+- [ ] F1.10 Cierre F1
+
+Fase F0
 
 Fase F0 (plan aprobado por Guillem el 2026-10-02, opción A de despliegue:
 Claude abre PR a `main` y la fusiona cuando CI está en verde).
@@ -23,6 +43,7 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
   viewport Pixel 8a horizontal, Chromium con SwiftShader).
 - En este entorno cloud Playwright usa Chromium de /opt/pw-browsers (por eso @playwright/test fijado a 1.56.1).
 - Versión visible: `package.json` "version" (0.F.N); subir N en cada sub-paso.
+- Afinación: `src/config/tuning.ts` (valores de fábrica) + `src/config/tuningMeta.ts` (rango/paso/unidad, orden en el panel) + etiquetas `tuning.<ruta>` en i18n. Todo número nuevo de tuning necesita meta + etiqueta (lo exige `tests/unit/tuningMeta.test.ts`). Cuando Guillem pegue "PATINS tuning vX" en el chat: copiar esos valores como nuevos valores de fábrica en tuning.ts (sus guardados de esas rutas se borrarán solos con aviso).
 
 ## Correcciones tras prueba de Guillem
 - v0.0.8: en vertical la pantalla "gira el mòbil" se quedaba bloqueada si el Pixel tiene la rotación automática desactivada. Ahora es opaca y tiene botón "Jugar en horitzontal" (pantalla completa + bloqueo horizontal); redimensionado extra tras girar. Test e2e `rotation.spec`.
