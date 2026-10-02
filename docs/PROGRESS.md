@@ -10,7 +10,8 @@ móvil = solo los valores cambiados, aplicada siempre hasta "Restablir"; si Clau
 el guardado de ese ajuste se borra y sale aviso; (3) si en F1.3 los botones no son cómodos, adelantar el editor de posición
 de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativa probada: 59,6 fps, p95 17,5 ms).
 - [x] F1.1 Afinación desde el móvil (panel táctil, guardado de cambios, copiar valores, aviso de valores de fábrica cambiados) + bloqueo de orientación durante la partida + etiqueta de resolución clara (v0.1.1)
-- [ ] F1.2 Bola física 3D (bote, rodadura, valla ~0,7, postes/larguero con colisión continua, red, gol) + render bola/stick + cámara sigue bola
+- [x] F1.2 Bola física 3D (bote, rodadura, valla ~0,7, postes/larguero con colisión continua, red, gol) + render bola/stick + cámara sigue bola (v0.1.2)
+- [ ] F1.2b (pedido por Guillem) Sistema de cámara con presets: TV lateral (defecto) / Cercana / Alta-táctica; botón en pantalla + opción en Configuració; se recuerda; transición suave; parámetros por preset en tuning + panel; actualizar docs/03 §6 y DECISIONS; no tapar HUD; 60 fps
 - [ ] F1.3 Conducción (imán con margen, toques, perder/recoger), botones PASE/TIRO/REGATE, teclado J/K/L/Espacio, buffer 150 ms → ronda de afinación 1 (¿editor de botones?)
 - [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2

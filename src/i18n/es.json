@@ -68,5 +68,21 @@
   "common.no": "No",
   "hud.tuning": "Afinación",
   "settings.tuningMode": "Modo afinación",
-  "settings.tuningModeHint": "Muestra el botón ⚙ durante el juego para ajustar los números de la sensación de juego."
+  "settings.tuningModeHint": "Muestra el botón ⚙ durante el juego para ajustar los números de la sensación de juego.",
+  "tuning.section.ball": "Bola",
+  "tuning.ball.boardRestitution": "Rebote en la valla",
+  "tuning.ball.rollingDecel": "Rozamiento rodando",
+  "tuning.ball.rollingDrag": "Frenado rodando por velocidad",
+  "tuning.ball.floorRestitution": "Bote en el suelo",
+  "tuning.ball.floorFriction": "Rozamiento al botar",
+  "tuning.ball.boardFriction": "Rozamiento en la valla",
+  "tuning.ball.boardJitter": "Desvío aleatorio en la valla",
+  "tuning.ball.postRestitution": "Rebote en poste y larguero",
+  "tuning.ball.netRestitution": "Rebote en la red (por fuera)",
+  "tuning.ball.netDamping": "Frenado dentro de la portería",
+  "tuning.ball.playerRestitution": "Rebote en los jugadores",
+  "tuning.ball.airDrag": "Rozamiento del aire",
+  "tuning.ball.visualScale": "Tamaño visual de la bola",
+  "tuning.camera.ballWeight": "Centrar en la bola (vs jugador)",
+  "tuning.ball.markerRadius": "Marca en el suelo bajo la bola"
 }
