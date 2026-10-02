@@ -40,3 +40,16 @@ test('pause button returns to the menu and freezes the simulation', async ({ pag
   await page.waitForTimeout(500);
   expect(await tick()).toBe(t1);
 });
+
+test('changing graphics quality applies immediately without reloading the page', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => ((window as any).__noReloadMarker = 42));
+  await page.click('#btn-settings');
+  await expect(page.locator('#quality-medium')).toHaveClass(/selected/);
+  await page.click('#quality-low');
+  await expect(page.locator('#quality-low')).toHaveClass(/selected/);
+  await page.click('#quality-high');
+  await expect(page.locator('#quality-high')).toHaveClass(/selected/);
+  await expect(page.locator('#settings-screen')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__noReloadMarker)).toBe(42);
+});

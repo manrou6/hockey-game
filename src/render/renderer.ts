@@ -27,20 +27,23 @@ export class Renderer {
   readonly engine: Engine;
   readonly scene: Scene;
   readonly tvCamera: TvCamera;
-  private readonly shadows: ShadowGenerator | null;
+  private shadows: ShadowGenerator | null = null;
+  private readonly keyLight: DirectionalLight;
+  private quality: QualityLevel;
   private readonly playerMeshes: Mesh[] = [];
   /** Index of the player the TV camera follows (until there is a ball). */
   followPlayer = 0;
 
   constructor(canvas: HTMLCanvasElement, quality: QualityLevel) {
-    const preset = QUALITY_PRESETS[quality];
+    this.quality = quality;
+    // MSAA is fixed at engine creation, so it is always on; presets only change things
+    // that can be switched at runtime (pixel ratio, shadows).
     this.engine = new Engine(
       canvas,
-      preset.antialias,
+      true,
       { stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance', disableWebGL2Support: false },
       false,
     );
-    this.applyPixelRatio(preset.maxPixelRatio);
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0.03, 0.05, 0.09, 1);
     this.scene.skipPointerMovePicking = true;
@@ -55,39 +58,45 @@ export class Renderer {
     key.position = new Vector3(8, 25, -12);
     key.intensity = 0.75;
     key.diffuse = new Color3(1, 0.97, 0.92);
-
-    if (preset.shadowMapSize > 0) {
-      this.shadows = new ShadowGenerator(preset.shadowMapSize, key);
-      this.shadows.usePercentageCloserFiltering = true;
-      this.shadows.filteringQuality = ShadowGenerator.QUALITY_LOW;
-      this.shadows.bias = 0.002;
-      key.shadowMinZ = 1;
-      key.shadowMaxZ = 60;
-      key.autoUpdateExtends = false;
-      key.shadowFrustumSize = 48;
-    } else {
-      this.shadows = null;
-    }
+    key.shadowMinZ = 1;
+    key.shadowMaxZ = 60;
+    key.autoUpdateExtends = false;
+    key.shadowFrustumSize = 48;
+    this.keyLight = key;
 
     buildRink(this.scene);
     this.tvCamera = new TvCamera(this.scene);
     this.scene.activeCamera = this.tvCamera.camera;
+    this.setQuality(quality);
 
+    // The canvas changes size on window resize, rotation and fullscreen; a ResizeObserver
+    // fires after layout has settled (Android can report stale sizes in resize events).
     const onResize = (): void => {
-      this.applyPixelRatio(preset.maxPixelRatio);
+      this.applyPixelRatio(QUALITY_PRESETS[this.quality].maxPixelRatio);
       this.engine.resize();
     };
     window.addEventListener('resize', onResize);
-    // Android may report the old size on the first event after a rotation: resize again
-    // once the new orientation has settled.
-    const onRotate = (): void => {
-      onResize();
-      setTimeout(onResize, 250);
-      setTimeout(onResize, 700);
-    };
-    screen.orientation?.addEventListener('change', onRotate);
-    window.addEventListener('orientationchange', onRotate);
-    document.addEventListener('fullscreenchange', onRotate);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(onResize).observe(canvas);
+  }
+
+  /** Apply a quality preset immediately (no reload, so fullscreen/orientation are kept). */
+  setQuality(quality: QualityLevel): void {
+    this.quality = quality;
+    const preset = QUALITY_PRESETS[quality];
+    this.applyPixelRatio(preset.maxPixelRatio);
+    this.engine.resize();
+    const currentSize = this.shadows?.getShadowMap()?.getSize().width ?? 0;
+    if (currentSize === preset.shadowMapSize) return;
+    this.shadows?.dispose();
+    this.shadows = null;
+    if (preset.shadowMapSize > 0) {
+      const sg = new ShadowGenerator(preset.shadowMapSize, this.keyLight);
+      sg.usePercentageCloserFiltering = true;
+      sg.filteringQuality = ShadowGenerator.QUALITY_LOW;
+      sg.bias = 0.002;
+      for (const m of this.playerMeshes) sg.addShadowCaster(m, true);
+      this.shadows = sg;
+    }
   }
 
   /** Render at min(devicePixelRatio, cap) to keep fill-rate inside the mobile budget. */

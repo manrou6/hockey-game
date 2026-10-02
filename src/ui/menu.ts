@@ -7,7 +7,7 @@ import { saveSettings, type Settings } from './settings';
 export interface MenuCallbacks {
   /** "Play"/"Resume" pressed (inside a user gesture: safe to request fullscreen). */
   onPlay: () => void;
-  /** Quality changed: the engine must be recreated, so the app reloads. */
+  /** Quality changed: applied immediately by the renderer. */
   onQualityChange: (q: QualityLevel) => void;
 }
 
@@ -51,7 +51,6 @@ export class Menu {
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
       ]),
-      el('p', { className: 'hint', i18n: 'settings.qualityNote' }),
       this.versionLabel,
       back,
     ]);
@@ -81,6 +80,7 @@ export class Menu {
         this.settings.quality = q;
         saveSettings(this.settings);
         this.callbacks.onQualityChange(q);
+        this.refreshTexts();
       });
       group.append(b);
     }

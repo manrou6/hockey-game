@@ -9,7 +9,6 @@
   "settings.title": "Configuració",
   "settings.language": "Idioma",
   "settings.quality": "Qualitat gràfica",
-  "settings.qualityNote": "En canviar-la, el joc es reinicia",
   "settings.version": "Versió {version}",
   "quality.low": "Baixa",
   "quality.medium": "Mitjana",
@@ -17,8 +16,5 @@
   "lang.ca": "Català",
   "lang.es": "Español",
   "lang.en": "English",
-  "controls.sprint": "Esprint",
-  "rotate.hint": "Gira el mòbil en horitzontal",
-  "rotate.autoRotateTip": "Si no gira, pot ser que tinguis la rotació automàtica desactivada: toca el botó i el joc es posarà en horitzontal.",
-  "rotate.button": "Jugar en horitzontal"
+  "controls.sprint": "Esprint"
 }

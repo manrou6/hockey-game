@@ -1,5 +1,6 @@
 import { TUNING } from '../config/tuning';
 import { capturePointer } from '../ui/dom';
+import { layoutWidth, toLayout } from '../ui/layout';
 
 /**
  * Floating virtual joystick (docs/03 §3A): appears where the left thumb touches (left part
@@ -14,6 +15,7 @@ export class VirtualJoystick {
   private originY = 0;
   private dx = 0;
   private dy = 0;
+  private readonly pt = { x: 0, y: 0 };
 
   constructor() {
     this.element = document.createElement('div');
@@ -39,12 +41,13 @@ export class VirtualJoystick {
 
   private onDown(e: PointerEvent): void {
     if (this.pointerId !== null) return;
-    if (e.clientX > window.innerWidth * TUNING.input.joystickZone) return;
+    toLayout(e.clientX, e.clientY, this.pt);
+    if (this.pt.x > layoutWidth() * TUNING.input.joystickZone) return;
     e.preventDefault();
     this.pointerId = e.pointerId;
     capturePointer(this.element, e.pointerId);
-    this.originX = e.clientX;
-    this.originY = e.clientY;
+    this.originX = this.pt.x;
+    this.originY = this.pt.y;
     this.dx = 0;
     this.dy = 0;
     this.base.classList.remove('joy-idle');
@@ -57,8 +60,9 @@ export class VirtualJoystick {
     if (e.pointerId !== this.pointerId) return;
     e.preventDefault();
     const r = TUNING.input.joystickRadiusPx;
-    let dx = e.clientX - this.originX;
-    let dy = e.clientY - this.originY;
+    toLayout(e.clientX, e.clientY, this.pt);
+    let dx = this.pt.x - this.originX;
+    let dy = this.pt.y - this.originY;
     const len = Math.hypot(dx, dy);
     if (len > r) {
       dx = (dx / len) * r;

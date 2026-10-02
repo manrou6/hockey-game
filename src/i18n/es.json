@@ -9,7 +9,6 @@
   "settings.title": "Ajustes",
   "settings.language": "Idioma",
   "settings.quality": "Calidad gráfica",
-  "settings.qualityNote": "Al cambiarla, el juego se reinicia",
   "settings.version": "Versión {version}",
   "quality.low": "Baja",
   "quality.medium": "Media",
@@ -17,8 +16,5 @@
   "lang.ca": "Català",
   "lang.es": "Español",
   "lang.en": "English",
-  "controls.sprint": "Sprint",
-  "rotate.hint": "Gira el móvil en horizontal",
-  "rotate.autoRotateTip": "Si no gira, puede que tengas la rotación automática desactivada: toca el botón y el juego se pondrá en horizontal.",
-  "rotate.button": "Jugar en horizontal"
+  "controls.sprint": "Sprint"
 }

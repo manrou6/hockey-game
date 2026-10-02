@@ -25,6 +25,8 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 ## Correcciones tras prueba de Guillem
 - v0.0.8: en vertical la pantalla "gira el mòbil" se quedaba bloqueada si el Pixel tiene la rotación automática desactivada. Ahora es opaca y tiene botón "Jugar en horitzontal" (pantalla completa + bloqueo horizontal); redimensionado extra tras girar. Test e2e `rotation.spec`.
 
+- v0.0.9 (petición de Guillem): sin pantalla de "gira el mòbil"; en vertical el juego se dibuja girado 90° (horizontal siempre) y el joystick convierte coordenadas. Cambiar la calidad ya no recarga la página (se aplica al momento), así no se pierde la pantalla completa ni el horizontal.
+
 ## Verificación de criterios F0 (2026-10-02)
 | Criterio (docs/06) | Estado | Cómo se comprobó |
 |---|---|---|
