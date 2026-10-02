@@ -5,10 +5,12 @@ import { isLanguage, type Language } from '../i18n';
 export interface Settings {
   language: Language;
   quality: QualityLevel;
+  /** Shows the in-game ⚙ tuning button. */
+  tuningMode: boolean;
 }
 
 const STORAGE_KEY = 'patins.settings.v1';
-const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY };
+const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false };
 
 export function loadSettings(): Settings {
   try {
@@ -18,6 +20,7 @@ export function loadSettings(): Settings {
     return {
       language: isLanguage(data.language) ? data.language : DEFAULTS.language,
       quality: isQualityLevel(data.quality) ? data.quality : DEFAULTS.quality,
+      tuningMode: typeof data.tuningMode === 'boolean' ? data.tuningMode : DEFAULTS.tuningMode,
     };
   } catch {
     return { ...DEFAULTS };

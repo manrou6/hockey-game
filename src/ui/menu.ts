@@ -9,6 +9,8 @@ export interface MenuCallbacks {
   onPlay: () => void;
   /** Quality changed: applied immediately by the renderer. */
   onQualityChange: (q: QualityLevel) => void;
+  /** Tuning mode toggled (shows/hides the in-game ⚙ button). */
+  onTuningModeChange: (on: boolean) => void;
 }
 
 /** Main menu + settings screen, as two full-screen overlays. */
@@ -51,6 +53,11 @@ export class Menu {
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
       ]),
+      el('div', { className: 'setting' }, [
+        el('span', { className: 'setting-label', i18n: 'settings.tuningMode' }),
+        this.tuningChoices(),
+      ]),
+      el('p', { className: 'hint', i18n: 'settings.tuningModeHint' }),
       this.versionLabel,
       back,
     ]);
@@ -87,6 +94,21 @@ export class Menu {
     return group;
   }
 
+  private tuningChoices(): HTMLElement {
+    const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
+    for (const on of [true, false]) {
+      const b = el('button', { className: 'choice', i18n: on ? 'common.yes' : 'common.no', attrs: { 'data-tuning': String(on), id: `tuning-${on ? 'on' : 'off'}` } });
+      b.addEventListener('click', () => {
+        this.settings.tuningMode = on;
+        saveSettings(this.settings);
+        this.callbacks.onTuningModeChange(on);
+        this.refreshTexts();
+      });
+      group.append(b);
+    }
+    return group;
+  }
+
   private selectLanguage(lang: Language): void {
     this.settings.language = lang;
     saveSettings(this.settings);
@@ -100,6 +122,11 @@ export class Menu {
     this.element.querySelectorAll<HTMLElement>('[data-lang]').forEach((b) => {
       b.classList.toggle('selected', b.dataset.lang === getLanguage());
       b.setAttribute('aria-checked', String(b.dataset.lang === getLanguage()));
+    });
+    this.element.querySelectorAll<HTMLElement>('[data-tuning]').forEach((b) => {
+      const sel = b.dataset.tuning === String(this.settings.tuningMode);
+      b.classList.toggle('selected', sel);
+      b.setAttribute('aria-checked', String(sel));
     });
     this.element.querySelectorAll<HTMLElement>('[data-quality]').forEach((b) => {
       b.classList.toggle('selected', b.dataset.quality === this.settings.quality);

@@ -11,6 +11,8 @@ import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { SceneInstrumentation } from '@babylonjs/core/Instrumentation/sceneInstrumentation';
+import { EngineInstrumentation } from '@babylonjs/core/Instrumentation/engineInstrumentation';
+import '@babylonjs/core/Engines/Extensions/engine.query';
 import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
 import type { WorldState } from '../sim/world';
 import { buildRink } from './rinkBuilder';
@@ -146,16 +148,43 @@ export class Renderer {
   }
 
   private instrumentation: SceneInstrumentation | null = null;
+  private gpuInstrumentation: EngineInstrumentation | null = null;
+  private gpuUnavailable = false;
 
   /** Render counters for the performance budget (docs/04). Instrumentation starts on first call. */
-  renderStats(): { drawCalls: number; triangles: number; activeMeshes: number; width: number; height: number } {
+  renderStats(): {
+    drawCalls: number;
+    triangles: number;
+    activeMeshes: number;
+    width: number;
+    height: number;
+    /** Render pixels per CSS pixel actually used, and the device's native ratio. */
+    pixelRatio: number;
+    nativePixelRatio: number;
+    /** GPU time per frame (ms) if the device exposes timer queries, else null. */
+    gpuMs: number | null;
+  } {
     this.instrumentation ??= new SceneInstrumentation(this.scene);
+    if (!this.gpuInstrumentation && !this.gpuUnavailable && this.engine.getCaps().timerQuery) {
+      try {
+        this.gpuInstrumentation = new EngineInstrumentation(this.engine);
+        this.gpuInstrumentation.captureGPUFrameTime = true;
+      } catch {
+        // GPU timing is a debug nicety; never let it break the frame.
+        this.gpuUnavailable = true;
+        this.gpuInstrumentation = null;
+      }
+    }
+    const gpuAvg = this.gpuInstrumentation?.gpuFrameTimeCounter.lastSecAverage ?? 0;
     return {
       drawCalls: this.instrumentation.drawCallsCounter.current,
       triangles: Math.round(this.scene.getActiveIndices() / 3),
       activeMeshes: this.scene.getActiveMeshes().length,
       width: this.engine.getRenderWidth(),
       height: this.engine.getRenderHeight(),
+      pixelRatio: 1 / this.engine.getHardwareScalingLevel(),
+      nativePixelRatio: window.devicePixelRatio || 1,
+      gpuMs: gpuAvg > 0 ? gpuAvg * 1e-6 : null,
     };
   }
 }

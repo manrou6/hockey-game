@@ -1,6 +1,7 @@
 // All "game feel" numbers live here (CLAUDE.md rule 4). Values are starting points
-// from docs/03 and are meant to be tuned live from the debug panel (?debug=1).
-// The object is intentionally mutable so the debug panel can edit it at runtime.
+// from docs/03 and are tuned live on the phone from the tuning panel (Settings → tuning
+// mode). The object is intentionally mutable so the panel can edit it at runtime; the
+// factory values are kept in TUNING_DEFAULTS. Ranges/labels for the panel: tuningMeta.ts.
 
 export const TUNING = {
   sim: {
@@ -80,3 +81,6 @@ export const TUNING = {
 };
 
 export type Tuning = typeof TUNING;
+
+/** Factory values, captured before any saved player override is applied. */
+export const TUNING_DEFAULTS: Tuning = JSON.parse(JSON.stringify(TUNING)) as Tuning;
