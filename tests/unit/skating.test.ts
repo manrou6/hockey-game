@@ -227,25 +227,31 @@ describe('skating: trencada (lateral cut)', () => {
     return p;
   }
 
-  it('a quick 90° flick at speed starts a cut', () => {
+  it('a quick 90° flick at speed starts a trencada (pre-brake first)', () => {
     const p = flick();
-    expect(p.cutTime).toBeGreaterThan(0);
+    expect(p.cutPrep).toBeGreaterThan(0);
     expect(p.braking).toBe(true);
   });
 
-  it('slides sideways, loses the old speed, redirects part of it and exits with a push', () => {
+  it('first a pre-brake along the old direction, then the turn: exits at `redirect` of the old speed with a soft push', () => {
     const p = flick();
     const v0 = p.cutSpeed0;
+    // Pre-brake: keeps going the old way (+x), losing speed; the body starts turning.
     let maxBody = 0;
-    runInPlace(p, cmd(0, 1), C.duration - DT, (q) => {
+    runInPlace(p, cmd(0, 1), C.prepTime - DT, (q) => {
+      expect(Math.abs(q.vy)).toBeLessThan(1e-6);
       maxBody = Math.max(maxBody, Math.abs(wrapAngleTest(q.heading - Math.atan2(q.vy, q.vx))));
     });
+    expect(p.cutPrep).toBe(0);
+    expect(speed(p)).toBeCloseTo(v0 * (1 - C.prepSpeedLoss), 1);
+    expect(maxBody).toBeGreaterThan(C.bodyTurn * 0.8);
+    // The turn itself.
+    runInPlace(p, cmd(0, 1), C.duration);
     expect(p.cutTime).toBe(0);
-    // Now going the new way (+y) with about `redirect` of the old speed.
     expect(Math.abs(p.vx)).toBeLessThan(0.05);
     expect(p.vy).toBeCloseTo(v0 * C.redirect, 1);
-    expect(maxBody).toBeGreaterThan(C.bodyTurn * 0.5); // body turned towards the cut
-    // Exit push: accelerates faster than normal acceleration alone.
+    expect(p.vy).toBeLessThan(K.maxSpeed * 0.5); // a defendable exit
+    // Soft exit push: a bit faster than plain acceleration, but no sprint.
     const vEnd = speed(p);
     runInPlace(p, cmd(0, 1), 0.2);
     const withPush = speed(p) - vEnd;
@@ -253,10 +259,21 @@ describe('skating: trencada (lateral cut)', () => {
     plain.vx = 0;
     plain.vy = vEnd;
     plain.heading = Math.PI / 2;
-    plain.boostCooldown = 99; // no push
+    plain.boostCooldown = 99;
     plain.cutCooldown = 99;
     runInPlace(plain, cmd(0, 1), 0.2);
-    expect(withPush).toBeGreaterThan(speed(plain) - vEnd + 1);
+    expect(withPush).toBeGreaterThan(speed(plain) - vEnd + 0.5);
+  });
+
+  it('after the cut you must re-accelerate: no sprint for noSprintTime even with the thumb in the ring', () => {
+    const p = flick(true);
+    runInPlace(p, cmd(0, 1, true), C.prepTime + C.duration);
+    expect(p.cutRecovery).toBeGreaterThan(0);
+    let peak = 0;
+    runInPlace(p, cmd(0, 1, true), C.noSprintTime - 2 * DT, (q) => (peak = Math.max(peak, speed(q))));
+    expect(peak).toBeLessThanOrEqual(K.maxSpeed + 1e-6);
+    runInPlace(p, cmd(0, 1, true), 6);
+    expect(speed(p)).toBeCloseTo(K.sprintSpeed, 3); // the sprint comes back later
   });
 
   it('a normal curve (stick turning gradually) never triggers a cut', () => {
@@ -266,7 +283,7 @@ describe('skating: trencada (lateral cut)', () => {
       stepPlayer(p, cmd(Math.cos(a), Math.sin(a)), TUNING, DT);
       p.x = 0;
       p.y = 0;
-      expect(p.cutTime).toBe(0);
+      expect(p.cutTime + p.cutPrep).toBe(0);
     }
   });
 
@@ -275,29 +292,34 @@ describe('skating: trencada (lateral cut)', () => {
     run(slow, cmd(0.4, 0), 2);
     expect(speed(slow)).toBeLessThan(C.minSpeed);
     stepPlayer(slow, cmd(0, 1), TUNING, DT);
-    expect(slow.cutTime).toBe(0);
+    expect(slow.cutPrep).toBe(0);
     const rev = cruising();
     stepPlayer(rev, cmd(-1, 0.1), TUNING, DT);
-    expect(rev.cutTime).toBe(0);
+    expect(rev.cutPrep).toBe(0);
     expect(rev.skidTime).toBeGreaterThan(0);
   });
 
-  it('taking the stick back to the old direction cancels it', () => {
+  it('taking the stick back to the old direction cancels it (also during the pre-brake)', () => {
     const p = flick();
+    runInPlace(p, cmd(0, 1), C.prepTime / 2);
+    expect(p.cutPrep).toBeGreaterThan(0);
     stepPlayer(p, cmd(1, 0), TUNING, DT);
+    expect(p.cutPrep).toBe(0);
     expect(p.cutTime).toBe(0);
   });
 
-  it('cannot be chained: cooldown before the next cut, and the exit push blocks the sprint push', () => {
+  it('cannot be chained: cooldown counts from the end of the manoeuvre, and the exit push blocks the sprint push', () => {
     const p = flick();
-    runInPlace(p, cmd(0, 1), C.duration);
-    expect(p.boostTime).toBeGreaterThan(0); // exit push running
-    stepPlayer(p, cmd(1, 0), TUNING, DT); // flick back at once
+    runInPlace(p, cmd(0, 1), C.prepTime + C.duration);
     expect(p.cutTime).toBe(0);
-    expect(p.cutCooldown).toBeGreaterThan(0);
-    // Entering a sprint right now gives no extra sprint push (shared cooldown).
+    expect(p.cutCooldown).toBeGreaterThan(C.cooldown - 2 * DT); // started at the end of the manoeuvre
+    expect(p.boostTime).toBeGreaterThan(0); // exit push running
+    // Flick back at once: no new cut (only plain turning).
+    stepPlayer(p, cmd(1, 0), TUNING, DT);
+    expect(p.cutPrep + p.cutTime).toBe(0);
+    // Entering a sprint after the recovery gives no extra sprint push (shared cooldown).
     const q = flick();
-    runInPlace(q, cmd(0, 1), C.duration + 0.25);
+    runInPlace(q, cmd(0, 1), C.prepTime + C.duration + C.noSprintTime);
     runInPlace(q, cmd(0, 1, true), DT);
     expect(q.boostIsSprint).toBe(false);
   });
@@ -306,8 +328,8 @@ describe('skating: trencada (lateral cut)', () => {
     const saved = C.onlyWithSprint;
     C.onlyWithSprint = 1;
     try {
-      expect(flick(false).cutTime).toBe(0);
-      expect(flick(true).cutTime).toBeGreaterThan(0);
+      expect(flick(false).cutPrep).toBe(0);
+      expect(flick(true).cutPrep).toBeGreaterThan(0);
     } finally {
       C.onlyWithSprint = saved;
     }

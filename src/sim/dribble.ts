@@ -5,6 +5,7 @@ import type { PlayerCommand } from './commands';
 import type { PlayerState } from './player';
 import { boardSignedDistance, collideBox, goalFootprints, type Contact } from './rink';
 import { nextFloat, type RngState } from './rng';
+import { cutFor, dribbleFor, skatingFor } from './feel';
 
 // Carrying the ball on the stick (docs/03 §2: "imantada" with a margin). At normal speed
 // the ball stays glued to the blade with a tiny touch rhythm; it only separates when
@@ -17,7 +18,7 @@ const GOALS = goalFootprints();
 
 /** Where the blade is: ahead of the body and to the right of the heading. */
 export function bladePoint(p: PlayerState, tuning: Tuning, extraForward = 0): { x: number; y: number } {
-  const d = tuning.dribble;
+  const d = dribbleFor(p, tuning);
   const c = Math.cos(p.heading);
   const s = Math.sin(p.heading);
   // Right of heading in the rink plane (x, y counter-clockwise): (sin, −cos).
@@ -26,11 +27,11 @@ export function bladePoint(p: PlayerState, tuning: Tuning, extraForward = 0): { 
 
 /** 0..1 pressure from the nearest opponent (0 = nobody within pressureRadius). */
 export function pressureOn(p: PlayerState, players: readonly PlayerState[], tuning: Tuning): number {
-  const R = tuning.dribble.pressureRadius;
+  const R = dribbleFor(p, tuning).pressureRadius;
   let best = 0;
   for (const o of players) {
     if (o === p || o.team === p.team) continue;
-    const d = Math.hypot(o.x - p.x, o.y - p.y) - tuning.skating.radius * 2;
+    const d = Math.hypot(o.x - p.x, o.y - p.y) - skatingFor(p, tuning).radius - skatingFor(o, tuning).radius;
     best = Math.max(best, Math.min(1, Math.max(0, (R - d) / R)));
   }
   return best;
@@ -38,8 +39,8 @@ export function pressureOn(p: PlayerState, players: readonly PlayerState[], tuni
 
 /** Separation the dribble is heading to, given the current situation (m). */
 export function targetSeparation(p: PlayerState, pressure: number, tuning: Tuning): number {
-  const d = tuning.dribble;
-  const k = tuning.skating;
+  const d = dribbleFor(p, tuning);
+  const k = skatingFor(p, tuning);
   const speed = Math.hypot(p.vx, p.vy);
   // Sprint only counts once actually faster than the normal top speed.
   const sprintFrom = k.maxSpeed + 0.05;
@@ -51,10 +52,10 @@ export function targetSeparation(p: PlayerState, pressure: number, tuning: Tunin
   // Four-wheel skid stop at speed: the ball runs on ahead of the stick.
   const skid = p.skidTime > 0 ? Math.min(1, (p.skidSpeed0 * p.skidTime) / Math.max(1e-6, p.skidDuration * k.maxSpeed)) : 0;
   // Trencada at speed: the ball runs on during the cut (Control reduces it as usual).
-  const cut = p.cutTime > 0 ? Math.min(1, p.cutSpeed0 / k.maxSpeed) : 0;
+  const cut = p.cutPrep > 0 || p.cutTime > 0 ? Math.min(1, p.cutSpeed0 / k.maxSpeed) : 0;
   const raw =
     d.baseSeparation + d.sprintSeparation * sprint + d.turnSeparation * turn + d.pressureSeparation * pressure + d.skidSeparation * skid +
-    tuning.cut.ballSeparation * cut;
+    cutFor(p, tuning).ballSeparation * cut;
   return raw * (1 - d.controlAdvantage * control);
 }
 
@@ -95,7 +96,7 @@ function keepInPlay(ball: BallState): void {
  * loose, rolling on with its current velocity).
  */
 export function stepDribble(ball: BallState, owner: PlayerState, players: readonly PlayerState[], tuning: Tuning, rng: RngState, dt: number): boolean {
-  const d = tuning.dribble;
+  const d = dribbleFor(owner, tuning);
   const r = RINK.ballRadius;
   ball.prevX = ball.x;
   ball.prevY = ball.y;
@@ -111,7 +112,7 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
   ball.touchPhase = (ball.touchPhase + (speed * dt) / Math.max(0.2, d.touchDistance)) % 1;
   // Touch push goes the way the skater travels (during a skid the body turns but the ball
   // keeps rolling on in the direction of travel).
-  const push = owner.skidTime > 0 || owner.cutTime > 0 ? ball.separation : ball.separation * 0.5 * (1 - Math.cos(ball.touchPhase * Math.PI * 2));
+  const push = owner.skidTime > 0 || owner.cutPrep > 0 || owner.cutTime > 0 ? ball.separation : ball.separation * 0.5 * (1 - Math.cos(ball.touchPhase * Math.PI * 2));
   const t = bladePoint(owner, tuning);
   const travel = speed > 0.5 ? Math.atan2(owner.vy, owner.vx) : owner.heading;
   t.x += Math.cos(travel) * push;
@@ -152,12 +153,12 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
 export function releaseBall(ball: BallState, owner: PlayerState, tuning: Tuning): void {
   ball.owner = -1;
   ball.separation = 0;
-  owner.noPickupTicks = Math.round(tuning.dribble.relockTime * tuning.sim.tickRate);
+  owner.noPickupTicks = Math.round(dribbleFor(owner, tuning).relockTime * tuning.sim.tickRate);
 }
 
 /** Can this player take the loose ball right now? */
 export function canPickUp(ball: BallState, p: PlayerState, tuning: Tuning): boolean {
-  const d = tuning.dribble;
+  const d = dribbleFor(p, tuning);
   if (ball.owner !== -1 || ball.inGoal !== 0 || p.noPickupTicks > 0) return false;
   if (ball.z - RINK.ballRadius > d.pickupMaxHeight) return false;
   const b = bladePoint(p, tuning);
@@ -187,7 +188,7 @@ export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning
  * ball can already be released while tuning the dribble. Returns true if the ball left.
  */
 export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): boolean {
-  const d = tuning.dribble;
+  const d = dribbleFor(p, tuning);
   if (p.bufShoot > 0) {
     // Towards the centre of the goal being attacked if roughly facing it, else straight ahead.
     const goalX = (p.team === 0 ? 1 : -1) * (RINK.length / 2 - RINK.goalLineFromEnd);

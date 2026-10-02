@@ -3,6 +3,7 @@ import type { Tuning } from '../config/tuning';
 import { PLAYER_HEIGHT, type PlayerState } from './player';
 import { boardSignedDistance } from './rink';
 import { nextRange, type RngState } from './rng';
+import { skatingFor } from './feel';
 
 /** m/s². A physical constant, not game feel. */
 export const GRAVITY = 9.81;
@@ -184,12 +185,11 @@ function substep(b: BallState, players: readonly PlayerState[], tuning: Tuning, 
   }
 
   // --- Players' bodies ------------------------------------------------------------------
-  const pr = tuning.skating.radius;
   for (const p of players) {
     if (b.z > PLAYER_HEIGHT) continue;
     const dx = b.x - p.x;
     const dy = b.y - p.y;
-    const min = pr + r;
+    const min = skatingFor(p, tuning).radius + r;
     const d2 = dx * dx + dy * dy;
     if (d2 >= min * min) continue;
     const d = Math.sqrt(d2);
