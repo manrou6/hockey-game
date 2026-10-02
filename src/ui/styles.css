@@ -1,0 +1,51 @@
+:root {
+  --ui-bg: rgba(8, 20, 38, 0.82);
+  --ui-accent: #f4b23c;
+  --ui-text: #ffffff;
+  --ui-muted: #a9bdd4;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+#ui-root button { font: inherit; color: inherit; }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--ui-bg);
+  pointer-events: auto;
+  text-align: center;
+}
+.overlay[hidden] { display: none; }
+
+.title {
+  font-size: clamp(36px, 9vh, 72px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+
+.btn-primary {
+  min-width: 220px;
+  min-height: 56px;
+  padding: 12px 28px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ui-accent);
+  color: #10233b !important;
+  font-size: 22px !important;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rotate-hint { display: none; z-index: 100; }
+@media (orientation: portrait) {
+  .rotate-hint { display: flex; }
+}
+.rotate-icon { font-size: 64px; animation: rotate-phone 1.6s ease-in-out infinite; }
+@keyframes rotate-phone { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }

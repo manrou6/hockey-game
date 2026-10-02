@@ -8,7 +8,7 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 
 ## Sub-pasos F0
 - [x] F0.1 Esqueleto Vite + TS estricto + Babylon, carpetas (docs/05), tuning.ts, Vitest + Playwright (v0.0.1)
-- [ ] F0.2 GitHub Actions (build, tests, deploy Pages) + PWA (manifest, SW, icono, horizontal, pantalla completa)
+- [x] F0.2 GitHub Actions (build, tests, deploy Pages) + PWA (manifest, SW, icono, horizontal, pantalla completa) (v0.0.2)
 - [ ] F0.3 Bucle a paso fijo 60 Hz + interpolación, RNG con semilla, test determinismo, panel debug ?debug=1
 - [ ] F0.4 Pista con medidas, vallas, porterías, iluminación, cámara TV
 - [ ] F0.5 Jugador cápsula con inercia, colisión valla/porterías, teclado + joystick virtual

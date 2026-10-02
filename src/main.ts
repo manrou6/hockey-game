@@ -1,3 +1,5 @@
+import './ui/styles.css';
+import { registerSW } from 'virtual:pwa-register';
 import { Engine } from '@babylonjs/core/Engines/engine';
 import { Scene } from '@babylonjs/core/scene';
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera';
@@ -5,6 +7,18 @@ import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { Color4 } from '@babylonjs/core/Maths/math.color';
 import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder';
+import { translateDom } from './i18n';
+import { createRotateHint, createStartOverlay } from './ui/overlays';
+import { enterFullscreenLandscape } from './ui/fullscreen';
+
+registerSW({ immediate: true });
+
+const uiRoot = document.getElementById('ui-root') as HTMLDivElement;
+uiRoot.append(
+  createStartOverlay(() => void enterFullscreenLandscape()),
+  createRotateHint(),
+);
+translateDom(uiRoot);
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const engine = new Engine(canvas, true, { stencil: false, preserveDrawingBuffer: false }, true);
