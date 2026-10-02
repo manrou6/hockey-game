@@ -103,12 +103,20 @@ export const TUNING = {
     minAngle: 1.0471976,
     minSpeed: 5,
     gestureTime: 0.15,
+    /** Pre-brake before turning (s) along the old direction, and the share of speed it loses:
+     * the defender's chance to react. */
+    prepTime: 0.5,
+    prepSpeedLoss: 0.35,
     duration: 0.25,
-    redirect: 0.5,
+    /** Exit speed as a share of the speed you had before the trencada. */
+    redirect: 0.38,
     bodyTurn: 0.7853982,
-    exitAccel: 15,
+    exitAccel: 8,
     exitTime: 0.2,
+    /** Time between trencadas, counted from the END of the manoeuvre (s). */
     cooldown: 0.8,
+    /** After the cut, no sprint for this long even with the thumb in the ring (re-accelerate). */
+    noSprintTime: 0.6,
     /** 1 = only with the thumb in the sprint zone (option B), 0 = always (option A). */
     onlyWithSprint: 0,
     /** Extra ball separation during a cut at normal top speed (reduced by Control as usual). */

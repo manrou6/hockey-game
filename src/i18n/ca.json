@@ -148,12 +148,15 @@
   "tuning.cut.minAngle": "Angle mínim de gir",
   "tuning.cut.minSpeed": "Velocitat mínima",
   "tuning.cut.gestureTime": "Rapidesa del gest (temps màxim)",
-  "tuning.cut.duration": "Durada del tall",
-  "tuning.cut.redirect": "Velocitat redirigida",
+  "tuning.cut.duration": "Durada del gir",
+  "tuning.cut.redirect": "Velocitat de sortida (% de la que portaves)",
   "tuning.cut.bodyTurn": "Gir del cos",
   "tuning.cut.exitAccel": "Empenta de sortida: força",
   "tuning.cut.exitTime": "Empenta de sortida: durada",
-  "tuning.cut.cooldown": "Temps entre trencades",
+  "tuning.cut.cooldown": "Temps entre trencades (des del final)",
   "tuning.cut.onlyWithSprint": "Només amb esprint",
-  "tuning.cut.ballSeparation": "Separació de la bola"
+  "tuning.cut.ballSeparation": "Separació de la bola",
+  "tuning.cut.prepTime": "Frenada prèvia",
+  "tuning.cut.prepSpeedLoss": "Velocitat perduda a la frenada prèvia",
+  "tuning.cut.noSprintTime": "Temps sense esprint després"
 }

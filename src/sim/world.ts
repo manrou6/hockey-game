@@ -6,6 +6,7 @@ import { bufferActions, canPickUp, pickUp, provisionalActions, stepDribble } fro
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
+import { skatingFor } from './feel';
 
 export type { PlayerState } from './player';
 export { createPlayer } from './player';
@@ -76,8 +77,10 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       for (let j = i + 1; j < players.length; j++) collidePlayers(players[i]!, players[j]!, tuning);
     }
     // Player pushes may shove someone into the boards: keep everyone inside.
-    const k = tuning.skating;
-    for (const p of players) resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
+    for (const p of players) {
+      const k = skatingFor(p, tuning);
+      resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
+    }
   }
   // Ball: carried on a stick, or free physics (then maybe someone takes it).
   if (ball.owner >= 0) {

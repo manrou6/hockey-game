@@ -148,12 +148,15 @@
   "tuning.cut.minAngle": "Minimum turn angle",
   "tuning.cut.minSpeed": "Minimum speed",
   "tuning.cut.gestureTime": "Gesture speed (max time)",
-  "tuning.cut.duration": "Cut duration",
-  "tuning.cut.redirect": "Speed redirected",
+  "tuning.cut.duration": "Turn duration",
+  "tuning.cut.redirect": "Exit speed (% of the speed you had)",
   "tuning.cut.bodyTurn": "Body turn",
   "tuning.cut.exitAccel": "Exit push: strength",
   "tuning.cut.exitTime": "Exit push: duration",
-  "tuning.cut.cooldown": "Cooldown between cuts",
+  "tuning.cut.cooldown": "Cooldown between cuts (from the end)",
   "tuning.cut.onlyWithSprint": "Only when sprinting",
-  "tuning.cut.ballSeparation": "Ball separation"
+  "tuning.cut.ballSeparation": "Ball separation",
+  "tuning.cut.prepTime": "Pre-brake",
+  "tuning.cut.prepSpeedLoss": "Speed lost in the pre-brake",
+  "tuning.cut.noSprintTime": "No-sprint time after"
 }

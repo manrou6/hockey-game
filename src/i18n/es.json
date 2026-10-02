@@ -148,12 +148,15 @@
   "tuning.cut.minAngle": "Ángulo mínimo de giro",
   "tuning.cut.minSpeed": "Velocidad mínima",
   "tuning.cut.gestureTime": "Rapidez del gesto (tiempo máximo)",
-  "tuning.cut.duration": "Duración del corte",
-  "tuning.cut.redirect": "Velocidad redirigida",
+  "tuning.cut.duration": "Duración del giro",
+  "tuning.cut.redirect": "Velocidad de salida (% de la que llevabas)",
   "tuning.cut.bodyTurn": "Giro del cuerpo",
   "tuning.cut.exitAccel": "Empujón de salida: fuerza",
   "tuning.cut.exitTime": "Empujón de salida: duración",
-  "tuning.cut.cooldown": "Tiempo entre trencadas",
+  "tuning.cut.cooldown": "Tiempo entre trencadas (desde el final)",
   "tuning.cut.onlyWithSprint": "Solo con sprint",
-  "tuning.cut.ballSeparation": "Separación de la bola"
+  "tuning.cut.ballSeparation": "Separación de la bola",
+  "tuning.cut.prepTime": "Frenada previa",
+  "tuning.cut.prepSpeedLoss": "Velocidad perdida en la frenada previa",
+  "tuning.cut.noSprintTime": "Tiempo sin sprint después"
 }

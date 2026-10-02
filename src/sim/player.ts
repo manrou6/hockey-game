@@ -1,6 +1,7 @@
 import type { Tuning } from '../config/tuning';
 import type { PlayerCommand } from './commands';
 import { resolveStatic } from './rink';
+import { cutFor, dribbleFor, skatingFor } from './feel';
 
 /** Below this stick magnitude there is no input (the input layer applies the real dead zone). */
 const MOVE_EPSILON = 0.01;
@@ -60,6 +61,12 @@ export interface PlayerState {
   cutTo: number;
   cutSide: number;
   cutCooldown: number;
+  /** Trencada pre-brake phase (s left / total) and the speed when it ended; then the time
+   * after the cut during which sprinting is not allowed (has to re-accelerate). */
+  cutPrep: number;
+  cutPrepDuration: number;
+  cutSpeedMid: number;
+  cutRecovery: number;
   /** Recent stick directions (rad, NaN = no input), one per tick, to detect a flick. */
   stickHist: number[];
   stickHistIdx: number;
@@ -77,6 +84,7 @@ export function createPlayer(id: number, x: number, y: number, heading = 0): Pla
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,
     cutTime: 0, cutDuration: 0, cutSpeed0: 0, cutFrom: 0, cutTo: 0, cutSide: 1, cutCooldown: 0,
+    cutPrep: 0, cutPrepDuration: 0, cutSpeedMid: 0, cutRecovery: 0,
     stickHist: new Array<number>(STICK_HISTORY).fill(Number.NaN), stickHistIdx: 0,
     prevX: x, prevY: y, prevHeading: heading,
   };
@@ -94,9 +102,9 @@ export function wrapAngle(a: number): number {
 /** Ticks of stick-direction history kept for flick detection (0.5 s at 60 Hz). */
 const STICK_HISTORY = 32;
 
-/** True while doing a trencada (lateral cut). */
+/** True during a trencada (pre-brake or the cut itself). */
 export function isCutting(p: PlayerState): boolean {
-  return p.cutTime > 0;
+  return p.cutPrep > 0 || p.cutTime > 0;
 }
 
 /** Did the stick direction turn by at least `angle` within the last `ticks` ticks? */
@@ -126,7 +134,7 @@ export function isSkidding(p: PlayerState): boolean {
 }
 
 function startSkid(p: PlayerState, speed: number, dir: number, side: number, tuning: Tuning): void {
-  const k = tuning.skating;
+  const k = skatingFor(p, tuning);
   p.skidDuration = Math.max(0.05, k.skidTime);
   p.skidTime = p.skidDuration;
   p.skidSpeed0 = speed;
@@ -151,7 +159,7 @@ function skidBodyEnvelope(u: number): number {
  * released abruptly at speed) and a soft glide when the stick is brought back gently.
  */
 export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number, hasBall = false): void {
-  const k = tuning.skating;
+  const k = skatingFor(p, tuning);
   p.prevX = p.x;
   p.prevY = p.y;
   p.prevHeading = p.heading;
@@ -169,33 +177,42 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.turnLock = 0;
   p.boostCooldown = Math.max(0, p.boostCooldown - dt);
   p.cutCooldown = Math.max(0, p.cutCooldown - dt);
+  p.cutRecovery = Math.max(0, p.cutRecovery - dt);
 
   // --- Trencada (lateral cut that redirects) ------------------------------------------------
-  const c = tuning.cut;
-  if (hasInput && p.cutTime <= 0 && p.skidTime <= 0 && p.cutCooldown <= 0 && speed >= c.minSpeed && (c.onlyWithSprint < 0.5 || cmd.sprint)) {
+  // Two phases: a pre-brake along the old direction (cutPrep, the defender's chance to react),
+  // then the cut itself (cutTime) that turns part of the speed into the new direction.
+  const c = cutFor(p, tuning);
+  const inCut = (): boolean => p.cutPrep > 0 || p.cutTime > 0;
+  if (hasInput && !inCut() && p.skidTime <= 0 && p.cutCooldown <= 0 && speed >= c.minSpeed && (c.onlyWithSprint < 0.5 || cmd.sprint)) {
     const diff = wrapAngle(want - dir);
     const gestureTicks = Math.round(c.gestureTime * tuning.sim.tickRate);
     if (Math.abs(diff) >= c.minAngle && Math.abs(diff) <= k.brakeAngle && stickFlicked(p, want, c.minAngle, gestureTicks)) {
+      p.cutPrepDuration = Math.max(0, c.prepTime);
+      p.cutPrep = p.cutPrepDuration;
       p.cutDuration = Math.max(0.05, c.duration);
       p.cutTime = p.cutDuration;
       p.cutSpeed0 = speed;
+      p.cutSpeedMid = speed;
       p.cutFrom = dir;
       p.cutTo = want;
       p.cutSide = diff >= 0 ? 1 : -1;
-      p.cutCooldown = c.cooldown;
       p.boostTime = 0;
     }
   }
   // Remember the stick direction (after detection, so the history is "before this tick").
   p.stickHist[p.stickHistIdx] = hasInput ? want : Number.NaN;
   p.stickHistIdx = (p.stickHistIdx + 1) % STICK_HISTORY;
-  // Taking the stick back to the old direction cancels the cut.
-  if (p.cutTime > 0 && hasInput && Math.abs(wrapAngle(want - p.cutFrom)) < c.minAngle / 2) {
+  // Taking the stick back to the old direction cancels the cut (also during the pre-brake).
+  // The cooldown still applies, so cancelling is not free either.
+  if (inCut() && hasInput && Math.abs(wrapAngle(want - p.cutFrom)) < c.minAngle / 2) {
+    p.cutPrep = 0;
     p.cutTime = 0;
+    p.cutCooldown = c.cooldown;
   }
 
   // --- Four-wheel skid stop ----------------------------------------------------------------
-  if (p.cutTime <= 0 && p.skidTime <= 0 && speed > k.pivotSpeed) {
+  if (!inCut() && p.skidTime <= 0 && speed > k.pivotSpeed) {
     if (hasInput && Math.abs(wrapAngle(want - dir)) > k.brakeAngle) startSkid(p, speed, dir, Math.sign(wrapAngle(want - dir)) || p.lastTurnSign, tuning);
     else if (abruptRelease) startSkid(p, speed, dir, p.lastTurnSign, tuning);
   }
@@ -205,26 +222,41 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     p.heading = p.skidDir;
   }
 
-  if (p.cutTime > 0) {
-    // Sideways four-wheel slide: the old speed fades and part of it turns into the new direction.
+  if (inCut() && hasInput && Math.abs(wrapAngle(want - p.cutFrom)) >= c.minAngle) p.cutTo = want; // can be steered
+  if (p.cutPrep > 0) {
+    // Pre-brake: four-wheel braking along the old direction, losing prepSpeedLoss of the
+    // speed; the body starts turning towards the cut.
     p.braking = true;
-    if (hasInput && Math.abs(wrapAngle(want - p.cutFrom)) >= c.minAngle) p.cutTo = want; // can be steered
+    p.cutPrep = countDown(p.cutPrep, dt);
+    const u = p.cutPrepDuration > 0 ? 1 - p.cutPrep / p.cutPrepDuration : 1;
+    speed = p.cutSpeed0 * (1 - c.prepSpeedLoss * u);
+    dir = p.cutFrom;
+    p.heading = wrapAngle(dir + p.cutSide * c.bodyTurn * smooth01(u));
+    p.wasSprinting = cmd.sprint;
+    if (p.cutPrep === 0) p.cutSpeedMid = speed;
+  } else if (p.cutTime > 0) {
+    // The cut: sideways four-wheel slide; the remaining old speed fades and `redirect` of the
+    // original speed builds up in the new direction.
+    p.braking = true;
     p.cutTime = countDown(p.cutTime, dt);
     const u = 1 - p.cutTime / p.cutDuration;
     const e = smooth01(u);
-    const oldPart = p.cutSpeed0 * (1 - e);
+    const oldPart = p.cutSpeedMid * (1 - e);
     const newPart = p.cutSpeed0 * c.redirect * e;
     const vx = Math.cos(p.cutFrom) * oldPart + Math.cos(p.cutTo) * newPart;
     const vy = Math.sin(p.cutFrom) * oldPart + Math.sin(p.cutTo) * newPart;
     speed = Math.hypot(vx, vy);
     dir = speed > 1e-4 ? Math.atan2(vy, vx) : p.cutTo;
     const facing = p.cutFrom + wrapAngle(p.cutTo - p.cutFrom) * e;
-    p.heading = wrapAngle(facing + p.cutSide * c.bodyTurn * skidBodyEnvelope(u));
+    p.heading = wrapAngle(facing + p.cutSide * c.bodyTurn * (1 - e));
     p.wasSprinting = cmd.sprint;
     if (p.cutTime === 0) {
       dir = p.cutTo;
       p.heading = dir;
-      // Exit push towards the new direction (shares the cooldown with the sprint push).
+      // Cooldown counts from the END of the whole manoeuvre; no sprint for a moment after it.
+      p.cutCooldown = c.cooldown;
+      p.cutRecovery = c.noSprintTime;
+      // Soft exit push towards the new direction (shares the cooldown with the sprint push).
       if (p.boostCooldown <= 0 && c.exitTime > 0) {
         p.boostTime = c.exitTime;
         p.boostAccel = c.exitAccel;
@@ -251,7 +283,9 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
     p.wasSprinting = false;
   } else {
-    const sprinting = cmd.sprint;
+    // Right after a trencada you can't sprint yet: re-accelerate first.
+    const sprinting = cmd.sprint && p.cutRecovery <= 0;
+    if (p.cutRecovery > 0) p.wasSprinting = cmd.sprint; // no sprint push when the recovery ends
     // Sprint push: a short burst of extra acceleration when a sprint starts.
     if (sprinting && !p.wasSprinting && p.boostCooldown <= 0) {
       p.boostTime = k.sprintBoostTime;
@@ -265,7 +299,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     const boosting = p.boostTime > 0;
     p.boostTime = Math.max(0, p.boostTime - dt);
 
-    const cap = sprinting ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
+    const cap = sprinting ? (hasBall ? dribbleFor(p, tuning).sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
     const target = sprinting ? cap + (boosting ? k.sprintBoostOvershoot : 0) : cap * mag;
     const diff = wrapAngle(want - dir);
     const pivoting = speed <= k.pivotSpeed;
@@ -299,12 +333,12 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.x += p.vx * dt;
   p.y += p.vy * dt;
   resolveStatic(p, k.radius, k.wallRestitution, k.wallFriction);
-  if (!hasInput && p.skidTime <= 0 && p.cutTime <= 0 && speed < 1e-3) p.heading = dir;
+  if (!hasInput && p.skidTime <= 0 && !inCut() && speed < 1e-3) p.heading = dir;
 }
 
 /** Separate two overlapping players and exchange the closing part of their velocities. */
 export function collidePlayers(a: PlayerState, b: PlayerState, tuning: Tuning): void {
-  const r = tuning.skating.radius * 2;
+  const r = skatingFor(a, tuning).radius + skatingFor(b, tuning).radius;
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const d2 = dx * dx + dy * dy;
@@ -321,7 +355,7 @@ export function collidePlayers(a: PlayerState, b: PlayerState, tuning: Tuning): 
   const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
   if (closing <= 0) return;
   // Equal masses for now (Físico attribute in F2).
-  const j = ((1 + tuning.skating.playerRestitution) * closing) / 2;
+  const j = ((1 + skatingFor(a, tuning).playerRestitution) * closing) / 2;
   a.vx -= j * nx;
   a.vy -= j * ny;
   b.vx += j * nx;

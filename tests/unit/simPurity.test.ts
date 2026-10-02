@@ -31,3 +31,13 @@ describe('src/sim purity', () => {
     for (const [re, what] of FORBIDDEN) expect(re.test(code), `${what} in ${file}`).toBe(false);
   });
 });
+
+describe('player feel layer (F2 attributes)', () => {
+  it('movement code reads skating/cut/dribble numbers only through src/sim/feel.ts', () => {
+    for (const f of listTs(SIM_DIR)) {
+      if (f.endsWith('feel.ts')) continue;
+      const code = readFileSync(f, 'utf-8');
+      expect(/tuning\.(skating|cut|dribble)\b/.test(code), f).toBe(false);
+    }
+  });
+});

@@ -17,6 +17,7 @@ de botones (F1.7) a F1.3; (4) calidad por defecto Mitjana hasta F4 (Alta = nativ
 - [x] Ronda 1, ajustes de tacto (v0.1.6): +12 % velocidad/aceleración, sprint 10 m/s con empujón al entrar, frenada de 4 ruedas (derrape) que separa la bola
 - [x] Ronda 1 cerrada: valores de Guillem fijados como fábrica (v0.1.7)
 - [x] Trencada (corte lateral que redirige), opción A + interruptor "solo con sprint" (v0.1.7)
+- [x] Trencada equilibrada (v0.1.8): frenada previa 0,5 s, salida al 38 % con empujón suave y 0,6 s sin sprint, recarga desde el final; capa `src/sim/feel.ts` para atributos (F2)
 - [ ] Guillem confirma que la trencada está bien → empezar F1.4 (pase)
 - [ ] F1.4 Pase raso/elevado, recepción, asistencia, pared con valla, 2 compañeros "pared"
 - [ ] F1.5 Tiro rápido/cargado, deslizar al soltar, cono de precisión, gol a portería vacía → ronda de afinación 2
