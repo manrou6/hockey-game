@@ -1,6 +1,8 @@
 # Estado actual
 
-Fase actual: **F0 — Cimientos** (plan aprobado por Guillem el 2026-10-02, opción A de despliegue:
+Fase actual: **F0 — Cimientos: CERRADA (2026-10-02)**. Siguiente: F1 (empezar en modo plan).
+
+Fase F0 (plan aprobado por Guillem el 2026-10-02, opción A de despliegue:
 Claude abre PR a `main` y la fusiona cuando CI está en verde).
 
 Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
@@ -36,11 +38,12 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 | Pista con medidas, vallas, porterías, iluminación | OK | unit `rink.test`; capturas |
 | Jugador cápsula con joystick virtual y teclado (+ mando) | OK | unit `skating.test`; e2e `controls.spec`, `smoke.spec` |
 | i18n ca/es/en + ajustes con versión | OK | unit `i18n.test`; e2e `menu.spec` |
-| Enlace abre en el Pixel / se instala como app | Pendiente de Guillem | requiere el móvil real |
-| 60 fps estables | Pendiente de Guillem | entorno sin GPU; presupuesto: 9 draw calls (≤120), 2,2k triángulos (≤200k), 0,01 ms/tick sim con CPU ×4, descarga 1,7 MB (≤25 MB) |
-| El jugador patina con inercia | OK (falta sensación de Guillem) | unit `skating.test` (0→7 m/s ≈1,75 s, planeo, frenada ≈0,6 s, radio de giro) |
+| Enlace abre en el Pixel / se instala como app | OK | Guillem, Pixel 8a, v0.0.9 |
+| 60 fps estables | OK | Guillem, Pixel 8a, `?debug=1` patinando: 59,5 fps, frame avg 16,79 / p95 17,60 / máx 19,7 ms, cpu avg 1,27 ms (calidad media, 1599×719). Presupuesto: 9 draw calls (≤120), 2,2k triángulos (≤200k), 0,01 ms/tick sim con CPU ×4, descarga 1,7 MB (≤25 MB) |
+| El jugador patina con inercia | OK | Guillem: "el patinaje ya está bien" (se revisará con bola/regates en F1); unit `skating.test` (0→7 m/s ≈1,75 s, planeo, frenada ≈0,6 s, radio de giro) |
 
 ## Notas para la siguiente sesión
-- F0 queda cerrada en código. Falta que Guillem pruebe en el Pixel 8a (instalar, fps con ?debug=1, sensación de patinaje) antes de empezar F1 (regla del roadmap).
+- F0 cerrada y probada por Guillem en el Pixel 8a. Orientación: se abre en horizontal y gira al otro lado si gira el móvil; Guillem está conforme.
+- Próximo paso: F1 en modo plan (leer docs/03 §1-5 y docs/06 F1, proponer sub-pasos, esperar aprobación).
 - Si Guillem reporta "se siente pesado / lento", tocar `TUNING.skating` (accel, maxTurnRate, turnRadius*, glide*) y `TUNING.camera`.
 - Rendimiento real: pedir a Guillem captura del panel `?debug=1` (fps, frame p95) en el Pixel.
