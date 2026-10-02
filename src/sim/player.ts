@@ -2,6 +2,9 @@ import type { Tuning } from '../config/tuning';
 import type { PlayerCommand } from './commands';
 import { resolveStatic } from './rink';
 
+/** Below this stick magnitude there is no input (the input layer applies the real dead zone). */
+const MOVE_EPSILON = 0.01;
+
 /** Player body height for ball contact (m). */
 export const PLAYER_HEIGHT = 1.75;
 
@@ -71,13 +74,13 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
   p.braking = false;
   p.turnLock = 0;
 
-  if (mag < k.deadZone) {
+  if (mag < MOVE_EPSILON) {
     // Glide: no input → slow, smooth deceleration, never a sudden stop.
     speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
   } else {
     const want = Math.atan2(cmd.moveY, cmd.moveX);
     const cap = cmd.sprint ? (hasBall ? tuning.dribble.sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
-    const target = cap * Math.min(1, (mag - k.deadZone) / (1 - k.deadZone));
+    const target = cmd.sprint ? cap : cap * mag;
     const diff = wrapAngle(want - dir);
 
     if (speed > k.pivotSpeed && Math.abs(diff) > k.brakeAngle) {

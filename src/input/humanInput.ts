@@ -40,24 +40,23 @@ export class HumanInput implements CommandSource {
       return;
     }
     const t = this.tmp;
-    let sprint = this.buttons.sprintHeld;
-
+    // Direction, speed and sprint come from ONE device: touch joystick > keyboard > gamepad
+    // (gamepad buttons are always read). Sprint = joystick outer zone, Shift, or gamepad.
     this.keyboard.read(t);
-    sprint ||= t.sprint;
-    // Direction priority: touch joystick > keyboard > gamepad (gamepad buttons always read).
     const kx = t.x;
     const ky = t.y;
-    const hasPad = readGamepad(t, this.edges);
-    if (hasPad) sprint ||= t.sprint;
+    const kSprint = t.sprint;
+    readGamepad(t, this.edges);
     if (this.joystick.active) {
       this.joystick.read(t);
     } else if (kx !== 0 || ky !== 0) {
       t.x = kx;
       t.y = ky;
+      t.sprint = kSprint;
     }
     out.moveX = t.x;
     out.moveY = t.y;
-    out.sprint = sprint;
+    out.sprint = t.sprint;
     out.pass = this.edges.pass;
     out.shoot = this.edges.shoot;
     out.dribble = this.edges.dribble;

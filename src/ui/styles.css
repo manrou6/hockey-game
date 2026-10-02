@@ -66,9 +66,6 @@
 .touch-layer[hidden] { display: none; }
 .joy-base {
   position: absolute;
-  width: 120px;
-  height: 120px;
-  margin: -60px 0 0 -60px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.45);
   background: rgba(255, 255, 255, 0.08);
@@ -77,7 +74,20 @@
   justify-content: center;
 }
 .joy-base.joy-idle { left: calc(110px + var(--safe-l)); top: calc(100% - 110px); opacity: 0.35; }
-.joy-knob { width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.joy-knob { position: relative; width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); transition: background-color 80ms; }
+/* Where the sprint zone starts (thumb travel ≥ input.sprintThreshold). */
+.joy-sprint-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  border: 3px dashed rgba(244, 178, 60, 0.75);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.joy-base.sprinting { border-color: rgba(244, 178, 60, 0.9); }
+.joy-base.sprinting .joy-sprint-ring { border-style: solid; border-color: var(--ui-accent); }
+.joy-base.sprinting .joy-knob { background: rgba(244, 178, 60, 0.95); }
 .touch-btn {
   position: absolute;
   width: 96px;

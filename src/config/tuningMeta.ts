@@ -18,7 +18,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'dribble' | 'ball' | 'input' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'dribble' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -71,7 +71,6 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'skating.overspeedDecel', min: 0.5, max: 10, step: 0.1, unit: 'm/s²' },
       { path: 'skating.pivotSpeed', min: 0, max: 4, step: 0.1, unit: 'm/s' },
       { path: 'skating.pivotTurnRate', min: 180, max: 1800, step: 20, unit: '°/s', scale: DEG },
-      { path: 'skating.deadZone', min: 0, max: 0.4, step: 0.01, unit: '' },
       { path: 'skating.wallRestitution', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'skating.wallFriction', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'skating.playerRestitution', min: 0, max: 1, step: 0.05, unit: '' },
@@ -126,12 +125,23 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
   {
     id: 'input',
     params: [
+      { path: 'input.sprintThreshold', min: 70, max: 130, step: 1, unit: '%', scale: 100 },
+      { path: 'input.joystickCurve', min: 1, max: 3, step: 0.1, unit: '' },
+      { path: 'input.joystickDeadZone', min: 0, max: 40, step: 1, unit: '%', scale: 100 },
+      { path: 'input.sprintHysteresis', min: 0, max: 15, step: 1, unit: '%', scale: 100 },
       { path: 'input.bufferTime', min: 0, max: 0.4, step: 0.01, unit: 's' },
-      { path: 'input.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
       { path: 'input.joystickRadiusPx', min: 30, max: 140, step: 2, unit: 'px' },
       { path: 'input.joystickZone', min: 0.3, max: 0.8, step: 0.05, unit: '' },
       { path: 'input.gamepadDeadZone', min: 0, max: 0.5, step: 0.01, unit: '' },
     ],
+  },
+  {
+    id: 'buttons',
+    params: (['dribble', 'pass', 'shoot'] as const).flatMap((b) => [
+      { path: `buttons.${b}Bottom`, min: 0, max: 300, step: 2, unit: 'px' },
+      { path: `buttons.${b}Right`, min: 0, max: 450, step: 2, unit: 'px' },
+      { path: `buttons.${b}Size`, min: 50, max: 160, step: 2, unit: 'px' },
+    ]),
   },
   { id: 'cameraTv', params: cameraPresetParams('cameraTv') },
   { id: 'cameraClose', params: cameraPresetParams('cameraClose') },

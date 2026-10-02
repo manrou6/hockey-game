@@ -3,10 +3,14 @@
  * both produce this, so the simulation never knows where input came from.
  */
 export interface PlayerCommand {
-  /** Desired movement direction on the rink plane, magnitude 0..1 (x = rink length, y = rink width). */
+  /**
+   * Desired movement on the rink plane (x = rink length, y = rink width). Direction = where
+   * to skate; magnitude 0..1 = fraction of the normal top speed (already mapped from the
+   * device: dead zone and response curve are applied by the input layer).
+   */
   moveX: number;
   moveY: number;
-  /** Hold to sprint (REGATE held, Shift, RB/RT). */
+  /** Sprinting (joystick in the sprint zone, Shift, gamepad stick at full / RB-RT). */
   sprint: boolean;
   /** Button presses this tick (edges, not holds): PASE, TIRO, REGATE (tap). */
   pass: boolean;

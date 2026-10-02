@@ -194,7 +194,7 @@ export function provisionalActions(ball: BallState, p: PlayerState, cmd: PlayerC
   }
   if (p.bufPass > 0) {
     const m = Math.hypot(cmd.moveX, cmd.moveY);
-    const a = m > tuning.skating.deadZone ? Math.atan2(cmd.moveY, cmd.moveX) : p.heading;
+    const a = m > 0.05 ? Math.atan2(cmd.moveY, cmd.moveX) : p.heading;
     releaseBall(ball, p, tuning);
     ball.vx = Math.cos(a) * d.passSpeed;
     ball.vy = Math.sin(a) * d.passSpeed;

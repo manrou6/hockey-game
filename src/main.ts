@@ -106,6 +106,11 @@ function updateTuningUi(): void {
   if (tuningButton.hidden) tuningPanel.close();
 }
 tuning.onChange(updateTuningUi);
+// Button positions/sizes and the joystick rings are tuning values: apply them live.
+tuning.onChange(() => {
+  input.buttons.applyLayout();
+  input.joystick.updateGeometry();
+});
 onLanguageChange(updateTuningUi);
 
 const hud = el('div', { className: 'hud', attrs: { id: 'hud' } }, [
