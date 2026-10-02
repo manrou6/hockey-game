@@ -5,6 +5,7 @@ import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color';
 import { CreateCapsule } from '@babylonjs/core/Meshes/Builders/capsuleBuilder';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
@@ -25,6 +26,17 @@ import { CameraRig } from './cameraRig';
 import type { CameraContext, CameraPresetId } from './cameraPresets';
 
 const PLAYER_RADIUS_VISUAL = 0.35;
+/** Stick geometry in the body's local frame (+x forward, −z right, origin at mid-height). */
+const STICK_HAND = new Vector3(0.12, 0.12, -0.3);
+const STICK_REST = new Vector3(0.55, -0.84, -0.22);
+
+interface StickRig {
+  pivot: TransformNode;
+  shaft: Mesh;
+  blade: Mesh;
+  /** Current blade point (body-local), smoothed towards its target. */
+  heel: Vector3;
+}
 const PLAYER_HEIGHT_VISUAL = 1.75;
 
 /**
@@ -40,6 +52,8 @@ export class Renderer {
   private readonly keyLight: DirectionalLight;
   private quality: QualityLevel;
   private readonly playerMeshes: Mesh[] = [];
+  private readonly sticks: StickRig[] = [];
+  private readonly tmpVec = new Vector3();
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
   /** Index of the player the TV camera follows (until there is a ball). */
@@ -134,7 +148,7 @@ export class Renderer {
       noseMat.diffuseColor = new Color3(1, 0.85, 0.2);
       nose.material = noseMat;
       nose.parent = body;
-      this.createStick(i).parent = body;
+      this.sticks.push(this.createStick(i, body));
       this.shadows?.addShadowCaster(body, true);
       this.playerMeshes.push(body);
     }
@@ -177,27 +191,68 @@ export class Renderer {
     return disc;
   }
 
-  /** Placeholder rink-hockey stick (shaft + curved blade), held on the right side. */
-  private createStick(i: number): Mesh {
-    // Local frame of the body: +x forward, -z right, origin at mid-height (0.875 m).
-    const bar = (a: Vector3, b: Vector3, d: number): Mesh => {
-      const c = CreateCylinder('stickPart', { height: Vector3.Distance(a, b), diameter: d, tessellation: 6 }, this.scene);
-      c.position = a.add(b).scale(0.5);
-      c.rotationQuaternion = Quaternion.FromUnitVectorsToRef(Vector3.Up(), b.subtract(a).normalize(), new Quaternion());
-      return c;
-    };
-    const hand = new Vector3(0.12, 0.12, -0.3);
-    const heel = new Vector3(0.48, -0.82, -0.26);
-    const toe = new Vector3(0.74, -0.84, -0.18);
-    const stick = Mesh.MergeMeshes([bar(hand, heel, 0.05), bar(heel, toe, 0.07)], true) as Mesh;
-    stick.name = `stick${i}`;
+  /**
+   * Placeholder rink-hockey stick, held in the right hand: a shaft pivoting at the hand
+   * and a flat blade at its end. `syncStick` points it at the ball while dribbling.
+   */
+  private createStick(i: number, body: Mesh): StickRig {
     const mat = new StandardMaterial(`stickMat${i}`, this.scene);
     mat.diffuseColor = new Color3(0.9, 0.8, 0.6);
     mat.emissiveColor = new Color3(0.2, 0.18, 0.12);
     mat.specularColor = new Color3(0.2, 0.2, 0.2);
-    stick.material = mat;
-    stick.isPickable = false;
-    return stick;
+    const pivot = new TransformNode(`stickPivot${i}`, this.scene);
+    pivot.parent = body;
+    pivot.position.copyFrom(STICK_HAND);
+    pivot.rotationQuaternion = new Quaternion();
+    // Unit-length shaft along +x, scaled to the hand→blade distance every frame.
+    const shaft = CreateCylinder(`stickShaft${i}`, { height: 1, diameter: 0.05, tessellation: 6 }, this.scene);
+    shaft.bakeTransformIntoVertices(Matrix.RotationZ(-Math.PI / 2).multiply(Matrix.Translation(0.5, 0, 0)));
+    shaft.parent = pivot;
+    shaft.material = mat;
+    shaft.isPickable = false;
+    const blade = CreateBox(`stickBlade${i}`, { width: 0.3, height: 0.05, depth: 0.07 }, this.scene);
+    blade.parent = body;
+    blade.material = mat;
+    blade.isPickable = false;
+    const rig: StickRig = { pivot, shaft, blade, heel: STICK_REST.clone() };
+    this.applyStick(rig);
+    return rig;
+  }
+
+  /** Place shaft and blade for the current `heel` point (body-local coordinates). */
+  private applyStick(rig: StickRig): void {
+    const v = rig.heel.subtract(STICK_HAND);
+    const len = v.length();
+    Quaternion.FromUnitVectorsToRef(Vector3.Right(), v.scaleInPlace(1 / len), rig.pivot.rotationQuaternion!);
+    rig.shaft.scaling.x = len;
+    rig.blade.position.copyFrom(rig.heel);
+    rig.blade.position.y = Math.max(rig.heel.y, -0.84);
+    // Blade lies flat on the floor, pointing the way the shaft reaches.
+    rig.blade.rotation.y = -Math.atan2(rig.heel.z - STICK_HAND.z, rig.heel.x - STICK_HAND.x);
+  }
+
+  /**
+   * While carrying the ball the blade follows it (behind the ball, on the floor);
+   * otherwise it returns to the rest pose. Smoothed so it never snaps.
+   */
+  private syncStick(rig: StickRig, owns: boolean, heading: number, px: number, pz: number, dt: number): void {
+    const target = this.tmpVec;
+    if (owns) {
+      const b = this.ballMesh.position;
+      const dx = b.x - px;
+      const dz = b.z - pz;
+      const c = Math.cos(heading);
+      const s = Math.sin(heading);
+      const forward = dx * c + dz * s;
+      const right = dx * s - dz * c;
+      // Blade just behind the ball (towards the hand), on the floor.
+      target.set(forward - 0.07, -0.84, -right);
+    } else {
+      target.copyFrom(STICK_REST);
+    }
+    const k = 1 - Math.exp(-dt / 0.05);
+    rig.heel.addInPlace(target.subtractInPlace(rig.heel).scaleInPlace(k));
+    this.applyStick(rig);
   }
 
   /** Update meshes and camera from the sim state, interpolating between ticks. */
@@ -208,22 +263,37 @@ export class Renderer {
       const mesh = this.playerMeshes[i]!;
       mesh.position.set(p.prevX + (p.x - p.prevX) * alpha, PLAYER_HEIGHT_VISUAL / 2, p.prevY + (p.y - p.prevY) * alpha);
       // Sim heading is CCW in the (x, y) plane; Babylon's Y rotation is CW seen from above.
-      mesh.rotation.y = -lerpAngle(p.prevHeading, p.heading, alpha);
+      const heading = lerpAngle(p.prevHeading, p.heading, alpha);
+      mesh.rotation.y = -heading;
     }
-    // Ball: interpolated, drawn slightly bigger (tunable) with its bottom on the floor.
+    // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
+    // compensated by the distance to the camera (last frame's pose) and multiplied by the
+    // current camera's own factor; never smaller than the real ball.
     const b = world.ball;
-    const scale = TUNING.ball.visualScale;
+    const bx = b.prevX + (b.x - b.prevX) * alpha;
     const by = b.prevZ + (b.z - b.prevZ) * alpha;
+    const bz = b.prevY + (b.y - b.prevY) * alpha;
+    const cam = this.cameraRig.camera.position;
+    const camDist = Math.hypot(cam.x - bx, cam.y - by, cam.z - bz);
+    const k = TUNING.ball;
+    const sizeFactor = (camDist / k.visualRefDistance) * this.cameraRig.ballScale;
+    const scale = Math.max(1, k.visualScale * sizeFactor);
     this.ballMesh.scaling.setAll(scale);
-    this.ballMesh.position.set(b.prevX + (b.x - b.prevX) * alpha, by + BALL_RADIUS * (scale - 1), b.prevY + (b.y - b.prevY) * alpha);
-    const mr = TUNING.ball.markerRadius;
+    this.ballMesh.position.set(bx, by + BALL_RADIUS * (scale - 1), bz);
+    const mr = k.markerRadius * Math.max(0.5, sizeFactor);
     this.ballMarker.isVisible = mr > 0;
     if (mr > 0) {
       // Grows and fades with height so it also tells how high the ball is.
       const lift = Math.max(0, by - BALL_RADIUS);
       this.ballMarker.scaling.setAll(mr * (1 + lift * 0.8));
       this.ballMarker.visibility = 1 / (1 + lift * 1.5);
-      this.ballMarker.position.set(this.ballMesh.position.x, 0.006, this.ballMesh.position.z);
+      this.ballMarker.position.set(bx, 0.006, bz);
+    }
+
+    // Sticks follow the ball while dribbling (after the ball mesh has its new position).
+    for (let i = 0; i < world.players.length; i++) {
+      const mesh = this.playerMeshes[i]!;
+      this.syncStick(this.sticks[i]!, b.owner === i, -mesh.rotation.y, mesh.position.x, mesh.position.z, frameSeconds);
     }
 
     // Camera: the active preset aims between the controlled player and the ball.
@@ -246,6 +316,11 @@ export class Renderer {
 
   render(): void {
     this.scene.render();
+  }
+
+  /** Current on-screen ball scale (for tests/debug). */
+  get ballVisualScale(): number {
+    return this.ballMesh.scaling.x;
   }
 
   /** Project a world point (Babylon coords) to CSS pixels in the landscape layout. */

@@ -46,11 +46,20 @@ export interface BallState {
   scored: boolean;
   /** Went over the boards this tick. */
   out: boolean;
+  /** Index of the player carrying the ball on the stick, −1 if loose. */
+  owner: number;
+  /** Dribble touch rhythm 0..1 (advances with distance skated). */
+  touchPhase: number;
+  /** Current dribble separation from the blade (m), smoothed. */
+  separation: number;
 }
 
 export function createBall(x: number, y: number): BallState {
   const r = RINK.ballRadius;
-  return { x, y, z: r, vx: 0, vy: 0, vz: 0, prevX: x, prevY: y, prevZ: r, inGoal: 0, scored: false, out: false };
+  return {
+    x, y, z: r, vx: 0, vy: 0, vz: 0, prevX: x, prevY: y, prevZ: r,
+    inGoal: 0, scored: false, out: false, owner: -1, touchPhase: 0, separation: 0,
+  };
 }
 
 /** Put the ball at rest at (x, y). */
@@ -63,6 +72,8 @@ export function placeBall(b: BallState, x: number, y: number): void {
   b.inGoal = 0;
   b.scored = false;
   b.out = false;
+  b.owner = -1;
+  b.separation = 0;
 }
 
 const normal = { nx: 0, ny: 0 };

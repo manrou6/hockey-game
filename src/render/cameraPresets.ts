@@ -35,10 +35,12 @@ export interface CameraPose {
   ty: number;
   tz: number;
   fov: number;
+  /** Extra multiplier for the ball's visual size in this view (blended in transitions). */
+  ballScale: number;
 }
 
 export function createPose(): CameraPose {
-  return { px: 0, py: 10, pz: -20, tx: 0, ty: 0, tz: 0, fov: 0.6 };
+  return { px: 0, py: 10, pz: -20, tx: 0, ty: 0, tz: 0, fov: 0.6, ballScale: 1 };
 }
 
 export function copyPose(from: CameraPose, to: CameraPose): void {
@@ -49,6 +51,7 @@ export function copyPose(from: CameraPose, to: CameraPose): void {
   to.ty = from.ty;
   to.tz = from.tz;
   to.fov = from.fov;
+  to.ballScale = from.ballScale;
 }
 
 /** out = a + (b - a) × t */
@@ -60,6 +63,7 @@ export function lerpPose(a: CameraPose, b: CameraPose, t: number, out: CameraPos
   out.ty = a.ty + (b.ty - a.ty) * t;
   out.tz = a.tz + (b.tz - a.tz) * t;
   out.fov = a.fov + (b.fov - a.fov) * t;
+  out.ballScale = a.ballScale + (b.ballScale - a.ballScale) * t;
 }
 
 /** Ease in-out for transitions (zero speed at both ends: no jolt). */
@@ -89,6 +93,7 @@ export interface BroadcastRigParams {
   smoothTime: number;
   lookaheadTime: number;
   ballWeight: number;
+  ballScale: number;
 }
 
 /**
@@ -142,6 +147,7 @@ export class BroadcastRigPreset implements CameraPreset {
     out.ty = 0;
     out.tz = fz * p.lookAcrossFactor;
     out.fov = fov;
+    out.ballScale = p.ballScale;
   }
 }
 

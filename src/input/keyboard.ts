@@ -1,13 +1,26 @@
-/** Keyboard state: WASD / arrows to skate, Shift or L (future REGATE hold) to sprint. */
+import { TUNING } from '../config/tuning';
+import type { ActionEdges } from './actionButtons';
+
+/**
+ * Keyboard (docs/03 §3 PC): WASD / arrows to skate; J = PASE, K or Space = TIRO,
+ * L = REGATE (tap = dribble move, hold = sprint); Shift = sprint.
+ */
 export class KeyboardInput {
   private readonly down = new Set<string>();
+  private lDownAt = 0;
 
-  constructor(target: Window = window) {
+  constructor(edges: ActionEdges, target: Window = window) {
     target.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       this.down.add(e.code);
+      if (e.code === 'KeyJ') edges.pass = true;
+      if (e.code === 'KeyK' || e.code === 'Space') edges.shoot = true;
+      if (e.code === 'KeyL') this.lDownAt = performance.now();
     });
-    target.addEventListener('keyup', (e) => this.down.delete(e.code));
+    target.addEventListener('keyup', (e) => {
+      this.down.delete(e.code);
+      if (e.code === 'KeyL' && performance.now() - this.lDownAt <= TUNING.input.tapTime * 1000) edges.dribble = true;
+    });
     target.addEventListener('blur', () => this.down.clear());
   }
 

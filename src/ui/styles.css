@@ -94,7 +94,9 @@
   -webkit-user-select: none;
 }
 .touch-btn.pressed { background: rgba(244, 178, 60, 0.55); border-color: var(--ui-accent); }
-.btn-sprint { right: calc(48px + var(--safe-r)); bottom: 44px; }
+.action-btn { font-size: 15px !important; }
+.action-shoot { font-size: 17px !important; background: rgba(230, 57, 70, 0.22); border-color: rgba(255, 140, 140, 0.7); }
+.action-dribble { font-size: 14px !important; }
 @media (hover: hover) and (pointer: fine) {
   .touch-btn { display: none; }
 }

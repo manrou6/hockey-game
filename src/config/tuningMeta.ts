@@ -18,7 +18,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'ball' | 'input' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'dribble' | 'ball' | 'input' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -47,6 +47,7 @@ function cameraPresetParams(section: string): TuningParamMeta[] {
     p('lookAcrossFactor', 0, 1, 0.05, ''),
     p('fovSpeedGain', 0, 15, 0.5, '°', DEG),
     p('fovSpeedRef', 3, 15, 0.5, 'm/s'),
+    p('ballScale', 0.5, 3, 0.05, '×'),
   ];
 }
 
@@ -78,6 +79,31 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     ],
   },
   {
+    id: 'dribble',
+    params: [
+      { path: 'dribble.baseSeparation', min: 0, max: 0.3, step: 0.01, unit: 'm' },
+      { path: 'dribble.sprintSeparation', min: 0, max: 1.2, step: 0.05, unit: 'm' },
+      { path: 'dribble.turnSeparation', min: 0, max: 1.2, step: 0.05, unit: 'm' },
+      { path: 'dribble.turnThreshold', min: 0, max: 0.95, step: 0.05, unit: '' },
+      { path: 'dribble.pressureSeparation', min: 0, max: 1.2, step: 0.05, unit: 'm' },
+      { path: 'dribble.controlAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'dribble.followTime', min: 0, max: 0.2, step: 0.005, unit: 's' },
+      { path: 'dribble.safeSeparation', min: 0.1, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'dribble.lossRate', min: 0, max: 15, step: 0.5, unit: '/m·s' },
+      { path: 'dribble.touchDistance', min: 0.5, max: 5, step: 0.1, unit: 'm' },
+      { path: 'dribble.sprintSpeedWithBall', min: 6, max: 12, step: 0.1, unit: 'm/s' },
+      { path: 'dribble.stickForward', min: 0.3, max: 0.9, step: 0.01, unit: 'm' },
+      { path: 'dribble.stickSide', min: -0.4, max: 0.4, step: 0.01, unit: 'm' },
+      { path: 'dribble.pickupRadius', min: 0.2, max: 1, step: 0.05, unit: 'm' },
+      { path: 'dribble.pickupMaxRelSpeed', min: 3, max: 30, step: 0.5, unit: 'm/s' },
+      { path: 'dribble.pickupMaxHeight', min: 0.05, max: 1, step: 0.05, unit: 'm' },
+      { path: 'dribble.pressureRadius', min: 0.5, max: 4, step: 0.1, unit: 'm' },
+      { path: 'dribble.relockTime', min: 0, max: 1, step: 0.05, unit: 's' },
+      { path: 'dribble.passSpeed', min: 4, max: 25, step: 0.5, unit: 'm/s' },
+      { path: 'dribble.shotSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+    ],
+  },
+  {
     id: 'ball',
     params: [
       { path: 'ball.boardRestitution', min: 0.2, max: 1, step: 0.05, unit: '' },
@@ -93,12 +119,15 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'ball.playerRestitution', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'ball.airDrag', min: 0, max: 0.03, step: 0.0005, unit: '/m' },
       { path: 'ball.visualScale', min: 1, max: 3, step: 0.1, unit: '×' },
+      { path: 'ball.visualRefDistance', min: 8, max: 40, step: 0.5, unit: 'm' },
       { path: 'ball.markerRadius', min: 0, max: 0.6, step: 0.02, unit: 'm' },
     ],
   },
   {
     id: 'input',
     params: [
+      { path: 'input.bufferTime', min: 0, max: 0.4, step: 0.01, unit: 's' },
+      { path: 'input.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
       { path: 'input.joystickRadiusPx', min: 30, max: 140, step: 2, unit: 'px' },
       { path: 'input.joystickZone', min: 0.3, max: 0.8, step: 0.05, unit: '' },
       { path: 'input.gamepadDeadZone', min: 0, max: 0.5, step: 0.01, unit: '' },

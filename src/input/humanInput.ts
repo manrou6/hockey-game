@@ -1,40 +1,70 @@
 import type { PlayerCommand } from '../sim/commands';
 import type { CommandSource } from '../game/game';
+import { ActionButtons, type ActionEdges } from './actionButtons';
 import { readGamepad } from './gamepad';
 import { KeyboardInput } from './keyboard';
-import { SprintButton } from './sprintButton';
 import { VirtualJoystick } from './virtualJoystick';
 
 /**
  * Merges all human devices into one abstract PlayerCommand. Screen axes map directly to
- * rink axes because the TV camera looks along +y (screen up = far side of the rink).
+ * rink axes because every camera preset looks along +y (screen up = far side of the rink).
+ * Button presses are latched until the simulation consumes them on a tick.
  */
 export class HumanInput implements CommandSource {
+  private readonly edges: ActionEdges = { pass: false, shoot: false, dribble: false };
   readonly joystick = new VirtualJoystick();
-  readonly sprintButton = new SprintButton();
-  private readonly keyboard = new KeyboardInput();
+  readonly buttons = new ActionButtons(this.edges);
+  private readonly keyboard = new KeyboardInput(this.edges);
   private readonly tmp = { x: 0, y: 0, sprint: false };
-  enabled = false;
+  private _enabled = false;
+
+  get enabled(): boolean {
+    return this._enabled;
+  }
+
+  set enabled(on: boolean) {
+    this._enabled = on;
+    if (!on) {
+      this.buttons.reset();
+      this.consumeEdges();
+    }
+  }
 
   read(out: PlayerCommand): void {
     out.moveX = 0;
     out.moveY = 0;
     out.sprint = false;
-    if (!this.enabled) return;
+    out.pass = out.shoot = out.dribble = false;
+    if (!this._enabled) {
+      this.consumeEdges();
+      return;
+    }
     const t = this.tmp;
-    let sprint = this.sprintButton.held;
+    let sprint = this.buttons.sprintHeld;
 
     this.keyboard.read(t);
     sprint ||= t.sprint;
-    // Direction priority: touch joystick > keyboard > gamepad.
+    // Direction priority: touch joystick > keyboard > gamepad (gamepad buttons always read).
+    const kx = t.x;
+    const ky = t.y;
+    const hasPad = readGamepad(t, this.edges);
+    if (hasPad) sprint ||= t.sprint;
     if (this.joystick.active) {
       this.joystick.read(t);
-    } else if (t.x === 0 && t.y === 0) {
-      readGamepad(t);
-      sprint ||= t.sprint;
+    } else if (kx !== 0 || ky !== 0) {
+      t.x = kx;
+      t.y = ky;
     }
     out.moveX = t.x;
     out.moveY = t.y;
     out.sprint = sprint;
+    out.pass = this.edges.pass;
+    out.shoot = this.edges.shoot;
+    out.dribble = this.edges.dribble;
+  }
+
+  /** Called once a simulation tick has used the presses. */
+  consumeEdges(): void {
+    this.edges.pass = this.edges.shoot = this.edges.dribble = false;
   }
 }
