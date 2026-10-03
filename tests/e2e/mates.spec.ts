@@ -37,7 +37,7 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   expect(errors).toEqual([]);
 });
 
-test('holding PASSADA fills the arc, turns lofted past the tap time and the pass leaves on release', async ({ page }) => {
+test('holding PASSADA fills the arc: orange (driven lofted), then purple (lob); the pass leaves on release', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto('./?quality=low');
   await page.click('#btn-play');
@@ -53,16 +53,20 @@ test('holding PASSADA fills the arc, turns lofted past the tap time and the pass
   const btn = page.locator('#btn-pass');
   await btn.dispatchEvent('pointerdown', { pointerId: 9, isPrimary: false });
   await expect(btn).toHaveClass(/charging/);
-  await expect(btn).toHaveClass(/loft/, { timeout: 5_000 });
+  await expect(btn).toHaveClass(/drive/, { timeout: 5_000 });
+  await expect(btn).not.toHaveClass(/lob/);
   expect((await state(page)).owner).toBe(0); // nothing leaves while held
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge.png' });
+  await expect(btn).toHaveClass(/lob/, { timeout: 5_000 });
+  await expect(btn).not.toHaveClass(/drive/);
+  await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge-lob.png' });
   await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false });
   await page.keyboard.up('KeyW');
   await page.keyboard.up('KeyD');
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
   await expect(btn).not.toHaveClass(/charging/);
-  const lofted = await page.evaluate(() => (window as any).__PATINS__.game.world.passLoft as boolean);
-  expect(lofted).toBe(true);
+  const kind = await page.evaluate(() => (window as any).__PATINS__.game.world.passKind as number);
+  expect(kind).toBe(2); // lob
 });
 
 test('pass assist level is chosen in Settings (Lleugera by default) and remembered', async ({ page }) => {

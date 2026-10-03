@@ -3,7 +3,8 @@ import type { Tuning } from '../config/tuning';
 import type { BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import type { PlayerState } from './player';
-import { dribbleFor, passFor } from './feel';
+import { dribbleFor, passFor, skatingFor } from './feel';
+import { PASS_DRIVE, PASS_LOB } from './pass';
 
 // Simple teammates for the F1.4 passing test bench (not the F2 team AI): they offer a
 // passing line beside and ahead of the ball carrier, go to meet a pass coming to them, pick
@@ -95,10 +96,15 @@ const NO_BACK_STEP = 1.5;
  * Movement to meet a moving ball with the stick: go to where its path passes (offset so the
  * blade, which is to the right of the body, is on the line), then face it and wait. Short
  * sideways steps are fine (he turns back to the ball quickly); short steps backwards are not.
+ *
+ * With a meeting point (the receiver of an aimed pass, docs/03 §3) he heads for the point of
+ * the ball's path nearest to it, at the speed he needs to be there in time (the pass led him
+ * assuming he keeps moving, so he must not stop short).
  */
-export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, out: PlayerCommand): void {
+export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, out: PlayerCommand, meetX = Number.NaN, meetY = Number.NaN): void {
   const m = tuning.mates;
-  const a = ballApproach(ball, p.x, p.y, tmpA);
+  const meet = !Number.isNaN(meetX);
+  const a = meet ? ballApproach(ball, meetX, meetY, tmpA) : ballApproach(ball, p.x, p.y, tmpA);
   if (!a) {
     out.moveX = out.moveY = 0;
     return;
@@ -112,6 +118,15 @@ export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, o
   const dx = bx - p.x;
   const dy = by - p.y;
   const d = Math.hypot(dx, dy);
+  if (meet) {
+    // Arrived, or the ball is about to arrive: face it and wait (never run into it).
+    if (d <= SETTLE_RADIUS || a.t < SETTLE_TIME / 2) setMove(out, face, TURN_ONLY);
+    else {
+      const needed = d / Math.max(0.15, t);
+      setMove(out, Math.atan2(dy, dx), Math.min(m.interceptSpeed, Math.max(d > 1 ? 0.3 : 0.1, needed / skatingFor(p, tuning).maxSpeed)));
+    }
+    return;
+  }
   const backwards = d < NO_BACK_STEP && (dx * Math.cos(face) + dy * Math.sin(face)) / Math.max(1e-6, d) < -0.5;
   if (d <= SETTLE_RADIUS || a.t < SETTLE_TIME || backwards) setMove(out, face, TURN_ONLY);
   else moveTo(p, bx, by, m.interceptSpeed, 0.8, out);
@@ -140,6 +155,8 @@ export interface BotContext {
   receiver: number;
   /** Sim time (s), for each teammate's slow drift in rhythm and position. */
   time: number;
+  meetX: number;
+  meetY: number;
 }
 
 /** A settled supporter only moves again once his spot is this far away (m): no twitching. */
@@ -165,16 +182,19 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   if (ball.owner === i) {
     if (!me) return;
     setMove(out, Math.atan2(me.y - p.y, me.x - p.x), TURN_ONLY);
-    if (p.passHold >= 0) out.passHeld = p.passHold < passFor(p, tuning).tapTime + 0.05;
+    // Hold PASE as long as the kind of pass needs (ground: a tap).
+    const k = passFor(p, tuning);
+    const holdFor = p.receivedKind === PASS_LOB ? k.lobTime + 0.05 : p.receivedKind === PASS_DRIVE ? k.tapTime + 0.05 : 0;
+    if (p.passHold >= 0) out.passHeld = p.passHold < holdFor;
     else if (p.holdTime >= m.returnDelay) {
       out.pass = true;
-      out.passHeld = p.receivedLoft;
+      out.passHeld = holdFor > 0;
     }
     return;
   }
   // A pass (or loose ball) is coming to me: go and meet it.
   if (ctx.receiver === i) {
-    interceptMove(p, ball, tuning, out);
+    interceptMove(p, ball, tuning, out, ctx.meetX, ctx.meetY);
     return;
   }
   // Slow loose ball near me, and nearer to me than to the controlled player: pick it up.

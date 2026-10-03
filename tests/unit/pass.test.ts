@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { TUNING, type Tuning } from '../../src/config/tuning';
-import { createBall, stepBall, type BallEvent } from '../../src/sim/ball';
+import { createBall, guidedHeight, startGuidedFlight, stepBall, type BallEvent } from '../../src/sim/ball';
 import { emptyCommand, type PlayerCommand } from '../../src/sim/commands';
 import { createPlayer } from '../../src/sim/player';
 import {
+  PASS_DRIVE,
+  PASS_GROUND,
+  PASS_LOB,
   assistParams,
   choosePassTarget,
   groundPassSpeed,
@@ -70,33 +73,32 @@ function hold(w: WorldState, aim: PlayerCommand, seconds: number, tuning: Tuning
   step(w, aim, tuning);
 }
 
-describe('PASE button: tap = ground, hold = lofted (released = it leaves)', () => {
-  it('a tap queues a ground pass; holding past tapTime queues a lofted one with its charge', () => {
-    const p = createPlayer(0, 0, 0);
-    const k = TUNING.pass;
-    updatePassButton(p, cmd(0, 0, { pass: true, passHeld: false }), TUNING, DT);
-    expect(p.bufPass).toBeGreaterThan(0);
-    expect(p.passLoft).toBe(false);
-
-    const q = createPlayer(1, 0, 0);
-    updatePassButton(q, cmd(0, 0, { pass: true, passHeld: true }), TUNING, DT);
-    expect(q.passHold).toBe(0);
-    expect(q.bufPass).toBe(0); // nothing leaves while it's held
-    const ticks = Math.round((k.tapTime + k.loftChargeTime / 2) / DT);
-    for (let i = 0; i < ticks; i++) updatePassButton(q, cmd(0, 0, { passHeld: true }), TUNING, DT);
-    expect(q.bufPass).toBe(0);
-    updatePassButton(q, cmd(), TUNING, DT);
-    expect(q.passLoft).toBe(true);
-    expect(q.passCharge).toBeCloseTo(0.5, 1);
-    expect(q.passHold).toBe(-1);
-  });
-
-  it('just under tapTime is still a ground pass', () => {
+describe('PASE button: tap = ground, hold = driven lofted, hold longer = lob (released = it leaves)', () => {
+  const holdFor = (seconds: number): ReturnType<typeof createPlayer> => {
     const p = createPlayer(0, 0, 0);
     updatePassButton(p, cmd(0, 0, { pass: true, passHeld: true }), TUNING, DT);
-    for (let i = 0; i < Math.floor(TUNING.pass.tapTime / DT) - 2; i++) updatePassButton(p, cmd(0, 0, { passHeld: true }), TUNING, DT);
+    for (let i = 0; i < Math.round(seconds / DT) - 1; i++) updatePassButton(p, cmd(0, 0, { passHeld: true }), TUNING, DT);
+    expect(p.bufPass).toBe(0); // nothing leaves while it's held
     updatePassButton(p, cmd(), TUNING, DT);
-    expect(p.passLoft).toBe(false);
+    expect(p.passHold).toBe(-1);
+    expect(p.bufPass).toBeGreaterThan(0);
+    return p;
+  };
+  it('a tap (press and release in one tick) is a ground pass', () => {
+    const p = createPlayer(0, 0, 0);
+    expect(updatePassButton(p, cmd(0, 0, { pass: true, passHeld: false }), TUNING, DT)).toBe('pressed');
+    expect(p.bufPass).toBeGreaterThan(0);
+    expect(p.passKind).toBe(PASS_GROUND);
+  });
+
+  it('the three levels by hold time, and the lob charge', () => {
+    const k = TUNING.pass;
+    expect(holdFor(k.tapTime - 2 * DT).passKind).toBe(PASS_GROUND);
+    expect(holdFor(k.tapTime + 2 * DT).passKind).toBe(PASS_DRIVE);
+    expect(holdFor(k.lobTime - 2 * DT).passKind).toBe(PASS_DRIVE);
+    const lob = holdFor(k.lobTime + k.loftChargeTime / 2);
+    expect(lob.passKind).toBe(PASS_LOB);
+    expect(lob.passCharge).toBeCloseTo(0.5, 1);
   });
 });
 
@@ -167,23 +169,49 @@ describe('passing to the teammates (world)', () => {
     takeBall(w, tuning);
     tap(w, aimAt(w, 1), tuning);
     expect(w.passTo).toBe(1);
-    expect(w.passLoft).toBe(false);
+    expect(w.passKind).toBe(PASS_GROUND);
     expect(w.ball.vz).toBe(0);
     expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 240)).toBeGreaterThanOrEqual(0);
   });
 
-  it('a held pass goes over the top (lofted) and still reaches him', () => {
+  it('held: the driven lofted pass flies low and flat (guided) and lands just before him', () => {
     const tuning = tuningWith((t) => {
       t.mates.move = 0;
     });
     const w = createWorld(22, 2);
     takeBall(w, tuning);
-    // Move the teammate further away so the loft is a real one.
     const m = w.players[2]!;
     m.x = m.prevX = 9;
     hold(w, aimAt(w, 2), TUNING.pass.tapTime + 0.1, tuning);
     expect(w.passTo).toBe(2);
-    expect(w.passLoft).toBe(true);
+    expect(w.passKind).toBe(PASS_DRIVE);
+    expect(w.ball.guide).toBe(true);
+    const k = TUNING.pass;
+    let maxZ = 0;
+    let landed = -1;
+    expect(
+      runUntil(w, cmd(), tuning, () => {
+        maxZ = Math.max(maxZ, w.ball.z);
+        if (landed < 0 && !w.ball.guide) landed = Math.hypot(w.ball.x - w.meetX, w.ball.y - w.meetY);
+        return w.ball.owner === 2;
+      }, 300),
+    ).toBeGreaterThanOrEqual(0);
+    expect(maxZ).toBeGreaterThan(k.driveMaxHeight * 0.8);
+    expect(maxZ).toBeLessThan(k.driveMaxHeight + 0.1);
+    expect(Math.abs(landed - k.driveLandShort)).toBeLessThan(0.5);
+  });
+
+  it('held longer: the lob is a high arc and still reaches him', () => {
+    const tuning = tuningWith((t) => {
+      t.mates.move = 0;
+    });
+    const w = createWorld(22, 2);
+    takeBall(w, tuning);
+    const m = w.players[2]!;
+    m.x = m.prevX = 9;
+    hold(w, aimAt(w, 2), TUNING.pass.lobTime + 0.1, tuning);
+    expect(w.passKind).toBe(PASS_LOB);
+    expect(w.ball.guide).toBe(false);
     let maxZ = 0;
     expect(
       runUntil(w, cmd(), tuning, () => {
@@ -191,37 +219,46 @@ describe('passing to the teammates (world)', () => {
         return w.ball.owner === 2;
       }, 300),
     ).toBeGreaterThanOrEqual(0);
-    expect(maxZ).toBeGreaterThan(1);
+    expect(maxZ).toBeGreaterThan(TUNING.pass.driveMaxHeight + 0.3);
   });
 
-  it('Light corrects 70 % of the aim towards the receiver; Off goes exactly where aimed', () => {
+  it('the guided flight profile rises, flies flat at the max height and drops at the fall angle', () => {
+    const b = createBall(0, 0);
+    const k = TUNING.pass;
+    startGuidedFlight(b, 0, k.driveSpeed, 12, k.driveLaunchAngle, k.driveMaxHeight, k.driveFallAngle);
+    expect(guidedHeight(b, 0)).toBeLessThan(0.05);
+    expect(guidedHeight(b, 6)).toBeCloseTo(k.driveMaxHeight, 2);
+    expect(guidedHeight(b, 12)).toBeLessThan(0.05);
+    // Rising slope ≈ launch angle, dropping slope ≈ fall angle (steeper).
+    expect((guidedHeight(b, 1) - guidedHeight(b, 0.5)) / 0.5).toBeCloseTo(Math.tan(k.driveLaunchAngle), 1);
+    expect((guidedHeight(b, 11.9) - guidedHeight(b, 11.5)) / 0.4).toBeCloseTo(-Math.tan(k.driveFallAngle), 1);
+    // A short one can't reach the max height: it stays lower.
+    startGuidedFlight(b, 0, k.driveSpeed, 1, k.driveLaunchAngle, k.driveMaxHeight, k.driveFallAngle);
+    expect(b.gH).toBeLessThan(k.driveMaxHeight);
+  });
+
+  it('Light keeps 30 % of your aiming error (not of the lead); Strong none; Off goes exactly where aimed', () => {
     const tuning = tuningWith((t) => {
       exact(t);
       t.mates.move = 0;
     });
-    const angleOf = (level: 'off' | 'light' | 'strong'): { launched: number; aim: number; exactTo: number } => {
+    const off = 0.25;
+    const launch = (level: 'off' | 'light' | 'strong', offset: number): { launched: number; aim: number } => {
       const w = createWorld(23, 2);
       w.assist = level;
       takeBall(w, tuning);
-      const straight = aimAt(w, 1);
-      const off = 0.25;
-      const aim = aimAt(w, 1, off);
-      tap(w, aim, tuning);
-      return {
-        launched: Math.atan2(w.ball.vy, w.ball.vx),
-        aim: Math.atan2(aim.moveY, aim.moveX),
-        exactTo: Math.atan2(straight.moveY, straight.moveX),
-      };
+      const p = w.players[0]!;
+      const r = w.players[1]!;
+      // Aim from the player at the teammate, offset by `offset`.
+      const a = Math.atan2(r.y - p.y, r.x - p.x) + offset;
+      tap(w, cmd(Math.cos(a), Math.sin(a)), tuning);
+      return { launched: Math.atan2(w.ball.vy, w.ball.vx), aim: a };
     };
-    const off = angleOf('off');
-    expect(off.launched).toBeCloseTo(off.aim, 5);
-    const light = angleOf('light');
-    // Corrected most of the way (the exact receiver point is near his body centre line).
-    const frac = (light.launched - light.aim) / (light.exactTo - light.aim);
-    expect(frac).toBeGreaterThan(0.5);
-    expect(frac).toBeLessThan(0.95);
-    const strong = angleOf('strong');
-    expect(Math.abs(strong.launched - strong.exactTo)).toBeLessThan(0.08);
+    const o = launch('off', off);
+    expect(o.launched).toBeCloseTo(o.aim, 5);
+    const strongExact = launch('strong', 0).launched;
+    expect(launch('strong', off).launched).toBeCloseTo(strongExact, 5);
+    expect(launch('light', off).launched - strongExact).toBeCloseTo((1 - TUNING.assist.lightCorrection) * off, 3);
   });
 
   it('with no teammate in the cone, a tap goes at the no-target speed exactly where aimed', () => {
@@ -236,16 +273,20 @@ describe('passing to the teammates (world)', () => {
     expect(w.controlled).toBe(0);
   });
 
-  it('a lofted pass to nobody goes further the longer PASE is held', () => {
+  it('a lob to nobody goes further the longer PASE is held; a driven one to nobody lands at its set distance', () => {
     const tuning = tuningWith(exact);
-    const launch = (seconds: number): number => {
+    const launch = (seconds: number): WorldState => {
       const w = createWorld(25, 2);
       takeBall(w, tuning);
       hold(w, cmd(-1, 0), seconds, tuning);
-      return Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz);
+      return w;
     };
     const k = TUNING.pass;
-    expect(launch(k.tapTime + k.loftChargeTime)).toBeGreaterThan(launch(k.tapTime + 0.05) + 2);
+    const speed = (w: WorldState): number => Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz);
+    expect(speed(launch(k.lobTime + k.loftChargeTime))).toBeGreaterThan(speed(launch(k.lobTime + 0.05)) + 2);
+    const d = launch(k.tapTime + 0.1);
+    expect(d.ball.guide).toBe(true);
+    expect(d.ball.gDist).toBeCloseTo(k.driveNoTargetDistance, 5);
   });
 
   it('the pass leads a moving receiver', () => {
@@ -298,22 +339,89 @@ describe('passing to the teammates (world)', () => {
     expect(w.players[0]!.noPickupTicks).toBeGreaterThan(0); // he touched it first-time
   });
 
-  it('teammates give a lofted pass back lofted (switch off)', () => {
+  it('teammates give the pass back the same kind (switch off)', () => {
+    for (const [seconds, kind] of [
+      [TUNING.pass.tapTime + 0.1, PASS_DRIVE],
+      [TUNING.pass.lobTime + 0.1, PASS_LOB],
+    ] as const) {
+      const tuning = tuningWith((t) => {
+        t.mates.move = 0;
+        t.mates.switchControl = 0;
+      });
+      const w = createWorld(29, 2);
+      takeBall(w, tuning);
+      const m = w.players[1]!;
+      m.x = m.prevX = 6;
+      hold(w, aimAt(w, 1), seconds, tuning);
+      expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 300)).toBeGreaterThanOrEqual(0);
+      expect(m.receivedKind).toBe(kind);
+      expect(runUntil(w, cmd(), tuning, () => w.ball.owner === -1, 120)).toBeGreaterThanOrEqual(0);
+      expect(w.passTo).toBe(0);
+      expect(w.passKind).toBe(kind);
+      expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 0, 300)).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('the receiver is locked when PASE is pressed: moving the stick while charging does not change it', () => {
+    const tuning = tuningWith((t) => {
+      t.mates.move = 0;
+    });
+    const w = createWorld(30, 2);
+    takeBall(w, tuning);
+    const toOne = aimAt(w, 1);
+    const toTwo = aimAt(w, 2);
+    step(w, { ...toOne, pass: true, passHeld: true }, tuning);
+    expect(w.aimTarget).toBe(1);
+    step(w, { ...toTwo, passHeld: true }, tuning, 20); // stick swung to the other teammate
+    expect(w.aimTarget).toBe(1); // the ring stays
+    step(w, toTwo, tuning);
+    expect(w.passTo).toBe(1);
+  });
+
+  it('the passer never chases or blocks his own pass (even passing sideways at a sprint)', () => {
+    // Switch off: the human keeps sprinting with the passer (with it on, the stick would
+    // drive the receiver).
     const tuning = tuningWith((t) => {
       t.mates.move = 0;
       t.mates.switchControl = 0;
     });
-    const w = createWorld(29, 2);
+    const w = createWorld(31, 2);
     takeBall(w, tuning);
-    const m = w.players[1]!;
-    m.x = m.prevX = 6;
-    hold(w, aimAt(w, 1), TUNING.pass.tapTime + 0.1, tuning);
-    expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 300)).toBeGreaterThanOrEqual(0);
-    expect(m.receivedLoft).toBe(true);
-    expect(runUntil(w, cmd(), tuning, () => w.ball.owner === -1, 120)).toBeGreaterThanOrEqual(0);
-    expect(w.passTo).toBe(0);
-    expect(w.passLoft).toBe(true);
-    expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 0, 300)).toBeGreaterThanOrEqual(0);
+    step(w, cmd(1, 0, { sprint: true }), tuning, 50);
+    const r = w.players[1]!;
+    r.x = r.prevX = w.players[0]!.x + 2;
+    r.y = r.prevY = w.players[0]!.y + 6;
+    const a = Math.atan2(r.y - w.ball.y, r.x - w.ball.x);
+    step(w, cmd(Math.cos(a), Math.sin(a), { sprint: true, pass: true }), tuning);
+    expect(w.passTo).toBe(1);
+    // Keep sprinting straight on: the ball must not bounce off the passer.
+    expect(runUntil(w, cmd(1, 0, { sprint: true }), tuning, () => w.ball.owner >= 0 || w.events.some((e) => e.type === 'player'), 200)).toBeGreaterThanOrEqual(0);
+    expect(w.ball.owner).toBe(1);
+  });
+
+  it('Strong helps more than Light, and aiming still matters with Light', () => {
+    const rate = (level: 'light' | 'strong'): number => {
+      let ok = 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        const w = createWorld(seed, 2);
+        w.assist = level;
+        takeBall(w, TUNING);
+        step(w, cmd(0.8, 0.2), TUNING, 50);
+        const target = 1 + (seed % 2);
+        // Aimed 30° off the teammate (seen from the player): outside Light's cone.
+        const p = w.players[0]!;
+        const r = w.players[target]!;
+        const a = Math.atan2(r.y - p.y, r.x - p.x) + (seed % 2 ? 1 : -1) * 0.52;
+        tap(w, cmd(Math.cos(a), Math.sin(a)), TUNING);
+        if (runUntil(w, cmd(), TUNING, () => w.ball.owner >= 0, 240) >= 0 && w.ball.owner === target) ok++;
+      }
+      return ok / 30;
+    };
+    const light = rate('light');
+    const strong = rate('strong');
+    expect(strong).toBeGreaterThan(light);
+    expect(strong).toBeGreaterThan(0.9);
+    expect(light).toBeLessThan(0.5);
   });
 });
 
