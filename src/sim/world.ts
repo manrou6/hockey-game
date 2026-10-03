@@ -6,8 +6,8 @@ import { bufferActions, canPickUp, pickUp, provisionalShot, stepDribble } from '
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
-import { skatingFor } from './feel';
-import { aimAngle, assistParams, choosePassTarget, performPass, updatePassButton, type AssistLevel, type AssistParams, type PassResult } from './pass';
+import { passFor, skatingFor } from './feel';
+import { aimAngle, assistParams, choosePassTarget, lockPassTarget, performPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassResult } from './pass';
 import { botCommand, findReceiver, interceptMove, type BotContext } from './mates';
 import { wrapAngle } from './player';
 
@@ -37,9 +37,16 @@ export interface WorldState {
   assist: AssistLevel;
   /** Teammate the controlled player's pass would go to right now (−1 = none): the ring. */
   aimTarget: number;
-  /** Receiver of the last pass while it travels (−1 = none) and whether it was lofted. */
+  /**
+   * The last pass while it travels: its receiver (−1 = none; he goes to meet it and has a
+   * bigger reception zone), its kind (src/sim/pass.ts), who passed it (he doesn't chase his own
+   * pass) and the point where it was aimed to meet the receiver's stick.
+   */
   passTo: number;
-  passLoft: boolean;
+  passKind: PassKind;
+  passFrom: number;
+  meetX: number;
+  meetY: number;
 }
 
 const IDLE: PlayerCommand = emptyCommand();
@@ -67,7 +74,10 @@ export function createWorld(seed: number, mates = 0): WorldState {
     assist: 'light',
     aimTarget: -1,
     passTo: -1,
-    passLoft: false,
+    passKind: PASS_GROUND,
+    passFrom: -1,
+    meetX: Number.NaN,
+    meetY: Number.NaN,
   };
 }
 
@@ -104,8 +114,8 @@ function freePlayBallRules(world: WorldState): void {
 
 /** Per-player commands actually applied this tick (scratch, reused: no allocation). */
 const effective: PlayerCommand[] = [];
-const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0 };
-const passResult: PassResult = { target: -1, loft: false };
+const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0, meetX: Number.NaN, meetY: Number.NaN };
+const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0 };
 const assistTmp: AssistParams = { cone: 0, correction: 0 };
 
 function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
@@ -133,7 +143,7 @@ function humanCommand(world: WorldState, human: PlayerCommand, receiver: number,
   }
   const latched = !Number.isNaN(world.latchDir);
   if (receiver === world.controlled && (latched || (mag < 0.01 && m.autoReceive >= 0.5))) {
-    interceptMove(world.players[world.controlled]!, world.ball, tuning, out);
+    interceptMove(world.players[world.controlled]!, world.ball, tuning, out, world.passTo >= 0 ? world.meetX : Number.NaN, world.passTo >= 0 ? world.meetY : Number.NaN);
     out.sprint = false;
   } else if (latched) {
     out.moveX = out.moveY = 0;
@@ -149,12 +159,20 @@ function humanCommand(world: WorldState, human: PlayerCommand, receiver: number,
 export function stepWorld(world: WorldState, commands: readonly PlayerCommand[], tuning: Tuning): void {
   const dt = 1 / tuning.sim.tickRate;
   const players = world.players;
-  world.events.length = 0;
   const ball = world.ball;
+  // A pass aimed at someone is his until somebody touches it, it hits something (last tick's
+  // events) or it dies.
+  if ((world.passTo >= 0 || world.passFrom >= 0) && (ball.owner >= 0 || Math.hypot(ball.vx, ball.vy) < 1 || world.events.some((e) => e.type !== 'floor'))) {
+    world.passTo = -1;
+    world.passFrom = -1; // e.g. off the boards it may be his again (wall pass, F1.4d)
+  }
+  world.events.length = 0;
   const human = commands[0] ?? IDLE;
 
   // Decide everyone's command from the state at the start of the tick.
-  const receiver = findReceiver(players, ball, tuning);
+  const receiver = world.passTo >= 0 ? world.passTo : findReceiver(players, ball, tuning, ball.owner < 0 ? world.passFrom : -1);
+  botCtx.meetX = world.passTo >= 0 ? world.meetX : Number.NaN;
+  botCtx.meetY = world.passTo >= 0 ? world.meetY : Number.NaN;
   botCtx.players = players;
   botCtx.ball = ball;
   botCtx.controlled = world.controlled;
@@ -172,7 +190,11 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const p = players[i]!;
     const cmd = effective[i]!;
     bufferActions(p, cmd, tuning);
-    updatePassButton(p, cmd, tuning, dt);
+    if (updatePassButton(p, cmd, tuning, dt) === 'pressed') {
+      // The receiver is chosen when PASE is pressed (the ring then stays on him).
+      const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
+      lockPassTarget(players, i, aimAngle(p, i === world.controlled ? human : cmd), assistParams(level, tuning, assistTmp).cone);
+    }
     stepPlayer(p, cmd, tuning, dt, ball.owner === i);
     p.holdTime = ball.owner === i ? p.holdTime + dt : 0;
   }
@@ -197,11 +219,14 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     stepBall(ball, players, tuning, world.rng, dt, world.events);
     for (let i = 0; i < players.length; i++) {
       const p = players[i]!;
-      if (canPickUp(ball, p, tuning)) {
+      // The receiver of a pass has a bigger reception zone (stretching for it).
+      const aimedAt = i === world.passTo;
+      if (canPickUp(ball, p, tuning, aimedAt ? passFor(p, tuning).receiveReach : 0, aimedAt ? passFor(p, tuning).receiveMaxRelSpeed : 0)) {
         pickUp(ball, i, p);
         p.holdTime = 0;
-        p.receivedLoft = i === world.passTo && world.passLoft;
+        p.receivedKind = i === world.passTo ? world.passKind : PASS_GROUND;
         world.passTo = -1;
+        world.passFrom = -1;
         // A teammate who gets the ball becomes the controlled player.
         if (tuning.mates.switchControl >= 0.5 && p.bot && p.team === players[world.controlled]?.team) switchControl(world, i, human);
         // Input buffer: a pass/shot released just before receiving fires now (first touch).
@@ -213,10 +238,12 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   freePlayBallRules(world);
   // Who the controlled player's pass would go to right now (ring under that teammate).
   const me = players[world.controlled];
-  world.aimTarget =
-    me && ball.owner === world.controlled
-      ? choosePassTarget(players, world.controlled, aimAngle(me, human), assistParams(world.assist, tuning, assistTmp).cone)
-      : -1;
+  // While PASE is held the receiver is locked: the ring stays on him.
+  world.aimTarget = !me || ball.owner !== world.controlled
+    ? -1
+    : me.passHold >= 0 && me.passLockTarget > -2
+      ? me.passLockTarget
+      : choosePassTarget(players, world.controlled, aimAngle(me, human), assistParams(world.assist, tuning, assistTmp).cone);
   world.tick++;
 }
 
@@ -234,7 +261,10 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
   performPass(world.players, world.ball, i, cmd, level, world.rng, tuning, passResult);
   world.passTo = passResult.target;
-  world.passLoft = passResult.loft;
+  world.passKind = passResult.kind;
+  world.passFrom = i;
+  world.meetX = passResult.meetX;
+  world.meetY = passResult.meetY;
   // FIFA-like: the control goes straight to the receiver (or, with no assisted receiver,
   // to the teammate the ball is heading to).
   if (i === world.controlled && tuning.mates.switchControl >= 0.5) {

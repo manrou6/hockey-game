@@ -80,7 +80,8 @@ const menu = new Menu(settings, {
 });
 game.world.assist = settings.assist;
 
-// PASE button: an arc fills while it's held; past the tap time it turns into a lofted pass.
+// PASE button: an arc fills while it's held: white = ground pass (tap), orange = driven
+// lofted pass, purple = lob (it keeps filling: a longer lob to nobody).
 const passButton = input.buttons.buttons.pass;
 game.onFrame(() => {
   const p = game.world.players[game.world.controlled];
@@ -88,8 +89,9 @@ game.onFrame(() => {
   const k = TUNING.pass;
   const charging = hold >= 0;
   passButton.classList.toggle('charging', charging);
-  passButton.classList.toggle('loft', charging && hold >= k.tapTime);
-  if (charging) passButton.style.setProperty('--charge', String(Math.min(1, hold / (k.tapTime + k.loftChargeTime))));
+  passButton.classList.toggle('drive', charging && hold >= k.tapTime && hold < k.lobTime);
+  passButton.classList.toggle('lob', charging && hold >= k.lobTime);
+  if (charging) passButton.style.setProperty('--charge', String(Math.min(1, hold / (k.lobTime + k.loftChargeTime))));
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.

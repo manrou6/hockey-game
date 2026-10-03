@@ -105,16 +105,18 @@
 }
 .touch-btn.pressed { background: rgba(244, 178, 60, 0.55); border-color: var(--ui-accent); }
 .action-btn { font-size: 15px !important; }
-/* PASE charge arc: fills while held; past the tap time (lofted pass) it turns accent. */
+/* PASE charge arc: fills while held. White = ground pass (tap), orange = driven lofted pass,
+   purple = lob. */
 .action-pass::after {
   content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(rgba(255, 255, 255, 0.85) calc(var(--charge, 0) * 360deg), transparent 0);
+  background: conic-gradient(var(--arc-color, rgba(255, 255, 255, 0.85)) calc(var(--charge, 0) * 360deg), transparent 0);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
   opacity: 0; transition: opacity 80ms;
 }
 .action-pass.charging::after { opacity: 1; }
-.action-pass.loft::after { background: conic-gradient(var(--ui-accent) calc(var(--charge, 0) * 360deg), transparent 0); }
+.action-pass.drive { --arc-color: var(--ui-accent); }
+.action-pass.lob { --arc-color: #b16cff; }
 .action-shoot { font-size: 17px !important; background: rgba(230, 57, 70, 0.22); border-color: rgba(255, 140, 140, 0.7); }
 .action-dribble { font-size: 14px !important; }
 @media (hover: hover) and (pointer: fine) {

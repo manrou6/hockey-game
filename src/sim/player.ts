@@ -30,12 +30,17 @@ export interface PlayerState {
   /** Pase attribute 0-99 (docs/01): smaller pass errors. */
   passing: number;
   /** PASE held for this long (s); −1 = not held. On release the pass is queued in bufPass
-   * with its kind (lofted or ground) and charge 0..1 (lofted pass to nobody: distance). */
+   * with its kind (0 ground, 1 driven lofted, 2 lob; src/sim/pass.ts) and charge 0..1 (lob
+   * to nobody: distance). */
   passHold: number;
-  passLoft: boolean;
+  passKind: number;
   passCharge: number;
-  /** The last pass this player received was lofted (teammates give it back the same way). */
-  receivedLoft: boolean;
+  /** Receiver locked when PASE was pressed (−1 = into space, −2 = not locked) and how far off
+   * him the stick was aimed then (rad). */
+  passLockTarget: number;
+  passLockOffset: number;
+  /** Kind of the last pass this player received (teammates give it back the same way). */
+  receivedKind: number;
   /** Ticks during which this player can't take the ball (just passed / shot / lost it). */
   noPickupTicks: number;
   /** Input buffer (docs/03 §3): ticks left for a PASE / TIRO / REGATE press to still fire. */
@@ -94,7 +99,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, passHold: -1, passLoft: false, passCharge: 0, receivedLoft: false, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,

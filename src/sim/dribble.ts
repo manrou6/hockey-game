@@ -156,18 +156,24 @@ export function releaseBall(ball: BallState, owner: PlayerState, tuning: Tuning)
   owner.noPickupTicks = Math.round(dribbleFor(owner, tuning).relockTime * tuning.sim.tickRate);
 }
 
-/** Can this player take the loose ball right now? */
-export function canPickUp(ball: BallState, p: PlayerState, tuning: Tuning): boolean {
+/**
+ * Can this player take the loose ball right now? Normally the ball must reach his blade; the
+ * receiver of an aimed pass has a bigger reception zone around his body (`reach`, m) and can
+ * control a faster ball (`maxRelSpeed`, m/s; 0 = the usual limit).
+ */
+export function canPickUp(ball: BallState, p: PlayerState, tuning: Tuning, reach = 0, maxRelSpeed = 0): boolean {
   const d = dribbleFor(p, tuning);
   if (ball.owner !== -1 || ball.inGoal !== 0 || p.noPickupTicks > 0) return false;
   if (ball.z - RINK.ballRadius > d.pickupMaxHeight) return false;
   const b = bladePoint(p, tuning);
-  if (Math.hypot(ball.x - b.x, ball.y - b.y) > d.pickupRadius) return false;
-  return Math.hypot(ball.vx - p.vx, ball.vy - p.vy) <= d.pickupMaxRelSpeed;
+  const inZone = Math.hypot(ball.x - b.x, ball.y - b.y) <= d.pickupRadius || (reach > 0 && Math.hypot(ball.x - p.x, ball.y - p.y) <= reach);
+  if (!inZone) return false;
+  return Math.hypot(ball.vx - p.vx, ball.vy - p.vy) <= Math.max(d.pickupMaxRelSpeed, maxRelSpeed);
 }
 
 export function pickUp(ball: BallState, index: number, p: PlayerState): void {
   ball.owner = index;
+  ball.guide = false;
   ball.touchPhase = 0;
   ball.separation = Math.min(0.3, Math.hypot(ball.x - p.x, ball.y - p.y) * 0.2);
   ball.z = RINK.ballRadius;

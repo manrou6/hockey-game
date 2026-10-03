@@ -166,9 +166,11 @@ export const TUNING = {
    * through src/sim/feel.ts in F2).
    */
   pass: {
-    /** Held shorter than this = ground pass; longer = lofted pass (s). */
+    /** PASE held shorter than tapTime = ground pass; up to lobTime = driven lofted pass
+     * ("alt fort", the usual one in rink hockey); longer = lob ("vaselina") (s). */
     tapTime: 0.2,
-    /** Lofted pass to nobody: holding this long beyond tapTime gives the maximum distance (s). */
+    lobTime: 0.7,
+    /** Lob to nobody: holding this long beyond lobTime gives the maximum distance (s). */
     loftChargeTime: 0.6,
     /** Ground pass to a teammate: launch speed so it reaches him at arrivalSpeed, within
      * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). */
@@ -176,13 +178,29 @@ export const TUNING = {
     groundMinSpeed: 8,
     groundMaxSpeed: 20,
     groundNoTargetSpeed: 14,
-    /** Lofted pass: launch angle (rad), lands this far before the receiver so it bounces into
-     * his stick (m), maximum launch speed (m/s), and distance range to nobody (by charge). */
+    /** Driven lofted pass (guided flight, nearly a rectangle): horizontal speed (m/s), launch
+     * angle, maximum height (m), angle of the drop (rad), lands this far before the receiver
+     * (m) so it bounces into his stick; to nobody it lands noTargetDistance away (m). */
+    driveSpeed: 12,
+    driveLaunchAngle: 0.4363323,
+    driveMaxHeight: 0.8,
+    driveFallAngle: 0.6981317,
+    driveLandShort: 1.5,
+    driveNoTargetDistance: 12,
+    /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
+     * maximum launch speed (m/s), and distance range to nobody (by charge). */
     loftAngle: 0.5235988,
     loftLandShort: 1,
     loftMaxSpeed: 24,
     loftMinDistance: 6,
     loftMaxDistance: 22,
+    /** Reception zone of the teammate a pass is aimed at: the ball within this distance of
+     * him (m, low enough and not too fast) reaches his stick. F1.4c: its outer part will be a
+     * harder control (heavy touch / rebound). */
+    receiveReach: 1,
+    /** PROVISIONAL until F1.4c (reception): fastest ball (relative to him, m/s) the receiver
+     * of an aimed pass still controls (a loose ball: dribble.pickupMaxRelSpeed). */
+    receiveMaxRelSpeed: 15,
     /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be). */
     lead: 1,
     /** Direction error (rad, random but deterministic, about ±1 standard deviation): always,
@@ -191,7 +209,7 @@ export const TUNING = {
     errorSprint: 0.0872665,
     errorPressure: 0.0698132,
     errorOffBalance: 0.1047198,
-    /** Lofted passes multiply the direction error by this. */
+    /** Lofted passes (driven and lob) multiply the direction error by this. */
     errorLoft: 1.5,
     /** Strength error (fraction of the speed, ±1 standard deviation). */
     errorPower: 0.04,
