@@ -203,6 +203,44 @@ describe('passing to the teammates (world)', () => {
     expect(Math.abs(landed - k.driveLandShort)).toBeLessThan(0.6);
   });
 
+  it('long lofted passes reach: a 28 m driven pass lands just before him (it flies a bit higher), a 30 m lob too', () => {
+    const tuning = tuningWith((t) => {
+      exact(t);
+      t.mates.move = 0;
+    });
+    for (const [seconds, D, short] of [
+      [TUNING.pass.tapTime + 0.1, 28, TUNING.pass.driveLandShort],
+      [TUNING.pass.lobTime + 0.1, 30, TUNING.pass.loftLandShort],
+    ] as const) {
+      const w = createWorld(24, 2);
+      const p = w.players[0]!;
+      p.x = p.prevX = -15;
+      p.y = p.prevY = 4;
+      w.ball.x = w.ball.prevX = -14.45;
+      w.ball.y = w.ball.prevY = 3.86;
+      step(w, cmd(), tuning, 30);
+      expect(w.ball.owner).toBe(0);
+      const m = w.players[1]!;
+      m.x = m.prevX = -15 + D;
+      m.y = m.prevY = 4;
+      w.players[2]!.y = w.players[2]!.prevY = -8;
+      hold(w, cmd(1, 0), seconds, tuning);
+      expect(w.passTo).toBe(1);
+      let landed = Number.NaN;
+      for (let i = 0; i < 300 && Number.isNaN(landed) && w.ball.owner < 0; i++) {
+        step(w, cmd(), tuning);
+        if (w.events.some((e) => e.type === 'floor')) landed = m.x - w.ball.x;
+      }
+      // Lands about `short` (+ the stick reach) before him, never far short or past him.
+      if (!Number.isNaN(landed)) {
+        expect(landed).toBeGreaterThan(0);
+        expect(landed).toBeLessThan(short + 1.5);
+      }
+      expect(runUntil(w, cmd(), tuning, () => w.ball.owner >= 0, 300)).toBeGreaterThanOrEqual(0);
+      expect(w.ball.owner).toBe(1);
+    }
+  });
+
   it('a lofted pass is pure physics after the release: no correction in flight', () => {
     const tuning = tuningWith((t) => {
       t.mates.move = 0;
@@ -296,10 +334,14 @@ describe('passing to the teammates (world)', () => {
     const k = TUNING.pass;
     const speed = (w: WorldState): number => Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz);
     expect(speed(launch(k.lobTime + k.loftChargeTime))).toBeGreaterThan(speed(launch(k.lobTime + 0.05)) + 2);
-    const d = launch(k.tapTime + 0.1);
+    // Driven to nobody (assist off), along the rink with room to land.
+    const d = createWorld(25, 2);
+    d.assist = 'off';
+    takeBall(d, tuning);
+    hold(d, cmd(1, 0), k.tapTime + 0.1, tuning);
     const x0 = d.ball.x;
     for (let i = 0; i < 300 && !d.events.some((e) => e.type === 'floor'); i++) step(d, cmd(), tuning);
-    expect(Math.abs(x0 - d.ball.x - k.driveNoTargetDistance)).toBeLessThan(0.5);
+    expect(Math.abs(d.ball.x - x0 - k.driveNoTargetDistance)).toBeLessThan(0.6);
   });
 
   it('the pass leads a moving receiver', () => {

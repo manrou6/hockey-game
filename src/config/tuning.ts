@@ -181,21 +181,22 @@ export const TUNING = {
     /** Driven lofted pass (real ballistics, v0.1.14): it leaves the stick from the floor at
      * the launch angle needed to peak at about maxHeight (m) over the distance, never steeper
      * than launchAngle (rad, short passes), with the speed (≤ maxSpeed, m/s) that makes it land
-     * landShort (m) before the receiver; then only gravity, bounce and rolling. To nobody it
-     * lands noTargetDistance away (m). The drop angle is not set: physics makes it ≈ the launch
+     * landShort (m) before the receiver; then only gravity, bounce and rolling. If that flat a
+     * pass can't get there at maxSpeed, it is hit at maxSpeed a little higher so it still
+     * arrives (v0.1.15). To nobody it lands noTargetDistance away (m). The drop angle is not set: physics makes it ≈ the launch
      * angle (a bit steeper with air drag). */
     driveLaunchAngle: 0.4363323,
     driveMaxHeight: 0.8,
-    driveMaxSpeed: 24,
-    driveLandShort: 1.5,
-    driveNoTargetDistance: 12,
+    driveMaxSpeed: 28,
+    driveLandShort: 1,
+    driveNoTargetDistance: 18,
     /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
      * maximum launch speed (m/s), and distance range to nobody (by charge). */
     loftAngle: 0.5235988,
     loftLandShort: 1,
     loftMaxSpeed: 24,
     loftMinDistance: 6,
-    loftMaxDistance: 22,
+    loftMaxDistance: 30,
     /** Reception zone of the teammate a pass is aimed at: the ball within this distance of
      * him (m, low enough and not too fast) reaches his stick (a stretch, not a magnet).
      * F1.4c: its outer part will be a harder control (heavy touch / rebound). */
