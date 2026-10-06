@@ -23,10 +23,14 @@ export const PASS_DRIVE = 1;
 export const PASS_LOB = 2;
 export type PassKind = typeof PASS_GROUND | typeof PASS_DRIVE | typeof PASS_LOB;
 
-/** Kind of pass for how long PASE was held (s). */
-export function passKindFor(hold: number, k: Tuning['pass']): PassKind {
-  if (hold < k.tapTime - 1e-9) return PASS_GROUND;
-  return hold < k.lobTime - 1e-9 ? PASS_DRIVE : PASS_LOB;
+/** Kind of pass from the height chosen in the command (0 low, 1 driven lofted, 2 lob). */
+export function passKindFromHeight(height: number): PassKind {
+  return height >= 2 ? PASS_LOB : height >= 1 ? PASS_DRIVE : PASS_GROUND;
+}
+
+/** Power 0..1 of a PASE held for `hold` seconds (a tap = 0: automatic power). */
+export function passPower(hold: number, k: Tuning['pass']): number {
+  return Math.min(1, Math.max(0, (hold - k.tapTime) / Math.max(0.05, k.powerChargeTime)));
 }
 
 /** Pass assist levels (Settings). Ids are persisted: never rename, only add. */
@@ -61,8 +65,9 @@ export function aimAngle(p: PlayerState, cmd: PlayerCommand): number {
 
 /**
  * PASE button: a press starts the charge, the release queues the pass in the input buffer
- * with its kind (by how long it was held) and charge. A press and release within one tick is
- * a tap. Returns 'pressed' on the press tick (the caller locks the receiver then).
+ * with its kind (the height chosen in the command) and power (by how long it was held). A
+ * press and release within one tick is a tap. Returns 'pressed' on the press tick (the
+ * caller locks the receiver then).
  */
 export function updatePassButton(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number): 'pressed' | null {
   const k = passFor(p, tuning);
@@ -72,8 +77,8 @@ export function updatePassButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
     pressed = 'pressed';
   } else if (p.passHold >= 0) p.passHold += dt;
   if (p.passHold >= 0 && !cmd.passHeld) {
-    p.passKind = passKindFor(p.passHold, k);
-    p.passCharge = Math.min(1, Math.max(0, (p.passHold - k.lobTime) / Math.max(0.05, k.loftChargeTime)));
+    p.passKind = passKindFromHeight(cmd.passHeight);
+    p.passCharge = passPower(p.passHold, k);
     p.passHold = -1;
     p.bufPass = Math.max(1, Math.round(tuning.input.bufferTime * tuning.sim.tickRate));
   }
@@ -298,7 +303,28 @@ function drivenLaunch(dist: number, k: Tuning['pass'], kb: Tuning['ball'], out: 
 }
 
 /**
- * Work out the pass of player `from` (kind and lob charge given) towards the stick direction in
+ * A faster lofted launch to the same distance: at `speed`, the lowest elevation (between almost
+ * flat and the current one) that still lands `dist` metres away. Keeps `out` if it can't.
+ */
+function flatterLaunch(dist: number, speed: number, kb: Tuning['ball'], out: PassPlan): void {
+  if (speed <= out.speed + 1e-6) return;
+  let lo = 0.01;
+  let hi = out.elevation;
+  if (flight(speed, lo, kb, flightTmp).dist >= dist) {
+    // Even almost flat it goes too far at that speed: keep it a lofted pass at its old angle.
+    return;
+  }
+  for (let i = 0; i < BISECT_STEPS; i++) {
+    const mid = (lo + hi) / 2;
+    if (flight(speed, mid, kb, flightTmp).dist < dist) lo = mid;
+    else hi = mid;
+  }
+  out.elevation = hi;
+  out.speed = speed;
+}
+
+/**
+ * Work out the pass of player `from` (kind and power 0..1 given) towards the stick direction in
  * `cmd`, with the receiver locked at the press (lockTarget −2 = choose now). No human error,
  * nothing changes: used for the launch and for the arrow while PASE is held.
  */
@@ -355,14 +381,19 @@ export function planPass(
       const dist = Math.max(0.5, Math.hypot(tx - ball.x, ty - ball.y));
       to = Math.atan2(ty - ball.y, tx - ball.x);
       if (kind === PASS_GROUND) {
-        out.speed = groundPassSpeed(dist, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, kb);
+        // Automatic strength, plus the charged power on top (up to the maximum).
+        const auto = groundPassSpeed(dist, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, kb);
+        out.speed = auto + (Math.max(auto, k.groundMaxSpeed) - auto) * charge;
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;
       } else {
         // Lands a little before him and bounces/rolls the rest of the way.
         const land = Math.max(1, dist - (kind === PASS_DRIVE ? k.driveLandShort : k.loftLandShort));
-        if (kind === PASS_DRIVE) drivenLaunch(land, k, kb, out);
-        else {
+        if (kind === PASS_DRIVE) {
+          drivenLaunch(land, k, kb, out);
+          // Charged: faster and flatter to the same landing point.
+          if (charge > 0) flatterLaunch(land, out.speed + (Math.max(out.speed, k.driveChargeMaxSpeed) - out.speed) * charge, kb, out);
+        } else {
           out.elevation = k.loftAngle;
           out.speed = loftPassSpeed(land, k.loftAngle, k.loftMaxSpeed, kb);
         }
@@ -377,7 +408,9 @@ export function planPass(
   } else if (kind === PASS_LOB) {
     out.elevation = k.loftAngle;
     out.speed = loftPassSpeed(k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * charge, k.loftAngle, k.loftMaxSpeed, kb);
-  } else if (kind === PASS_DRIVE) drivenLaunch(k.driveNoTargetDistance, k, kb, out);
+  } else if (kind === PASS_DRIVE) {
+    drivenLaunch(k.driveNoTargetDistance + (k.driveNoTargetMaxDistance - k.driveNoTargetDistance) * charge, k, kb, out);
+  } else out.speed = k.groundNoTargetSpeed + (Math.max(k.groundNoTargetSpeed, k.groundMaxSpeed) - k.groundNoTargetSpeed) * charge;
   return out;
 }
 

@@ -8,7 +8,7 @@ import { createRng, nextFloat } from '../../src/sim/rng';
 const DT = 1 / TUNING.sim.tickRate;
 const K = TUNING.skating;
 const speed = (p: PlayerState): number => Math.hypot(p.vx, p.vy);
-const cmd = (moveX: number, moveY: number, sprint = false): PlayerCommand => ({ moveX, moveY, sprint, pass: false, shoot: false, dribble: false, passHeld: false });
+const cmd = (moveX: number, moveY: number, sprint = false): PlayerCommand => ({ moveX, moveY, sprint, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false });
 
 function run(p: PlayerState, c: PlayerCommand, seconds: number): void {
   const n = Math.round(seconds / DT);

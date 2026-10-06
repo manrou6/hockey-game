@@ -3,7 +3,8 @@ import type { ActionEdges } from './actionButtons';
 import { mapStick, type MappedStick } from './stickMapping';
 
 // Standard mapping: left stick to skate (pushed fully = sprint), RB/RT also sprint;
-// A = PASE, B = TIRO, X = REGATE.
+// A = PASE (hold = more power), LB held = driven lofted pass, LB+RB = lob (then RB doesn't
+// sprint), B = TIRO, X = REGATE, Y = CANVI (switch player).
 const prev: boolean[] = [];
 /** A physical stick at its rim reads ~0.95-1.0; that's the sprint zone on a gamepad. */
 const GAMEPAD_SPRINT_TRAVEL = 0.95;
@@ -11,8 +12,9 @@ let stickSprinting = false;
 const mapped: MappedStick = { x: 0, y: 0, sprint: false };
 
 /** First connected gamepad. Writes movement/sprint into `out` and button presses into `edges`. */
-export function readGamepad(out: { x: number; y: number; sprint: boolean; passHeld?: boolean }, edges: ActionEdges | null): boolean {
+export function readGamepad(out: { x: number; y: number; sprint: boolean; passHeld?: boolean; passHeight?: number }, edges: ActionEdges | null): boolean {
   out.passHeld = false;
+  out.passHeight = 0;
   out.x = 0;
   out.y = 0;
   out.sprint = false;
@@ -30,13 +32,20 @@ export function readGamepad(out: { x: number; y: number; sprint: boolean; passHe
     out.x = mapped.x;
     out.y = mapped.y;
     const pressed = (b: number): boolean => Boolean(pad.buttons[b]?.pressed);
-    out.sprint = (mapped.x !== 0 || mapped.y !== 0) && (mapped.sprint || pressed(5) || pressed(7));
+    const lb = pressed(4);
+    out.passHeight = lb ? (pressed(5) ? 2 : 1) : 0;
+    out.sprint = (mapped.x !== 0 || mapped.y !== 0) && (mapped.sprint || (pressed(5) && !lb) || pressed(7));
     out.passHeld = pressed(0);
     if (edges) {
-      if (pressed(0) && !prev[0]) edges.pass = true;
+      if (pressed(0) && !prev[0]) {
+        edges.pass = true;
+        edges.passHeight = 0;
+      }
+      if (!pressed(0) && prev[0]) edges.passHeight = out.passHeight ?? 0;
       if (pressed(1) && !prev[1]) edges.shoot = true;
       if (pressed(2) && !prev[2]) edges.dribble = true;
-      for (let b = 0; b < 3; b++) prev[b] = pressed(b);
+      if (pressed(3) && !prev[3]) edges.switch = true;
+      for (let b = 0; b < 4; b++) prev[b] = pressed(b);
     }
     return true;
   }

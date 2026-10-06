@@ -7,7 +7,7 @@ import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './pl
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
 import { passFor, skatingFor } from './feel';
-import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFor, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
+import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
 
@@ -33,6 +33,11 @@ export interface WorldState {
    * holding (rad): it is ignored for the new player until released or turned (NaN = none).
    */
   latchDir: number;
+  /** Player switching (v0.1.17): tick of the last switch (cooldown), and the teammate that
+   * would take over while the ball is loose and for how many ticks he has been the nearest. */
+  lastSwitchTick: number;
+  switchCandidate: number;
+  switchCandidateTicks: number;
   /** Pass assist level of the human (Settings): who the pass goes to and how much it's corrected. */
   assist: AssistLevel;
   /** Teammate the controlled player's pass would go to right now (−1 = none): the ring. */
@@ -82,6 +87,9 @@ export function createWorld(seed: number, mates = 0): WorldState {
     ballResetTicks: 0,
     controlled: 0,
     latchDir: Number.NaN,
+    lastSwitchTick: -1000,
+    switchCandidate: -1,
+    switchCandidateTicks: 0,
     assist: 'light',
     aimTarget: -1,
     passTo: -1,
@@ -100,13 +108,77 @@ export function createWorld(seed: number, mates = 0): WorldState {
   };
 }
 
-/** Give the human control of another player (FIFA-like switch, docs/03 §3). */
-export function switchControl(world: WorldState, index: number, human: PlayerCommand): void {
+/**
+ * Give the human control of another player (FIFA-like switch, docs/03 §3). After a pass the
+ * stick is latched (it was aiming the pass, not steering the new player); after a switch to
+ * the player nearest the ball (automatic or CANVI) it isn't: you steer him at once.
+ */
+export function switchControl(world: WorldState, index: number, human: PlayerCommand, latch = true): void {
   if (index === world.controlled || !world.players[index]) return;
   world.controlled = index;
-  // Whatever the stick is holding now was meant for the previous player.
+  world.lastSwitchTick = world.tick;
+  world.switchCandidate = -1;
+  world.switchCandidateTicks = 0;
   const m = Math.hypot(human.moveX, human.moveY);
-  world.latchDir = m >= 0.01 ? Math.atan2(human.moveY, human.moveX) : Number.NaN;
+  world.latchDir = latch && m >= 0.01 ? Math.atan2(human.moveY, human.moveX) : Number.NaN;
+}
+
+/** Is the ball free for the controlled player's team (nobody of the team carries it)? */
+function ballLooseForTeam(world: WorldState): boolean {
+  const b = world.ball;
+  if (b.inGoal !== 0 || world.ballResetTicks > 0) return false;
+  const team = world.players[world.controlled]?.team ?? 0;
+  return b.owner < 0 || world.players[b.owner]!.team !== team;
+}
+
+/**
+ * CANVI: switch to the teammate nearest the ball (a teammate carrying it: to him). If you are
+ * already the nearest, to the next one. Nothing if you have the ball.
+ */
+function manualSwitch(world: WorldState, human: PlayerCommand): void {
+  const b = world.ball;
+  if (b.owner === world.controlled) return;
+  const team = world.players[world.controlled]?.team ?? 0;
+  if (b.owner >= 0 && world.players[b.owner]!.team === team) {
+    switchControl(world, b.owner, human, false);
+    return;
+  }
+  const to = nearestTeammate(world, b.x, b.y, world.controlled);
+  if (to >= 0) switchControl(world, to, human, false);
+}
+
+/**
+ * Automatic switch while the ball is loose: the teammate nearest the ball takes over, with
+ * hysteresis so it never flickers between two players: he must be switchMargin nearer than
+ * the controlled one for switchDelay, and not right after another switch. Not during a pass
+ * (the receiver keeps it until the pass dies).
+ */
+function autoSwitch(world: WorldState, human: PlayerCommand, tuning: Tuning): void {
+  const m = tuning.mates;
+  const me = world.players[world.controlled];
+  if (!me || m.autoSwitch < 0.5 || m.switchControl < 0.5 || world.passTo >= 0 || !ballLooseForTeam(world)) {
+    world.switchCandidate = -1;
+    world.switchCandidateTicks = 0;
+    return;
+  }
+  const b = world.ball;
+  const cand = nearestTeammate(world, b.x, b.y, world.controlled);
+  const dMe = Math.hypot(b.x - me.x, b.y - me.y);
+  const c = world.players[cand];
+  if (!c || Math.hypot(b.x - c.x, b.y - c.y) + m.switchMargin > dMe) {
+    world.switchCandidate = -1;
+    world.switchCandidateTicks = 0;
+    return;
+  }
+  if (cand !== world.switchCandidate) {
+    world.switchCandidate = cand;
+    world.switchCandidateTicks = 0;
+  }
+  world.switchCandidateTicks++;
+  const rate = tuning.sim.tickRate;
+  if (world.switchCandidateTicks >= m.switchDelay * rate && world.tick - world.lastSwitchTick >= m.switchCooldown * rate) {
+    switchControl(world, cand, human, false);
+  }
 }
 
 const n = { nx: 0, ny: 0 };
@@ -145,6 +217,8 @@ function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.shoot = from.shoot;
   to.dribble = from.dribble;
   to.passHeld = from.passHeld;
+  to.passHeight = from.passHeight;
+  to.switchPlayer = from.switchPlayer;
 }
 
 /**
@@ -189,13 +263,14 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       // A lost pass: the control goes to the teammate nearest the ball (if enabled).
       if (died && tuning.mates.lostPassSwitch >= 0.5 && tuning.mates.switchControl >= 0.5) {
         const nearest = nearestTeammate(world, ball.x, ball.y);
-        if (nearest >= 0 && nearest !== world.controlled) switchControl(world, nearest, human);
+        if (nearest >= 0 && nearest !== world.controlled) switchControl(world, nearest, human, false);
       }
       world.passTo = -1;
       world.passFrom = -1; // e.g. off the boards it may be his again (wall pass, F1.4d)
     }
   }
   world.events.length = 0;
+  if (human.switchPlayer && tuning.mates.switchControl >= 0.5) manualSwitch(world, human);
 
   // Decide everyone's command from the state at the start of the tick.
   const receiver = world.passTo >= 0 ? world.passTo : findReceiver(players, ball, tuning, ball.owner < 0 ? world.passFrom : -1);
@@ -264,6 +339,7 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     }
   }
   freePlayBallRules(world);
+  autoSwitch(world, human, tuning);
   // Who the controlled player's pass would go to right now (ring under that teammate).
   const me = players[world.controlled];
   // While PASE is held the receiver is locked: the ring stays on him.
@@ -275,9 +351,8 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   // The arrow: the pass as it would leave right now while PASE is held (no human error).
   world.aimActive = Boolean(me) && ball.owner === world.controlled && me!.passHold >= 0;
   if (world.aimActive) {
-    const k = passFor(me!, tuning);
-    const charge = Math.min(1, Math.max(0, (me!.passHold - k.lobTime) / Math.max(0.05, k.loftChargeTime)));
-    planPass(players, ball, world.controlled, human, world.assist, passKindFor(me!.passHold, k), charge, me!.passLockTarget, me!.passLockOffset, tuning, world.aimPlan);
+    const charge = passPower(me!.passHold, passFor(me!, tuning));
+    planPass(players, ball, world.controlled, human, world.assist, passKindFromHeight(human.passHeight), charge, me!.passLockTarget, me!.passLockOffset, tuning, world.aimPlan);
   }
   world.tick++;
 }
@@ -302,14 +377,14 @@ function passDied(world: WorldState, tuning: Tuning): boolean {
   return a !== null && a.t < -0.15 && Math.hypot(ball.x - r.x, ball.y - r.y) > reach + 1;
 }
 
-/** The player of the controlled player's team nearest to a point (controlled one included). */
-function nearestTeammate(world: WorldState, x: number, y: number): number {
+/** The player of the controlled player's team nearest to a point (optionally excluding one). */
+function nearestTeammate(world: WorldState, x: number, y: number, exclude = -1): number {
   const team = world.players[world.controlled]?.team ?? 0;
   let best = -1;
   let bestD = Infinity;
   for (let i = 0; i < world.players.length; i++) {
     const p = world.players[i]!;
-    if (p.team !== team || (!p.bot && i !== world.controlled)) continue;
+    if (i === exclude || p.team !== team || (!p.bot && i !== world.controlled)) continue;
     const d = Math.hypot(x - p.x, y - p.y);
     if (d < bestD) {
       best = i;

@@ -166,18 +166,17 @@ export const TUNING = {
    * through src/sim/feel.ts in F2).
    */
   pass: {
-    /** PASE held shorter than tapTime = ground pass; up to lobTime = driven lofted pass
-     * ("alt fort", the usual one in rink hockey); longer = lob ("vaselina") (s). */
+    /** PASE (v0.1.17): the height is chosen apart (slide up / U / LB); holding the button
+     * charges the power. Held shorter than tapTime = a tap (automatic power); then the power
+     * rises from 0 to 1 over powerChargeTime (s). */
     tapTime: 0.2,
-    lobTime: 0.7,
-    /** Lob to nobody: holding this long beyond lobTime gives the maximum distance (s). */
-    loftChargeTime: 0.6,
+    powerChargeTime: 0.6,
     /** Ground pass to a teammate: launch speed so it reaches him at arrivalSpeed, within
-     * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). */
-    groundArrivalSpeed: 10,
-    groundMinSpeed: 13,
-    groundMaxSpeed: 24,
-    groundNoTargetSpeed: 15,
+     * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). Charging adds speed up to maxSpeed. */
+    groundArrivalSpeed: 14,
+    groundMinSpeed: 17,
+    groundMaxSpeed: 30,
+    groundNoTargetSpeed: 18,
     /** Driven lofted pass (real ballistics, v0.1.14): it leaves the stick from the floor at
      * the launch angle needed to peak at about maxHeight (m) over the distance, never steeper
      * than launchAngle (rad, short passes), with the speed (≤ maxSpeed, m/s) that makes it land
@@ -186,12 +185,16 @@ export const TUNING = {
      * arrives (v0.1.15). To nobody it lands noTargetDistance away (m). The drop angle is not set: physics makes it ≈ the launch
      * angle (a bit steeper with air drag). */
     driveLaunchAngle: 0.4363323,
-    driveMaxHeight: 0.8,
-    driveMaxSpeed: 28,
-    driveLandShort: 1,
+    driveMaxHeight: 1.2,
+    driveMaxSpeed: 20,
+    /** Fully charged driven pass: up to this speed, flatter (same landing point). */
+    driveChargeMaxSpeed: 26,
+    driveLandShort: 1.5,
     driveNoTargetDistance: 18,
+    /** Fully charged driven pass to nobody lands this far (m). */
+    driveNoTargetMaxDistance: 30,
     /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
-     * maximum launch speed (m/s), and distance range to nobody (by charge). */
+     * maximum launch speed (m/s), and distance range to nobody (by power). */
     loftAngle: 0.5235988,
     loftLandShort: 1,
     loftMaxSpeed: 24,
@@ -203,7 +206,7 @@ export const TUNING = {
     receiveReach: 0.65,
     /** PROVISIONAL until F1.4c (reception): fastest ball (relative to him, m/s) the receiver
      * of an aimed pass still controls (a loose ball: dribble.pickupMaxRelSpeed). */
-    receiveMaxRelSpeed: 15,
+    receiveMaxRelSpeed: 20,
     /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be). */
     lead: 1,
     /** Direction error (rad, random but deterministic, about ±1 standard deviation): always,
@@ -246,6 +249,14 @@ export const TUNING = {
     /** 1 = a pass that dies untouched (hits something, stops, or goes past the receiver out
      * of reach) gives the control to the teammate nearest the ball (v0.1.16). */
     lostPassSwitch: 1,
+    /** 1 = while the ball is loose (nobody of the team has it) the control goes to the
+     * teammate nearest the ball (v0.1.17). Hysteresis: only if he is at least switchMargin (m)
+     * nearer than the controlled one, for switchDelay (s), and not within switchCooldown (s)
+     * of the last switch. */
+    autoSwitch: 1,
+    switchMargin: 1.5,
+    switchDelay: 0.25,
+    switchCooldown: 0.6,
     /** 1 = with the stick released, the controlled player goes to meet a pass coming to him. */
     autoReceive: 1,
     /** 1 = teammates move to offer a passing line; 0 = they stand still. */
@@ -289,6 +300,10 @@ export const TUNING = {
   },
   /** Human input devices (docs/03 §3). */
   input: {
+    /** PASE height by sliding the finger up on the button (CSS px of the landscape layout;
+     * ~60 px ≈ 1 cm on a Pixel 8a): from slideDrive = driven lofted, from slideLob = lob. */
+    passSlideDrive: 60,
+    passSlideLob: 120,
     /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */
     bufferTime: 0.15,
     /**
@@ -322,6 +337,11 @@ export const TUNING = {
     dribbleRight: 52,
     dribbleBottom: 150,
     dribbleSize: 84,
+    /** CANVI (switch player): small, to the left of PASE, out of the path of the slide up on
+     * PASE and away from TIRO/REGATE. */
+    switchRight: 262,
+    switchBottom: 52,
+    switchSize: 62,
   },
   /** Camera system shared settings (docs/03 §6). */
   camera: {

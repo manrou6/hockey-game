@@ -52,7 +52,7 @@ test('HUD buttons never overlap each other or the thumb controls', async ({ page
   await page.evaluate(() => (window as any).__PATINS__.tuning.set('skating.maxSpeed', 8));
   for (const label of ['🎥 TV', '🎥 Propera', '🎥 Tàctica']) {
     await expect(page.locator('#btn-camera')).toHaveText(label);
-    const ids = ['#btn-pause', '#btn-tuning', '#btn-camera', '#tuning-chip', '#btn-pass', '#btn-shoot', '#btn-dribble', '.joy-base'];
+    const ids = ['#btn-pause', '#btn-tuning', '#btn-camera', '#tuning-chip', '#btn-pass', '#btn-shoot', '#btn-dribble', '#btn-switch', '.joy-base'];
     const rects: Rect[] = [];
     for (const id of ids) rects.push((await page.locator(id).boundingBox())!);
     for (let i = 0; i < rects.length; i++) {
@@ -70,7 +70,7 @@ for (const preset of PRESETS) {
     await page.reload();
     await page.click('#btn-play');
     const controls: Rect[] = [];
-    for (const id of ['#btn-pass', '#btn-shoot', '#btn-dribble', '.joy-base', '#btn-pause', '#btn-camera']) controls.push((await page.locator(id).boundingBox())!);
+    for (const id of ['#btn-pass', '#btn-shoot', '#btn-dribble', '#btn-switch', '.joy-base', '#btn-pause', '#btn-camera']) controls.push((await page.locator(id).boundingBox())!);
     const vp = page.viewportSize()!;
     for (const [x, y] of [[0, 0], [0, -8], [0, 8], [-15, -7], [15, -7], [-15, 7], [15, 7], [18.8, 0]] as const) {
       await placeAndSettle(page, x, y);

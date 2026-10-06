@@ -16,10 +16,15 @@ export interface PlayerCommand {
   pass: boolean;
   shoot: boolean;
   dribble: boolean;
-  /** PASE is being held down (tap = ground pass, hold = lofted; it leaves on release). */
+  /** PASE is being held down: holding charges the power; the pass leaves on release. */
   passHeld: boolean;
+  /** Height chosen for the pass (docs/03 §3, v0.1.17): 0 = low (ground), 1 = driven lofted
+   * ("alt fort"), 2 = lob. Touch: slide the finger up on PASE; keyboard U; gamepad LB(+RB). */
+  passHeight: number;
+  /** CANVI pressed this tick: switch to the teammate nearest the ball. */
+  switchPlayer: boolean;
 }
 
 export function emptyCommand(): PlayerCommand {
-  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false };
+  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false };
 }

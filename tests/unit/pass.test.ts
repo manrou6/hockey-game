@@ -66,39 +66,50 @@ function tap(w: WorldState, aim: PlayerCommand, tuning: Tuning): void {
   step(w, { ...aim, pass: true, passHeld: false }, tuning);
 }
 
-/** Hold PASE for `seconds`, then release, while aiming. */
-function hold(w: WorldState, aim: PlayerCommand, seconds: number, tuning: Tuning): void {
-  step(w, { ...aim, pass: true, passHeld: true }, tuning);
-  step(w, { ...aim, passHeld: true }, tuning, Math.round(seconds / DT) - 1);
-  step(w, aim, tuning);
+/**
+ * PASE with a height (0 low, 1 driven lofted, 2 lob: the slide / U / LB) held for `seconds`
+ * (0 = a tap: automatic power), then released, while aiming.
+ */
+function hold(w: WorldState, aim: PlayerCommand, seconds: number, tuning: Tuning, height = 0): void {
+  if (seconds <= 0) {
+    step(w, { ...aim, pass: true, passHeld: false, passHeight: height }, tuning);
+    return;
+  }
+  step(w, { ...aim, pass: true, passHeld: true, passHeight: height }, tuning);
+  step(w, { ...aim, passHeld: true, passHeight: height }, tuning, Math.round(seconds / DT) - 1);
+  step(w, { ...aim, passHeight: height }, tuning);
 }
 
-describe('PASE button: tap = ground, hold = driven lofted, hold longer = lob (released = it leaves)', () => {
-  const holdFor = (seconds: number): ReturnType<typeof createPlayer> => {
+describe('PASE: the height is chosen apart (slide/U/LB); holding charges the power; it leaves on release', () => {
+  const holdFor = (seconds: number, height: number): ReturnType<typeof createPlayer> => {
     const p = createPlayer(0, 0, 0);
-    updatePassButton(p, cmd(0, 0, { pass: true, passHeld: true }), TUNING, DT);
-    for (let i = 0; i < Math.round(seconds / DT) - 1; i++) updatePassButton(p, cmd(0, 0, { passHeld: true }), TUNING, DT);
+    updatePassButton(p, cmd(0, 0, { pass: true, passHeld: true, passHeight: height }), TUNING, DT);
+    for (let i = 0; i < Math.round(seconds / DT) - 1; i++) updatePassButton(p, cmd(0, 0, { passHeld: true, passHeight: height }), TUNING, DT);
     expect(p.bufPass).toBe(0); // nothing leaves while it's held
-    updatePassButton(p, cmd(), TUNING, DT);
+    updatePassButton(p, cmd(0, 0, { passHeight: height }), TUNING, DT);
     expect(p.passHold).toBe(-1);
     expect(p.bufPass).toBeGreaterThan(0);
     return p;
   };
-  it('a tap (press and release in one tick) is a ground pass', () => {
+  it('a tap (press and release in one tick) is a low pass with automatic power', () => {
     const p = createPlayer(0, 0, 0);
     expect(updatePassButton(p, cmd(0, 0, { pass: true, passHeld: false }), TUNING, DT)).toBe('pressed');
     expect(p.bufPass).toBeGreaterThan(0);
     expect(p.passKind).toBe(PASS_GROUND);
+    expect(p.passCharge).toBe(0);
   });
 
-  it('the three levels by hold time, and the lob charge', () => {
+  it('the height comes from the command, whatever the hold time; the hold time is the power', () => {
     const k = TUNING.pass;
-    expect(holdFor(k.tapTime - 2 * DT).passKind).toBe(PASS_GROUND);
-    expect(holdFor(k.tapTime + 2 * DT).passKind).toBe(PASS_DRIVE);
-    expect(holdFor(k.lobTime - 2 * DT).passKind).toBe(PASS_DRIVE);
-    const lob = holdFor(k.lobTime + k.loftChargeTime / 2);
-    expect(lob.passKind).toBe(PASS_LOB);
-    expect(lob.passCharge).toBeCloseTo(0.5, 1);
+    for (const [height, kind] of [[0, PASS_GROUND], [1, PASS_DRIVE], [2, PASS_LOB]] as const) {
+      const short = holdFor(k.tapTime - 2 * DT, height);
+      expect(short.passKind).toBe(kind);
+      expect(short.passCharge).toBe(0);
+      const long = holdFor(k.tapTime + k.powerChargeTime / 2, height);
+      expect(long.passKind).toBe(kind);
+      expect(long.passCharge).toBeCloseTo(0.5, 1);
+      expect(holdFor(k.tapTime + k.powerChargeTime * 2, height).passCharge).toBe(1);
+    }
   });
 });
 
@@ -183,7 +194,7 @@ describe('passing to the teammates (world)', () => {
     takeBall(w, tuning);
     const m = w.players[2]!;
     m.x = m.prevX = 9;
-    hold(w, aimAt(w, 2), TUNING.pass.tapTime + 0.1, tuning);
+    hold(w, aimAt(w, 2), 0, tuning, 1);
     expect(w.passTo).toBe(2);
     expect(w.passKind).toBe(PASS_DRIVE);
     expect(w.ball.vz).toBeGreaterThan(0); // leaves the stick from the floor, going up
@@ -209,8 +220,8 @@ describe('passing to the teammates (world)', () => {
       t.mates.move = 0;
     });
     for (const [seconds, D, short] of [
-      [TUNING.pass.tapTime + 0.1, 28, TUNING.pass.driveLandShort],
-      [TUNING.pass.lobTime + 0.1, 30, TUNING.pass.loftLandShort],
+      [1, 28, TUNING.pass.driveLandShort],
+      [2, 30, TUNING.pass.loftLandShort],
     ] as const) {
       const w = createWorld(24, 2);
       const p = w.players[0]!;
@@ -224,7 +235,7 @@ describe('passing to the teammates (world)', () => {
       m.x = m.prevX = -15 + D;
       m.y = m.prevY = 4;
       w.players[2]!.y = w.players[2]!.prevY = -8;
-      hold(w, cmd(1, 0), seconds, tuning);
+      hold(w, cmd(1, 0), 0, tuning, seconds);
       expect(w.passTo).toBe(1);
       let landed = Number.NaN;
       for (let i = 0; i < 300 && Number.isNaN(landed) && w.ball.owner < 0; i++) {
@@ -245,12 +256,12 @@ describe('passing to the teammates (world)', () => {
     const tuning = tuningWith((t) => {
       t.mates.move = 0;
     });
-    for (const seconds of [TUNING.pass.tapTime + 0.1, TUNING.pass.lobTime + 0.1]) {
+    for (const height of [1, 2]) {
       const w = createWorld(23, 2);
       takeBall(w, tuning);
       const m = w.players[2]!;
       m.x = m.prevX = 9;
-      hold(w, aimAt(w, 2), seconds, tuning);
+      hold(w, aimAt(w, 2), 0, tuning, height);
       const dir = Math.atan2(w.ball.vy, w.ball.vx);
       let vz = w.ball.vz;
       // Until it first touches the floor: same horizontal direction, and vertical speed only
@@ -275,7 +286,7 @@ describe('passing to the teammates (world)', () => {
     takeBall(w, tuning);
     const m = w.players[2]!;
     m.x = m.prevX = 9;
-    hold(w, aimAt(w, 2), TUNING.pass.lobTime + 0.1, tuning);
+    hold(w, aimAt(w, 2), 0, tuning, 2);
     expect(w.passKind).toBe(PASS_LOB);
     let maxZ = 0;
     expect(
@@ -328,17 +339,17 @@ describe('passing to the teammates (world)', () => {
     const launch = (seconds: number): WorldState => {
       const w = createWorld(25, 2);
       takeBall(w, tuning);
-      hold(w, cmd(-1, 0), seconds, tuning);
+      hold(w, cmd(-1, 0), seconds, tuning, 2);
       return w;
     };
     const k = TUNING.pass;
     const speed = (w: WorldState): number => Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz);
-    expect(speed(launch(k.lobTime + k.loftChargeTime))).toBeGreaterThan(speed(launch(k.lobTime + 0.05)) + 2);
+    expect(speed(launch(k.tapTime + k.powerChargeTime))).toBeGreaterThan(speed(launch(0)) + 2);
     // Driven to nobody (assist off), along the rink with room to land.
     const d = createWorld(25, 2);
     d.assist = 'off';
     takeBall(d, tuning);
-    hold(d, cmd(1, 0), k.tapTime + 0.1, tuning);
+    hold(d, cmd(1, 0), 0, tuning, 1);
     const x0 = d.ball.x;
     for (let i = 0; i < 300 && !d.events.some((e) => e.type === 'floor'); i++) step(d, cmd(), tuning);
     expect(Math.abs(d.ball.x - x0 - k.driveNoTargetDistance)).toBeLessThan(0.6);
@@ -396,8 +407,8 @@ describe('passing to the teammates (world)', () => {
 
   it('teammates give the pass back the same kind (switch off)', () => {
     for (const [seconds, kind] of [
-      [TUNING.pass.tapTime + 0.1, PASS_DRIVE],
-      [TUNING.pass.lobTime + 0.1, PASS_LOB],
+      [1, PASS_DRIVE],
+      [2, PASS_LOB],
     ] as const) {
       const tuning = tuningWith((t) => {
         t.mates.move = 0;
@@ -407,7 +418,7 @@ describe('passing to the teammates (world)', () => {
       takeBall(w, tuning);
       const m = w.players[1]!;
       m.x = m.prevX = 6;
-      hold(w, aimAt(w, 1), seconds, tuning);
+      hold(w, aimAt(w, 1), 0, tuning, seconds);
       expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 300)).toBeGreaterThanOrEqual(0);
       expect(m.receivedKind).toBe(kind);
       expect(runUntil(w, cmd(), tuning, () => w.ball.owner === -1, 120)).toBeGreaterThanOrEqual(0);
@@ -477,6 +488,45 @@ describe('passing to the teammates (world)', () => {
     expect(strong).toBeGreaterThan(light);
     expect(strong).toBeGreaterThan(0.8);
     expect(light).toBeLessThan(0.5);
+  });
+});
+
+describe('power (hold) and height (slide) are independent', () => {
+  const launch = (height: number, seconds: number, dist: number): { speed: number; elev: number } => {
+    const tuning = tuningWith((t) => {
+      exact(t);
+      t.mates.move = 0;
+    });
+    const w = createWorld(51, 2);
+    const p = w.players[0]!;
+    p.x = p.prevX = -12;
+    p.y = p.prevY = 4;
+    w.ball.x = w.ball.prevX = -11.45;
+    w.ball.y = w.ball.prevY = 3.86;
+    step(w, cmd(), tuning, 30);
+    const m = w.players[1]!;
+    m.x = m.prevX = -12 + dist;
+    m.y = m.prevY = 4;
+    w.players[2]!.y = w.players[2]!.prevY = -8;
+    hold(w, cmd(1, 0), seconds, tuning, height);
+    return { speed: Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz), elev: Math.atan2(w.ball.vz, Math.hypot(w.ball.vx, w.ball.vy)) };
+  };
+  it('a charged low pass is faster than a tap, and stays on the floor', () => {
+    const k = TUNING.pass;
+    const tapped = launch(0, 0, 12);
+    const charged = launch(0, k.tapTime + k.powerChargeTime, 12);
+    expect(charged.speed).toBeGreaterThan(tapped.speed + 5);
+    expect(charged.elev).toBe(0);
+  });
+  it('a charged driven pass is faster and flatter to the same receiver', () => {
+    const k = TUNING.pass;
+    const tapped = launch(1, 0, 12);
+    const charged = launch(1, k.tapTime + k.powerChargeTime, 12);
+    expect(charged.speed).toBeGreaterThan(tapped.speed + 3);
+    expect(charged.elev).toBeLessThan(tapped.elev);
+  });
+  it('the driven lofted pass is clearly slower than the low one at 10 m', () => {
+    expect(launch(1, 0, 10).speed).toBeLessThan(launch(0, 0, 10).speed * 0.8);
   });
 });
 

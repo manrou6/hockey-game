@@ -136,15 +136,16 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     id: 'pass',
     params: [
       { path: 'pass.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
-      { path: 'pass.lobTime', min: 0.3, max: 1.5, step: 0.05, unit: 's' },
+      { path: 'pass.powerChargeTime', min: 0.1, max: 2, step: 0.05, unit: 's' },
       { path: 'pass.driveMaxHeight', min: 0.2, max: 2.5, step: 0.05, unit: 'm' },
       { path: 'pass.driveLaunchAngle', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
       { path: 'pass.driveMaxSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+      { path: 'pass.driveChargeMaxSpeed', min: 8, max: 40, step: 0.5, unit: 'm/s' },
       { path: 'pass.driveLandShort', min: 0, max: 5, step: 0.25, unit: 'm' },
       { path: 'pass.driveNoTargetDistance', min: 4, max: 30, step: 0.5, unit: 'm' },
+      { path: 'pass.driveNoTargetMaxDistance', min: 6, max: 40, step: 0.5, unit: 'm' },
       { path: 'pass.receiveReach', min: 0.2, max: 2, step: 0.05, unit: 'm' },
       { path: 'pass.receiveMaxRelSpeed', min: 5, max: 30, step: 0.5, unit: 'm/s' },
-      { path: 'pass.loftChargeTime', min: 0.1, max: 1.5, step: 0.05, unit: 's' },
       { path: 'pass.groundArrivalSpeed', min: 1, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundMinSpeed', min: 3, max: 25, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundMaxSpeed', min: 10, max: 35, step: 0.5, unit: 'm/s' },
@@ -190,6 +191,10 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     params: [
       { path: 'mates.switchControl', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'mates.lostPassSwitch', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.autoSwitch', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.switchMargin', min: 0, max: 5, step: 0.25, unit: 'm' },
+      { path: 'mates.switchDelay', min: 0, max: 1.5, step: 0.05, unit: 's' },
+      { path: 'mates.switchCooldown', min: 0, max: 3, step: 0.1, unit: 's' },
       { path: 'mates.autoReceive', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'mates.move', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'mates.switchLatchAngle', min: 10, max: 120, step: 5, unit: '°', scale: DEG },
@@ -234,6 +239,8 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'input.joystickDeadZone', min: 0, max: 40, step: 1, unit: '%', scale: 100 },
       { path: 'input.sprintHysteresis', min: 0, max: 15, step: 1, unit: '%', scale: 100 },
       { path: 'input.bufferTime', min: 0, max: 0.4, step: 0.01, unit: 's' },
+      { path: 'input.passSlideDrive', min: 15, max: 200, step: 5, unit: 'px' },
+      { path: 'input.passSlideLob', min: 30, max: 300, step: 5, unit: 'px' },
       { path: 'input.joystickRadiusPx', min: 30, max: 140, step: 2, unit: 'px' },
       { path: 'input.joystickZone', min: 0.3, max: 0.8, step: 0.05, unit: '' },
       { path: 'input.gamepadDeadZone', min: 0, max: 0.5, step: 0.01, unit: '' },
@@ -241,7 +248,7 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
   },
   {
     id: 'buttons',
-    params: (['dribble', 'pass', 'shoot'] as const).flatMap((b) => [
+    params: (['dribble', 'pass', 'shoot', 'switch'] as const).flatMap((b) => [
       { path: `buttons.${b}Bottom`, min: 0, max: 300, step: 2, unit: 'px' },
       { path: `buttons.${b}Right`, min: 0, max: 450, step: 2, unit: 'px' },
       { path: `buttons.${b}Size`, min: 50, max: 160, step: 2, unit: 'px' },
