@@ -13,10 +13,12 @@ export interface Settings {
   camera: CameraPresetId;
   /** Pass assist level (docs/03 §3): off / light (default) / strong. */
   assist: AssistLevel;
+  /** Arrow on the floor showing the pass while PASE is held (default on). */
+  passArrow: boolean;
 }
 
 const STORAGE_KEY = 'patins.settings.v1';
-const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv', assist: 'light' };
+const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv', assist: 'light', passArrow: true };
 
 export function loadSettings(): Settings {
   try {
@@ -29,6 +31,7 @@ export function loadSettings(): Settings {
       tuningMode: typeof data.tuningMode === 'boolean' ? data.tuningMode : DEFAULTS.tuningMode,
       camera: isCameraPresetId(data.camera) ? data.camera : DEFAULTS.camera,
       assist: isAssistLevel(data.assist) ? data.assist : DEFAULTS.assist,
+      passArrow: typeof data.passArrow === 'boolean' ? data.passArrow : DEFAULTS.passArrow,
     };
   } catch {
     return { ...DEFAULTS };

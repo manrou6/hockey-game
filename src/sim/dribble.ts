@@ -173,7 +173,6 @@ export function canPickUp(ball: BallState, p: PlayerState, tuning: Tuning, reach
 
 export function pickUp(ball: BallState, index: number, p: PlayerState): void {
   ball.owner = index;
-  ball.guide = false;
   ball.touchPhase = 0;
   ball.separation = Math.min(0.3, Math.hypot(ball.x - p.x, ball.y - p.y) * 0.2);
   ball.z = RINK.ballRadius;

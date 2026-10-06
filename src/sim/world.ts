@@ -7,7 +7,7 @@ import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './pl
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
 import { passFor, skatingFor } from './feel';
-import { aimAngle, assistParams, choosePassTarget, lockPassTarget, performPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassResult } from './pass';
+import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFor, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { botCommand, findReceiver, interceptMove, type BotContext } from './mates';
 import { wrapAngle } from './player';
 
@@ -45,6 +45,17 @@ export interface WorldState {
   passTo: number;
   passKind: PassKind;
   passFrom: number;
+  /** While the controlled player holds PASE with the ball: the pass as it would leave now
+   * (direction with the assist, strength, kind) — drawn as the arrow on the floor. */
+  aimPlan: PassPlan;
+  aimActive: boolean;
+  /** The controlled player's last pass as launched: tick, from where, direction, speed, kind. */
+  lastPassTick: number;
+  lastPassX: number;
+  lastPassY: number;
+  lastPassAngle: number;
+  lastPassSpeed: number;
+  lastPassKind: PassKind;
   meetX: number;
   meetY: number;
 }
@@ -76,6 +87,14 @@ export function createWorld(seed: number, mates = 0): WorldState {
     passTo: -1,
     passKind: PASS_GROUND,
     passFrom: -1,
+    aimPlan: createPassPlan(),
+    aimActive: false,
+    lastPassTick: -1000,
+    lastPassX: 0,
+    lastPassY: 0,
+    lastPassAngle: 0,
+    lastPassSpeed: 0,
+    lastPassKind: PASS_GROUND,
     meetX: Number.NaN,
     meetY: Number.NaN,
   };
@@ -244,6 +263,13 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     : me.passHold >= 0 && me.passLockTarget > -2
       ? me.passLockTarget
       : choosePassTarget(players, world.controlled, aimAngle(me, human), assistParams(world.assist, tuning, assistTmp).cone);
+  // The arrow: the pass as it would leave right now while PASE is held (no human error).
+  world.aimActive = Boolean(me) && ball.owner === world.controlled && me!.passHold >= 0;
+  if (world.aimActive) {
+    const k = passFor(me!, tuning);
+    const charge = Math.min(1, Math.max(0, (me!.passHold - k.lobTime) / Math.max(0.05, k.loftChargeTime)));
+    planPass(players, ball, world.controlled, human, world.assist, passKindFor(me!.passHold, k), charge, me!.passLockTarget, me!.passLockOffset, tuning, world.aimPlan);
+  }
   world.tick++;
 }
 
@@ -263,12 +289,23 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   world.passTo = passResult.target;
   world.passKind = passResult.kind;
   world.passFrom = i;
+  if (i === world.controlled) {
+    world.lastPassTick = world.tick;
+    world.lastPassX = p.x;
+    world.lastPassY = p.y;
+    world.lastPassAngle = Math.atan2(world.ball.vy, world.ball.vx);
+    world.lastPassSpeed = Math.hypot(world.ball.vx, world.ball.vy, world.ball.vz);
+    world.lastPassKind = passResult.kind;
+  }
   world.meetX = passResult.meetX;
   world.meetY = passResult.meetY;
-  // FIFA-like: the control goes straight to the receiver (or, with no assisted receiver,
-  // to the teammate the ball is heading to).
+  // Without an assisted receiver (assist off, or nobody in the cone) the teammate the ball is
+  // actually heading to is the receiver: it doesn't steer the ball, it only means he goes for
+  // it as the receiver of a pass (reception zone, no meeting point).
+  if (world.passTo < 0) world.passTo = findReceiver(world.players, world.ball, tuning, i);
+  // FIFA-like: the control goes straight to the receiver.
   if (i === world.controlled && tuning.mates.switchControl >= 0.5) {
-    const to = passResult.target >= 0 ? passResult.target : findReceiver(world.players, world.ball, tuning, i);
+    const to = world.passTo;
     if (to >= 0 && world.players[to]!.bot) switchControl(world, to, human);
   }
   return true;

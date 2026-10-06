@@ -17,6 +17,8 @@ export interface MenuCallbacks {
   onCameraChange: (id: CameraPresetId) => void;
   /** Pass assist level chosen in settings. */
   onAssistChange: (level: AssistLevel) => void;
+  /** Pass arrow on/off. */
+  onPassArrowChange: (on: boolean) => void;
 }
 
 /** Main menu + settings screen, as two full-screen overlays. */
@@ -57,6 +59,7 @@ export class Menu {
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.language' }), this.languageChoices()]),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.camera' }), this.cameraChoices()]),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.assist' }), this.assistChoices()]),
+      el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.passArrow' }), this.passArrowChoices()]),
       el('div', { className: 'setting' }, [
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
@@ -132,6 +135,21 @@ export class Menu {
     return group;
   }
 
+  private passArrowChoices(): HTMLElement {
+    const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
+    for (const on of [true, false]) {
+      const b = el('button', { className: 'choice', i18n: on ? 'common.yes' : 'common.no', attrs: { 'data-arrow': String(on), id: `arrow-${on ? 'on' : 'off'}` } });
+      b.addEventListener('click', () => {
+        this.settings.passArrow = on;
+        saveSettings(this.settings);
+        this.callbacks.onPassArrowChange(on);
+        this.refreshTexts();
+      });
+      group.append(b);
+    }
+    return group;
+  }
+
   private tuningChoices(): HTMLElement {
     const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
     for (const on of [true, false]) {
@@ -173,6 +191,11 @@ export class Menu {
     });
     this.element.querySelectorAll<HTMLElement>('[data-assist]').forEach((b) => {
       const sel = b.dataset.assist === this.settings.assist;
+      b.classList.toggle('selected', sel);
+      b.setAttribute('aria-checked', String(sel));
+    });
+    this.element.querySelectorAll<HTMLElement>('[data-arrow]').forEach((b) => {
+      const sel = b.dataset.arrow === String(this.settings.passArrow);
       b.classList.toggle('selected', sel);
       b.setAttribute('aria-checked', String(sel));
     });

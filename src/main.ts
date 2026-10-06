@@ -77,8 +77,12 @@ const menu = new Menu(settings, {
   onAssistChange: (level) => {
     game.world.assist = level;
   },
+  onPassArrowChange: (on) => {
+    renderer.showPassArrow = on;
+  },
 });
 game.world.assist = settings.assist;
+renderer.showPassArrow = settings.passArrow;
 
 // PASE button: an arc fills while it's held: white = ground pass (tap), orange = driven
 // lofted pass, purple = lob (it keeps filling: a longer lob to nobody).

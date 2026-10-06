@@ -178,13 +178,15 @@ export const TUNING = {
     groundMinSpeed: 8,
     groundMaxSpeed: 20,
     groundNoTargetSpeed: 14,
-    /** Driven lofted pass (guided flight, nearly a rectangle): horizontal speed (m/s), launch
-     * angle, maximum height (m), angle of the drop (rad), lands this far before the receiver
-     * (m) so it bounces into his stick; to nobody it lands noTargetDistance away (m). */
-    driveSpeed: 12,
+    /** Driven lofted pass (real ballistics, v0.1.14): it leaves the stick from the floor at
+     * the launch angle needed to peak at about maxHeight (m) over the distance, never steeper
+     * than launchAngle (rad, short passes), with the speed (≤ maxSpeed, m/s) that makes it land
+     * landShort (m) before the receiver; then only gravity, bounce and rolling. To nobody it
+     * lands noTargetDistance away (m). The drop angle is not set: physics makes it ≈ the launch
+     * angle (a bit steeper with air drag). */
     driveLaunchAngle: 0.4363323,
     driveMaxHeight: 0.8,
-    driveFallAngle: 0.6981317,
+    driveMaxSpeed: 24,
     driveLandShort: 1.5,
     driveNoTargetDistance: 12,
     /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
@@ -195,9 +197,9 @@ export const TUNING = {
     loftMinDistance: 6,
     loftMaxDistance: 22,
     /** Reception zone of the teammate a pass is aimed at: the ball within this distance of
-     * him (m, low enough and not too fast) reaches his stick. F1.4c: its outer part will be a
-     * harder control (heavy touch / rebound). */
-    receiveReach: 1,
+     * him (m, low enough and not too fast) reaches his stick (a stretch, not a magnet).
+     * F1.4c: its outer part will be a harder control (heavy touch / rebound). */
+    receiveReach: 0.65,
     /** PROVISIONAL until F1.4c (reception): fastest ball (relative to him, m/s) the receiver
      * of an aimed pass still controls (a loose ball: dribble.pickupMaxRelSpeed). */
     receiveMaxRelSpeed: 15,
@@ -266,6 +268,20 @@ export const TUNING = {
      * and his support spot drifts slowly by up to this many metres. */
     speedVariation: 0.15,
     spotVariation: 1.5,
+  },
+  /** Arrow on the floor showing the pass while PASE is held (and a moment after a tap):
+   * final direction (with the assist), length by strength, colour by kind (render only). */
+  passArrow: {
+    /** Length for the weakest and the strongest pass (m). */
+    minLength: 1.2,
+    maxLength: 4.5,
+    /** Launch speed that counts as "strongest" (m/s). */
+    fullSpeed: 22,
+    width: 0.28,
+    /** Starts this far from the passer (m), so it covers neither him nor the ball. */
+    startOffset: 1,
+    /** How long it stays after the pass leaves (s). */
+    afterTime: 0.35,
   },
   /** Human input devices (docs/03 §3). */
   input: {
