@@ -174,10 +174,10 @@ export const TUNING = {
     loftChargeTime: 0.6,
     /** Ground pass to a teammate: launch speed so it reaches him at arrivalSpeed, within
      * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). */
-    groundArrivalSpeed: 6,
-    groundMinSpeed: 8,
-    groundMaxSpeed: 20,
-    groundNoTargetSpeed: 14,
+    groundArrivalSpeed: 10,
+    groundMinSpeed: 13,
+    groundMaxSpeed: 24,
+    groundNoTargetSpeed: 15,
     /** Driven lofted pass (real ballistics, v0.1.14): it leaves the stick from the floor at
      * the launch angle needed to peak at about maxHeight (m) over the distance, never steeper
      * than launchAngle (rad, short passes), with the speed (≤ maxSpeed, m/s) that makes it land
@@ -243,6 +243,9 @@ export const TUNING = {
     /** After a switch the stick keeps being ignored for the new player (he goes to the ball
      * on his own) until it is released or turned at least this much (rad). */
     switchLatchAngle: 0.7853982,
+    /** 1 = a pass that dies untouched (hits something, stops, or goes past the receiver out
+     * of reach) gives the control to the teammate nearest the ball (v0.1.16). */
+    lostPassSwitch: 1,
     /** 1 = with the stick released, the controlled player goes to meet a pass coming to him. */
     autoReceive: 1,
     /** 1 = teammates move to offer a passing line; 0 = they stand still. */

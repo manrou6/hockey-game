@@ -219,5 +219,6 @@
   "tuning.passArrow.width": "Width",
   "tuning.passArrow.startOffset": "Starts this far from the player",
   "tuning.passArrow.afterTime": "Visible time after the pass",
-  "settings.passArrow": "Pass arrow"
+  "settings.passArrow": "Pass arrow",
+  "tuning.mates.lostPassSwitch": "Lost pass: control goes to the teammate nearest the ball"
 }

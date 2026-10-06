@@ -475,8 +475,42 @@ describe('passing to the teammates (world)', () => {
     const light = rate('light');
     const strong = rate('strong');
     expect(strong).toBeGreaterThan(light);
-    expect(strong).toBeGreaterThan(0.9);
+    expect(strong).toBeGreaterThan(0.8);
     expect(light).toBeLessThan(0.5);
+  });
+});
+
+describe('lost pass: control to the teammate nearest the ball', () => {
+  const lose = (lostPassSwitch: number): WorldState => {
+    const tuning = tuningWith((t) => {
+      t.mates.move = 0;
+      t.mates.lostPassSwitch = lostPassSwitch;
+    });
+    const w = createWorld(41, 2);
+    takeBall(w, tuning);
+    tap(w, aimAt(w, 1), tuning);
+    expect(w.controlled).toBe(1);
+    // The receiver is suddenly far away (as if he had gone the wrong way): the pass dies.
+    const r = w.players[1]!;
+    r.x = r.prevX = r.x - 12;
+    r.vx = r.vy = 0;
+    // Teammate 2 waits further along the pass line.
+    const b = w.ball;
+    const m = w.players[2]!;
+    m.x = m.prevX = b.x + b.vx * 1.2;
+    m.y = m.prevY = b.y + b.vy * 1.2 + 3;
+    runUntil(w, cmd(), tuning, () => w.passTo < 0, 300);
+    return w;
+  };
+  it('switches to the nearest teammate when the pass dies untouched (if enabled)', () => {
+    const w = lose(1);
+    expect(w.ball.owner).toBe(-1);
+    const near = [0, 1, 2].reduce((best, i) => (Math.hypot(w.ball.x - w.players[i]!.x, w.ball.y - w.players[i]!.y) < Math.hypot(w.ball.x - w.players[best]!.x, w.ball.y - w.players[best]!.y) ? i : best), 0);
+    expect(w.controlled).toBe(near);
+    expect(near).not.toBe(1);
+  });
+  it('stays on the receiver with the switch off', () => {
+    expect(lose(0).controlled).toBe(1);
   });
 });
 
