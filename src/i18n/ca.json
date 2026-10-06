@@ -219,5 +219,6 @@
   "tuning.passArrow.width": "Gruix",
   "tuning.passArrow.startOffset": "Comença a aquesta distància del jugador",
   "tuning.passArrow.afterTime": "Temps visible després de passar",
-  "settings.passArrow": "Fletxa de passada"
+  "settings.passArrow": "Fletxa de passada",
+  "tuning.mates.lostPassSwitch": "Passada perduda: el control passa al company més a prop de la bola"
 }

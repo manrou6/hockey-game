@@ -219,5 +219,6 @@
   "tuning.passArrow.width": "Grosor",
   "tuning.passArrow.startOffset": "Empieza a esta distancia del jugador",
   "tuning.passArrow.afterTime": "Tiempo visible tras pasar",
-  "settings.passArrow": "Flecha de pase"
+  "settings.passArrow": "Flecha de pase",
+  "tuning.mates.lostPassSwitch": "Pase perdido: el control pasa al compañero más cercano a la bola"
 }

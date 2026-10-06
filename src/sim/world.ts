@@ -8,7 +8,7 @@ import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
 import { passFor, skatingFor } from './feel';
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFor, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
-import { botCommand, findReceiver, interceptMove, type BotContext } from './mates';
+import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
 
 export type { PlayerState } from './player';
@@ -179,14 +179,23 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   const dt = 1 / tuning.sim.tickRate;
   const players = world.players;
   const ball = world.ball;
-  // A pass aimed at someone is his until somebody touches it, it hits something (last tick's
-  // events) or it dies.
-  if ((world.passTo >= 0 || world.passFrom >= 0) && (ball.owner >= 0 || Math.hypot(ball.vx, ball.vy) < 1 || world.events.some((e) => e.type !== 'floor'))) {
-    world.passTo = -1;
-    world.passFrom = -1; // e.g. off the boards it may be his again (wall pass, F1.4d)
+  const human = commands[0] ?? IDLE;
+  // A pass aimed at someone is his until somebody touches it, or it "dies": it hits something
+  // (last tick's events), slows to a stop, or has gone past him out of reach.
+  if (world.passTo >= 0 || world.passFrom >= 0) {
+    const taken = ball.owner >= 0;
+    const died = !taken && world.passTo >= 0 && passDied(world, tuning);
+    if (taken || died || (world.passTo < 0 && (Math.hypot(ball.vx, ball.vy) < 1 || hitSomething(world)))) {
+      // A lost pass: the control goes to the teammate nearest the ball (if enabled).
+      if (died && tuning.mates.lostPassSwitch >= 0.5 && tuning.mates.switchControl >= 0.5) {
+        const nearest = nearestTeammate(world, ball.x, ball.y);
+        if (nearest >= 0 && nearest !== world.controlled) switchControl(world, nearest, human);
+      }
+      world.passTo = -1;
+      world.passFrom = -1; // e.g. off the boards it may be his again (wall pass, F1.4d)
+    }
   }
   world.events.length = 0;
-  const human = commands[0] ?? IDLE;
 
   // Decide everyone's command from the state at the start of the tick.
   const receiver = world.passTo >= 0 ? world.passTo : findReceiver(players, ball, tuning, ball.owner < 0 ? world.passFrom : -1);
@@ -271,6 +280,43 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     planPass(players, ball, world.controlled, human, world.assist, passKindFor(me!.passHold, k), charge, me!.passLockTarget, me!.passLockOffset, tuning, world.aimPlan);
   }
   world.tick++;
+}
+
+function hitSomething(world: WorldState): boolean {
+  return world.events.some((e) => e.type !== 'floor');
+}
+
+const approachTmp: Approach = { dist: 0, t: 0 };
+
+/**
+ * Has the pass to world.passTo died without anybody touching it? It hit something, it is
+ * almost stopped, or it has already gone past the receiver and is out of his reach.
+ */
+function passDied(world: WorldState, tuning: Tuning): boolean {
+  const ball = world.ball;
+  if (hitSomething(world) || Math.hypot(ball.vx, ball.vy) < 1) return true;
+  const r = world.players[world.passTo];
+  if (!r) return true;
+  const a = ballApproach(ball, r.x, r.y, approachTmp);
+  const reach = passFor(r, tuning).receiveReach;
+  return a !== null && a.t < -0.15 && Math.hypot(ball.x - r.x, ball.y - r.y) > reach + 1;
+}
+
+/** The player of the controlled player's team nearest to a point (controlled one included). */
+function nearestTeammate(world: WorldState, x: number, y: number): number {
+  const team = world.players[world.controlled]?.team ?? 0;
+  let best = -1;
+  let bestD = Infinity;
+  for (let i = 0; i < world.players.length; i++) {
+    const p = world.players[i]!;
+    if (p.team !== team || (!p.bot && i !== world.controlled)) continue;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < bestD) {
+      best = i;
+      bestD = d;
+    }
+  }
+  return best;
 }
 
 /**
