@@ -1,6 +1,6 @@
 import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
-import { GRAVITY, startGuidedFlight, type BallState } from './ball';
+import { GRAVITY, type BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import { pressureOn, releaseBall } from './dribble';
 import { dribbleFor, passFor, skatingFor } from './feel';
@@ -12,9 +12,10 @@ import { nextFloat, type RngState } from './rng';
 // buffer, as soon as the player gets the ball). The receiver is the teammate closest to the
 // aimed direction inside the assist cone, chosen when PASE is pressed; the direction is
 // corrected towards where his stick will be, and the strength is worked out so the ball gets
-// there nicely (ground: arrives at a controllable speed; driven: guided flight that lands just
-// before him; lob: a physical arc that lands just before him). A small deterministic error
-// depends on the situation and the Pase attribute.
+// there nicely (ground: arrives at a controllable speed; driven: a low, strong ballistic flight
+// that lands just before him; lob: a high arc that lands just before him). Everything is
+// decided at the release: after that only physics (gravity, bounce, rolling) moves the ball.
+// A small deterministic error depends on the situation and the Pase attribute.
 
 /** Kinds of pass (PlayerState.passKind, WorldState.passKind). */
 export const PASS_GROUND = 0;
@@ -246,50 +247,75 @@ export interface PassResult {
   /** Receiver chosen by the assist (−1 = pass into space). */
   target: number;
   kind: PassKind;
-  /** Where the pass was aimed to meet the receiver's stick. */
+  /** Where the pass was aimed to meet the receiver's stick (NaN = into space). */
   meetX: number;
   meetY: number;
+}
+
+/** A pass worked out before the human error: what the arrow shows and what gets launched. */
+export interface PassPlan extends PassResult {
+  /** Horizontal direction (rad), launch speed (m/s) and launch elevation (rad, 0 = ground). */
+  angle: number;
+  speed: number;
+  elevation: number;
+}
+
+export function createPassPlan(): PassPlan {
+  return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, angle: 0, speed: 0, elevation: 0 };
 }
 
 const assistTmp: AssistParams = { cone: 0, correction: 0 };
 
 /**
- * Player `from` passes the ball he is carrying, using the kind/charge queued by the button
- * and the stick direction in `cmd`. Returns who it is for.
+ * Launch of a driven lofted pass landing `dist` m away: the elevation that peaks at about
+ * driveMaxHeight (never steeper than driveLaunchAngle) and the speed for it (≤ driveMaxSpeed).
  */
-export function performPass(
+function drivenLaunch(dist: number, k: Tuning['pass'], kb: Tuning['ball'], out: PassPlan): void {
+  // Without drag a ballistic arc over d peaks at d·tan(θ)/4.
+  out.elevation = Math.min(k.driveLaunchAngle, Math.atan((4 * k.driveMaxHeight) / Math.max(0.5, dist)));
+  out.speed = loftPassSpeed(dist, out.elevation, k.driveMaxSpeed, kb);
+}
+
+/**
+ * Work out the pass of player `from` (kind and lob charge given) towards the stick direction in
+ * `cmd`, with the receiver locked at the press (lockTarget −2 = choose now). No human error,
+ * nothing changes: used for the launch and for the arrow while PASE is held.
+ */
+export function planPass(
   players: readonly PlayerState[],
   ball: BallState,
   from: number,
   cmd: PlayerCommand,
   level: AssistLevel,
-  rng: RngState,
+  kind: PassKind,
+  charge: number,
+  lockTarget: number,
+  lockOffset: number,
   tuning: Tuning,
-  out: PassResult,
-): PassResult {
+  out: PassPlan,
+): PassPlan {
   const p = players[from]!;
   const k = passFor(p, tuning);
   const kb = tuning.ball;
-  const kind = p.passKind as PassKind;
   const assist = assistParams(level, tuning, assistTmp);
-  // The receiver was locked when PASE was pressed (−2 = not locked: choose now).
   let target: number;
   let aimOffset: number;
-  if (p.passLockTarget > -2 && (p.passLockTarget < 0 || players[p.passLockTarget])) {
-    target = p.passLockTarget;
-    aimOffset = p.passLockOffset;
+  if (lockTarget > -2 && (lockTarget < 0 || players[lockTarget])) {
+    target = lockTarget;
+    aimOffset = lockOffset;
   } else {
     const aim0 = aimAngle(p, cmd);
     target = choosePassTarget(players, from, aim0, assist.cone);
     const r0 = players[target];
     aimOffset = r0 ? wrapAngle(aim0 - Math.atan2(r0.y - p.y, r0.x - p.x)) : 0;
   }
-  p.passLockTarget = -2;
   const aim = aimAngle(p, cmd);
-
-  let angle = aim;
-  let speed = k.groundNoTargetSpeed;
-  let driveDist = k.driveNoTargetDistance;
+  out.target = target;
+  out.kind = kind;
+  out.angle = aim;
+  out.elevation = 0;
+  out.speed = k.groundNoTargetSpeed;
+  out.meetX = out.meetY = Number.NaN;
   if (target >= 0) {
     const r = players[target]!;
     const d = dribbleFor(r, tuning);
@@ -307,51 +333,69 @@ export function performPass(
       out.meetY = ty;
       const dist = Math.max(0.5, Math.hypot(tx - ball.x, ty - ball.y));
       to = Math.atan2(ty - ball.y, tx - ball.x);
-      if (kind === PASS_DRIVE) {
-        driveDist = Math.max(1, dist - k.driveLandShort);
-        speed = k.driveSpeed;
-        // Flight, then the last metres bouncing/rolling a little slower.
-        t = driveDist / speed + (dist - driveDist) / (speed * 0.85);
-      } else if (kind === PASS_LOB) {
-        const land = Math.max(1, dist - k.loftLandShort);
-        speed = loftPassSpeed(land, k.loftAngle, k.loftMaxSpeed, kb);
-        const vh = Math.max(1, speed * Math.cos(k.loftAngle));
-        t = loftFlightTime(speed, k.loftAngle, kb) + (dist - land) / vh;
+      if (kind === PASS_GROUND) {
+        out.speed = groundPassSpeed(dist, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, kb);
+        const tt = groundPassTime(out.speed, dist, kb);
+        t = Number.isFinite(tt) ? tt : dist / out.speed;
       } else {
-        speed = groundPassSpeed(dist, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, kb);
-        const tt = groundPassTime(speed, dist, kb);
-        t = Number.isFinite(tt) ? tt : dist / speed;
+        // Lands a little before him and bounces/rolls the rest of the way.
+        const land = Math.max(1, dist - (kind === PASS_DRIVE ? k.driveLandShort : k.loftLandShort));
+        if (kind === PASS_DRIVE) drivenLaunch(land, k, kb, out);
+        else {
+          out.elevation = k.loftAngle;
+          out.speed = loftPassSpeed(land, k.loftAngle, k.loftMaxSpeed, kb);
+        }
+        const vh = Math.max(1, out.speed * Math.cos(out.elevation));
+        t = loftFlightTime(out.speed, out.elevation, kb) + (dist - land) / vh;
       }
     }
     // The player aims at where he SEES the teammate; leading him is the assist's job. So the
     // aiming error is measured against the teammate's direction and only (1 − correction) of
     // it is kept, on top of the led direction.
-    angle = to + (1 - assist.correction) * aimOffset;
-  } else {
-    out.meetX = out.meetY = Number.NaN;
-    if (kind === PASS_LOB) {
-      const dist = k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * p.passCharge;
-      speed = loftPassSpeed(dist, k.loftAngle, k.loftMaxSpeed, kb);
-    } else if (kind === PASS_DRIVE) speed = k.driveSpeed;
-  }
-  const loft = kind !== PASS_GROUND;
+    out.angle = to + (1 - assist.correction) * aimOffset;
+  } else if (kind === PASS_LOB) {
+    out.elevation = k.loftAngle;
+    out.speed = loftPassSpeed(k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * charge, k.loftAngle, k.loftMaxSpeed, kb);
+  } else if (kind === PASS_DRIVE) drivenLaunch(k.driveNoTargetDistance, k, kb, out);
+  return out;
+}
 
+const planTmp: PassPlan = createPassPlan();
+
+/**
+ * Player `from` passes the ball he is carrying, using the kind/charge queued by the button,
+ * the receiver locked at the press and the stick direction in `cmd`. Returns who it is for.
+ * The assist acts only here, at the release: then the ball is on its own.
+ */
+export function performPass(
+  players: readonly PlayerState[],
+  ball: BallState,
+  from: number,
+  cmd: PlayerCommand,
+  level: AssistLevel,
+  rng: RngState,
+  tuning: Tuning,
+  out: PassResult,
+): PassResult {
+  const p = players[from]!;
+  const k = passFor(p, tuning);
+  const plan = planPass(players, ball, from, cmd, level, p.passKind as PassKind, p.passCharge, p.passLockTarget, p.passLockOffset, tuning, planTmp);
+  p.passLockTarget = -2;
   // Human touch: a small direction and strength error (deterministic).
-  angle += gaussian(rng) * passErrorSd(p, players, loft, tuning);
-  speed *= Math.max(0.5, 1 + gaussian(rng) * k.errorPower);
+  const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning);
+  const speed = plan.speed * Math.max(0.5, 1 + gaussian(rng) * k.errorPower);
 
   releaseBall(ball, p, tuning);
-  if (kind === PASS_DRIVE) {
-    startGuidedFlight(ball, angle, speed, driveDist, k.driveLaunchAngle, k.driveMaxHeight, k.driveFallAngle);
-  } else {
-    const h = kind === PASS_LOB ? speed * Math.cos(k.loftAngle) : speed;
-    ball.vx = Math.cos(angle) * h;
-    ball.vy = Math.sin(angle) * h;
-    ball.vz = kind === PASS_LOB ? speed * Math.sin(k.loftAngle) : 0;
-    ball.z = RINK.ballRadius;
-  }
+  // From the floor: ground passes roll, lofted ones rise from the stick.
+  const h = speed * Math.cos(plan.elevation);
+  ball.vx = Math.cos(angle) * h;
+  ball.vy = Math.sin(angle) * h;
+  ball.vz = speed * Math.sin(plan.elevation);
+  ball.z = RINK.ballRadius;
   p.bufPass = 0;
-  out.target = target;
-  out.kind = kind;
+  out.target = plan.target;
+  out.kind = plan.kind;
+  out.meetX = plan.meetX;
+  out.meetY = plan.meetY;
   return out;
 }

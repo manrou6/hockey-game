@@ -39,6 +39,8 @@ interface StickRig {
   heel: Vector3;
 }
 const PLAYER_HEIGHT_VISUAL = 1.75;
+/** Pass arrow colour by kind: white = ground, orange = driven lofted, purple = lob (as the PASE arc). */
+const ARROW_COLORS = [new Color3(1, 1, 1), new Color3(0.96, 0.7, 0.24), new Color3(0.69, 0.42, 1)];
 /** Placeholder shirt numbers by player index (until teams/rosters arrive in F2). */
 const SHIRT_NUMBERS = [7, 4, 9, 10, 5, 2, 3, 6, 8, 11];
 
@@ -65,6 +67,10 @@ export class Renderer {
   private readonly targetRing: Mesh;
   /** Shirt number floating above each player's head (always facing the camera). */
   private readonly numberLabels: Mesh[] = [];
+  /** Arrow on the floor showing the pass while PASE is held (and a moment after it leaves). */
+  private readonly arrow: { root: TransformNode; shaft: Mesh; head: Mesh; mat: StandardMaterial };
+  /** Player setting: draw the pass arrow. */
+  showPassArrow = true;
 
   constructor(canvas: HTMLCanvasElement, quality: QualityLevel, cameraPreset: CameraPresetId = 'tv') {
     this.quality = quality;
@@ -101,6 +107,7 @@ export class Renderer {
     this.ballMarker = this.createBallMarker();
     this.controlRing = this.createRing('controlRing', 'rgba(255,214,40,0.95)', 0.62, 12);
     this.targetRing = this.createRing('targetRing', 'rgba(110,235,255,1)', 0.6, 14);
+    this.arrow = this.createPassArrow();
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
     this.setQuality(quality);
@@ -226,6 +233,82 @@ export class Renderer {
     return disc;
   }
 
+  /**
+   * Flat arrow on the floor (unit length along +x, unit width): a shaft and a triangular head,
+   * both unlit and drawn without shadows. Scaled and coloured every frame; 2 draw calls.
+   */
+  private createPassArrow(): { root: TransformNode; shaft: Mesh; head: Mesh; mat: StandardMaterial } {
+    const root = new TransformNode('passArrow', this.scene);
+    const mat = new StandardMaterial('passArrowMat', this.scene);
+    mat.disableLighting = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.alpha = 0.85;
+    mat.backFaceCulling = false;
+    const shaft = CreatePlane('passArrowShaft', { size: 1 }, this.scene);
+    shaft.rotation.x = Math.PI / 2;
+    shaft.parent = root;
+    shaft.material = mat;
+    shaft.isPickable = false;
+    const head = CreateDisc('passArrowHead', { radius: 1, tessellation: 3 }, this.scene);
+    head.rotation.x = Math.PI / 2;
+    head.parent = root;
+    head.material = mat;
+    head.isPickable = false;
+    root.setEnabled(false);
+    return { root, shaft, head, mat };
+  }
+
+  /** Place the pass arrow: from (x, z) towards `angle` (sim CCW), for a launch `speed` of `kind`. */
+  private syncPassArrow(world: WorldState, dt: number): void {
+    const a = this.arrow;
+    const k = TUNING.passArrow;
+    let fromX = 0;
+    let fromZ = 0;
+    let angle = 0;
+    let speed = 0;
+    let kind = 0;
+    let fade = 1;
+    const controlled = this.playerMeshes[world.controlled];
+    if (world.aimActive && controlled) {
+      fromX = controlled.position.x;
+      fromZ = controlled.position.z;
+      angle = world.aimPlan.angle;
+      speed = world.aimPlan.speed;
+      kind = world.aimPlan.kind;
+    } else {
+      const age = (world.tick - world.lastPassTick) * dt;
+      if (age < 0 || age > k.afterTime) {
+        a.root.setEnabled(false);
+        return;
+      }
+      fromX = world.lastPassX;
+      fromZ = world.lastPassY;
+      angle = world.lastPassAngle;
+      speed = world.lastPassSpeed;
+      kind = world.lastPassKind;
+      fade = 1 - age / Math.max(0.01, k.afterTime);
+    }
+    if (!this.showPassArrow) {
+      a.root.setEnabled(false);
+      return;
+    }
+    a.root.setEnabled(true);
+    const len = k.minLength + (k.maxLength - k.minLength) * Math.min(1, Math.max(0, speed / Math.max(1, k.fullSpeed)));
+    const headLen = Math.min(len * 0.4, k.width * 2.6);
+    const c = Math.cos(angle);
+    const sn = Math.sin(angle);
+    a.root.position.set(fromX + c * k.startOffset, 0.012, fromZ + sn * k.startOffset);
+    a.root.rotation.y = -angle;
+    // Shaft from 0 to len − head, head triangle pointing along +x at the end.
+    a.shaft.scaling.set(len - headLen, k.width, 1);
+    a.shaft.position.set((len - headLen) / 2, 0, 0);
+    a.head.scaling.set(headLen * 0.67, k.width * 1.5, 1);
+    a.head.position.set(len - headLen * 0.67, 0, 0);
+    const col = ARROW_COLORS[kind] ?? ARROW_COLORS[0]!;
+    a.mat.emissiveColor.copyFrom(col);
+    a.mat.alpha = 0.85 * fade;
+  }
+
   /** Shirt number above the head (placeholder until real kits in F4). */
   private createNumberLabel(i: number): Mesh {
     const plane = CreatePlane(`playerNumber${i}`, { size: 0.55 }, this.scene);
@@ -333,6 +416,7 @@ export class Renderer {
     const controlled = this.playerMeshes[world.controlled];
     this.controlRing.isVisible = Boolean(controlled) && world.players.length > 1;
     if (controlled) this.controlRing.position.set(controlled.position.x, 0.008, controlled.position.z);
+    this.syncPassArrow(world, 1 / TUNING.sim.tickRate);
     const target = this.playerMeshes[world.aimTarget];
     this.targetRing.isVisible = Boolean(target) && TUNING.assist.targetRing >= 0.5;
     if (target) this.targetRing.position.set(target.position.x, 0.007, target.position.z);
@@ -387,6 +471,13 @@ export class Renderer {
 
   render(): void {
     this.scene.render();
+  }
+
+  /** Is the pass arrow drawn right now, and its colour (for tests/debug). */
+  get passArrowState(): { visible: boolean; r: number; g: number; b: number; length: number } {
+    const a = this.arrow;
+    const c = a.mat.emissiveColor;
+    return { visible: a.root.isEnabled(), r: c.r, g: c.g, b: c.b, length: a.shaft.scaling.x + a.head.scaling.x * 1.5 };
   }
 
   /** Current on-screen ball scale (for tests/debug). */

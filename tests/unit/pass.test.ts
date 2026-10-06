@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TUNING, type Tuning } from '../../src/config/tuning';
-import { createBall, guidedHeight, startGuidedFlight, stepBall, type BallEvent } from '../../src/sim/ball';
+import { createBall, GRAVITY, stepBall, type BallEvent } from '../../src/sim/ball';
 import { emptyCommand, type PlayerCommand } from '../../src/sim/commands';
 import { createPlayer } from '../../src/sim/player';
 import {
@@ -174,8 +174,9 @@ describe('passing to the teammates (world)', () => {
     expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 240)).toBeGreaterThanOrEqual(0);
   });
 
-  it('held: the driven lofted pass flies low and flat (guided) and lands just before him', () => {
+  it('held: the driven lofted pass rises from the floor, peaks low and lands just before him (real physics)', () => {
     const tuning = tuningWith((t) => {
+      exact(t);
       t.mates.move = 0;
     });
     const w = createWorld(22, 2);
@@ -185,20 +186,47 @@ describe('passing to the teammates (world)', () => {
     hold(w, aimAt(w, 2), TUNING.pass.tapTime + 0.1, tuning);
     expect(w.passTo).toBe(2);
     expect(w.passKind).toBe(PASS_DRIVE);
-    expect(w.ball.guide).toBe(true);
+    expect(w.ball.vz).toBeGreaterThan(0); // leaves the stick from the floor, going up
     const k = TUNING.pass;
+    const meet = { x: w.meetX, y: w.meetY };
     let maxZ = 0;
     let landed = -1;
     expect(
       runUntil(w, cmd(), tuning, () => {
         maxZ = Math.max(maxZ, w.ball.z);
-        if (landed < 0 && !w.ball.guide) landed = Math.hypot(w.ball.x - w.meetX, w.ball.y - w.meetY);
+        if (landed < 0 && w.events.some((e) => e.type === 'floor')) landed = Math.hypot(w.ball.x - meet.x, w.ball.y - meet.y);
         return w.ball.owner === 2;
       }, 300),
     ).toBeGreaterThanOrEqual(0);
-    expect(maxZ).toBeGreaterThan(k.driveMaxHeight * 0.8);
-    expect(maxZ).toBeLessThan(k.driveMaxHeight + 0.1);
-    expect(Math.abs(landed - k.driveLandShort)).toBeLessThan(0.5);
+    expect(maxZ).toBeGreaterThan(k.driveMaxHeight * 0.7);
+    expect(maxZ).toBeLessThan(k.driveMaxHeight * 1.15);
+    expect(Math.abs(landed - k.driveLandShort)).toBeLessThan(0.6);
+  });
+
+  it('a lofted pass is pure physics after the release: no correction in flight', () => {
+    const tuning = tuningWith((t) => {
+      t.mates.move = 0;
+    });
+    for (const seconds of [TUNING.pass.tapTime + 0.1, TUNING.pass.lobTime + 0.1]) {
+      const w = createWorld(23, 2);
+      takeBall(w, tuning);
+      const m = w.players[2]!;
+      m.x = m.prevX = 9;
+      hold(w, aimAt(w, 2), seconds, tuning);
+      const dir = Math.atan2(w.ball.vy, w.ball.vx);
+      let vz = w.ball.vz;
+      // Until it first touches the floor: same horizontal direction, and vertical speed only
+      // changed by gravity (and a little air drag).
+      for (let i = 0; i < 200 && !w.events.some((e) => e.type === 'floor'); i++) {
+        step(w, cmd(), tuning);
+        // Stop at the first floor contact or when someone takes it (on the stick: not flying).
+        if (w.events.some((e) => e.type === 'floor') || w.ball.owner >= 0) break;
+        expect(Math.atan2(w.ball.vy, w.ball.vx)).toBeCloseTo(dir, 6);
+        expect(w.ball.vz - vz).toBeLessThan(-GRAVITY * DT * 0.95);
+        expect(w.ball.vz - vz).toBeGreaterThan(-GRAVITY * DT * 1.2);
+        vz = w.ball.vz;
+      }
+    }
   });
 
   it('held longer: the lob is a high arc and still reaches him', () => {
@@ -211,7 +239,6 @@ describe('passing to the teammates (world)', () => {
     m.x = m.prevX = 9;
     hold(w, aimAt(w, 2), TUNING.pass.lobTime + 0.1, tuning);
     expect(w.passKind).toBe(PASS_LOB);
-    expect(w.ball.guide).toBe(false);
     let maxZ = 0;
     expect(
       runUntil(w, cmd(), tuning, () => {
@@ -220,21 +247,6 @@ describe('passing to the teammates (world)', () => {
       }, 300),
     ).toBeGreaterThanOrEqual(0);
     expect(maxZ).toBeGreaterThan(TUNING.pass.driveMaxHeight + 0.3);
-  });
-
-  it('the guided flight profile rises, flies flat at the max height and drops at the fall angle', () => {
-    const b = createBall(0, 0);
-    const k = TUNING.pass;
-    startGuidedFlight(b, 0, k.driveSpeed, 12, k.driveLaunchAngle, k.driveMaxHeight, k.driveFallAngle);
-    expect(guidedHeight(b, 0)).toBeLessThan(0.05);
-    expect(guidedHeight(b, 6)).toBeCloseTo(k.driveMaxHeight, 2);
-    expect(guidedHeight(b, 12)).toBeLessThan(0.05);
-    // Rising slope ≈ launch angle, dropping slope ≈ fall angle (steeper).
-    expect((guidedHeight(b, 1) - guidedHeight(b, 0.5)) / 0.5).toBeCloseTo(Math.tan(k.driveLaunchAngle), 1);
-    expect((guidedHeight(b, 11.9) - guidedHeight(b, 11.5)) / 0.4).toBeCloseTo(-Math.tan(k.driveFallAngle), 1);
-    // A short one can't reach the max height: it stays lower.
-    startGuidedFlight(b, 0, k.driveSpeed, 1, k.driveLaunchAngle, k.driveMaxHeight, k.driveFallAngle);
-    expect(b.gH).toBeLessThan(k.driveMaxHeight);
   });
 
   it('Light keeps 30 % of your aiming error (not of the lead); Strong none; Off goes exactly where aimed', () => {
@@ -285,8 +297,9 @@ describe('passing to the teammates (world)', () => {
     const speed = (w: WorldState): number => Math.hypot(w.ball.vx, w.ball.vy, w.ball.vz);
     expect(speed(launch(k.lobTime + k.loftChargeTime))).toBeGreaterThan(speed(launch(k.lobTime + 0.05)) + 2);
     const d = launch(k.tapTime + 0.1);
-    expect(d.ball.guide).toBe(true);
-    expect(d.ball.gDist).toBeCloseTo(k.driveNoTargetDistance, 5);
+    const x0 = d.ball.x;
+    for (let i = 0; i < 300 && !d.events.some((e) => e.type === 'floor'); i++) step(d, cmd(), tuning);
+    expect(Math.abs(x0 - d.ball.x - k.driveNoTargetDistance)).toBeLessThan(0.5);
   });
 
   it('the pass leads a moving receiver', () => {

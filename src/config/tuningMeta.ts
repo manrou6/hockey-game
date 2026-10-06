@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'assist' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -137,13 +137,12 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     params: [
       { path: 'pass.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
       { path: 'pass.lobTime', min: 0.3, max: 1.5, step: 0.05, unit: 's' },
-      { path: 'pass.driveSpeed', min: 6, max: 25, step: 0.5, unit: 'm/s' },
-      { path: 'pass.driveLaunchAngle', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
       { path: 'pass.driveMaxHeight', min: 0.2, max: 2.5, step: 0.05, unit: 'm' },
-      { path: 'pass.driveFallAngle', min: 5, max: 80, step: 1, unit: '°', scale: DEG },
+      { path: 'pass.driveLaunchAngle', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'pass.driveMaxSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
       { path: 'pass.driveLandShort', min: 0, max: 5, step: 0.25, unit: 'm' },
       { path: 'pass.driveNoTargetDistance', min: 4, max: 30, step: 0.5, unit: 'm' },
-      { path: 'pass.receiveReach', min: 0.3, max: 2.5, step: 0.05, unit: 'm' },
+      { path: 'pass.receiveReach', min: 0.2, max: 2, step: 0.05, unit: 'm' },
       { path: 'pass.receiveMaxRelSpeed', min: 5, max: 30, step: 0.5, unit: 'm/s' },
       { path: 'pass.loftChargeTime', min: 0.1, max: 1.5, step: 0.05, unit: 's' },
       { path: 'pass.groundArrivalSpeed', min: 1, max: 14, step: 0.5, unit: 'm/s' },
@@ -173,6 +172,17 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'assist.strongCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
       { path: 'assist.strongCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'assist.targetRing', min: 0, max: 1, step: 1, unit: '', toggle: true },
+    ],
+  },
+  {
+    id: 'passArrow',
+    params: [
+      { path: 'passArrow.minLength', min: 0.3, max: 4, step: 0.1, unit: 'm' },
+      { path: 'passArrow.maxLength', min: 1, max: 10, step: 0.25, unit: 'm' },
+      { path: 'passArrow.fullSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+      { path: 'passArrow.width', min: 0.04, max: 0.5, step: 0.01, unit: 'm' },
+      { path: 'passArrow.startOffset', min: 0, max: 3, step: 0.1, unit: 'm' },
+      { path: 'passArrow.afterTime', min: 0, max: 1.5, step: 0.05, unit: 's' },
     ],
   },
   {

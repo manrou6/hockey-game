@@ -82,3 +82,46 @@ test('pass assist level is chosen in Settings (Lleugera by default) and remember
   await expect(page.locator('#assist-strong')).toHaveClass(/selected/);
   await page.screenshot({ path: 'test-results/screenshots/f1-settings-assist.png' });
 });
+
+test('pass arrow: shown while PASSADA is held (white → orange), a moment after a tap, and can be switched off in Settings', async ({ page }) => {
+  test.setTimeout(120_000);
+  const arrow = () => page.evaluate(() => (window as any).__PATINS__.renderer.passArrowState as { visible: boolean; r: number; g: number; b: number; length: number });
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  await page.keyboard.down('KeyD');
+  await expect.poll(async () => (await state(page)).owner, { timeout: 30_000 }).toBe(0);
+  await page.keyboard.up('KeyD');
+  await page.waitForTimeout(1000);
+  expect((await arrow()).visible).toBe(false);
+
+  const btn = page.locator('#btn-pass');
+  await btn.dispatchEvent('pointerdown', { pointerId: 11, isPrimary: false });
+  await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(true);
+  const white = await arrow();
+  expect(white.b).toBeGreaterThan(0.9); // white: ground pass
+  await expect.poll(async () => (await arrow()).b, { timeout: 5_000 }).toBeLessThan(0.5); // orange: driven lofted
+  await page.screenshot({ path: 'test-results/screenshots/f1-pass-arrow.png' });
+  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false });
+  await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
+  // It fades away shortly after the pass.
+  await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(false);
+
+  // Switch it off in Settings: no arrow while holding.
+  await page.click('#btn-pause');
+  await page.click('#btn-settings');
+  await expect(page.locator('#arrow-on')).toHaveClass(/selected/);
+  await page.click('#arrow-off');
+  await page.click('#btn-back');
+  await page.click('#btn-play');
+  // Give the controlled player the ball again (test shortcut).
+  await page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    w.ball.owner = w.controlled;
+    w.ball.z = 0.0366;
+    w.ball.vz = 0;
+  });
+  await btn.dispatchEvent('pointerdown', { pointerId: 12, isPrimary: false });
+  await page.waitForTimeout(400);
+  expect((await arrow()).visible).toBe(false);
+  await btn.dispatchEvent('pointerup', { pointerId: 12, isPrimary: false });
+});

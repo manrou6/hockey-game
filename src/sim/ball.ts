@@ -53,23 +53,6 @@ export interface BallState {
   touchPhase: number;
   /** Current dribble separation from the blade (m), smoothed. */
   separation: number;
-  /**
-   * Guided flight of the driven lofted pass ("alt fort", docs/03 §3): while `guide` is on, the
-   * ball follows a shaped path from (gx, gy) along (gdx, gdy) at gSpeed: it rises at gTanUp,
-   * flies flat at gH and drops at gTanDown to land gDist metres away (gS = distance done).
-   * Hitting anything (boards, a player, the goal area) hands it back to free physics.
-   */
-  guide: boolean;
-  gx: number;
-  gy: number;
-  gdx: number;
-  gdy: number;
-  gDist: number;
-  gS: number;
-  gSpeed: number;
-  gH: number;
-  gTanUp: number;
-  gTanDown: number;
 }
 
 export function createBall(x: number, y: number): BallState {
@@ -77,7 +60,6 @@ export function createBall(x: number, y: number): BallState {
   return {
     x, y, z: r, vx: 0, vy: 0, vz: 0, prevX: x, prevY: y, prevZ: r,
     inGoal: 0, scored: false, out: false, owner: -1, touchPhase: 0, separation: 0,
-    guide: false, gx: 0, gy: 0, gdx: 1, gdy: 0, gDist: 0, gS: 0, gSpeed: 0, gH: 0, gTanUp: 0, gTanDown: 0,
   };
 }
 
@@ -93,82 +75,6 @@ export function placeBall(b: BallState, x: number, y: number): void {
   b.out = false;
   b.owner = -1;
   b.separation = 0;
-  b.guide = false;
-}
-
-/** Corner rounding of the guided flight profile (m): no sharp kinks in the path. */
-const GUIDE_CORNER = 0.15;
-
-/** Smooth minimum (polynomial), rounding the corner over `k`. */
-function smin(a: number, b: number, k: number): number {
-  const h = Math.max(k - Math.abs(a - b), 0) / k;
-  return Math.min(a, b) - (h * h * k) / 4;
-}
-
-/** Height above the floor (of the ball's bottom) at distance s along a guided flight. */
-export function guidedHeight(b: BallState, s: number): number {
-  const up = s * b.gTanUp;
-  const down = (b.gDist - s) * b.gTanDown;
-  return Math.max(0, smin(smin(up, b.gH, GUIDE_CORNER), down, GUIDE_CORNER));
-}
-
-/**
- * Start a guided "driven lofted" flight from the ball's position: direction `angle`,
- * horizontal speed, landing `dist` metres away, rising at `launch` and dropping at `fall`
- * (rad), never higher than maxHeight (lower if the pass is too short to reach it).
- */
-export function startGuidedFlight(b: BallState, angle: number, speed: number, dist: number, launch: number, maxHeight: number, fall: number): void {
-  b.guide = true;
-  b.gx = b.x;
-  b.gy = b.y;
-  b.gdx = Math.cos(angle);
-  b.gdy = Math.sin(angle);
-  b.gDist = Math.max(0.5, dist);
-  b.gS = 0;
-  b.gSpeed = Math.max(1, speed);
-  b.gTanUp = Math.tan(Math.min(1.5, Math.max(0.05, launch)));
-  b.gTanDown = Math.tan(Math.min(1.5, Math.max(0.05, fall)));
-  b.gH = Math.max(0, Math.min(maxHeight, b.gDist / (1 / b.gTanUp + 1 / b.gTanDown)));
-  b.vx = b.gdx * b.gSpeed;
-  b.vy = b.gdy * b.gSpeed;
-  b.vz = 0;
-  b.z = RINK.ballRadius;
-}
-
-/**
- * One tick of guided flight. Once it lands or is about to touch something the guide is
- * switched off, leaving a velocity that continues the path.
- */
-function guidedStep(b: BallState, players: readonly PlayerState[], tuning: Tuning, dt: number): void {
-  const r = RINK.ballRadius;
-  const z0 = b.z;
-  b.gS = Math.min(b.gDist, b.gS + b.gSpeed * dt);
-  b.x = b.gx + b.gdx * b.gS;
-  b.y = b.gy + b.gdy * b.gS;
-  b.z = r + guidedHeight(b, b.gS);
-  b.vx = b.gdx * b.gSpeed;
-  b.vy = b.gdy * b.gSpeed;
-  b.vz = (b.z - z0) / dt;
-  if (b.gS >= b.gDist) {
-    // Touchdown: from here it's a real ball. It comes down steeply, but with a believable
-    // vertical speed (never more than a free fall from its peak) so the bounce stays low.
-    b.guide = false;
-    b.z = r + 1e-3;
-    b.vz = -Math.min(b.gSpeed * b.gTanDown, Math.sqrt(2 * GRAVITY * Math.max(0.05, b.gH)));
-    return;
-  }
-  // About to hit the boards, a player or the goal: hand over to the physics (it bounces).
-  let blocked = boardSignedDistance(b.x, b.y, normal) + r > -0.05 || Math.abs(b.x) > goalLineX(1) - 0.3;
-  if (!blocked && b.z <= PLAYER_HEIGHT) {
-    for (const p of players) {
-      const min = skatingFor(p, tuning).radius + r;
-      if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < min * min) {
-        blocked = true;
-        break;
-      }
-    }
-  }
-  if (blocked) b.guide = false;
 }
 
 const normal = { nx: 0, ny: 0 };
@@ -183,12 +89,6 @@ export function stepBall(b: BallState, players: readonly PlayerState[], tuning: 
   b.prevY = b.y;
   b.prevZ = b.z;
   b.out = false;
-  // Guided flight moves the ball this tick; once it lands or touches something, the free
-  // physics takes over from the next tick.
-  if (b.guide) {
-    guidedStep(b, players, tuning, dt);
-    return;
-  }
   const speed = Math.hypot(b.vx, b.vy, b.vz);
   const n = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil((speed * dt) / MAX_SUBSTEP_MOVE)));
   const h = dt / n;
