@@ -8,12 +8,12 @@ import { createWorld, stepWorld, type WorldState } from '../../src/sim/world';
 function scriptedInputs(seed: number, ticks: number): PlayerCommand[] {
   const r = createRng(seed);
   const out: PlayerCommand[] = [];
-  let cmd: PlayerCommand = { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false };
+  let cmd: PlayerCommand = { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false };
   for (let i = 0; i < ticks; i++) {
     if (i % 20 === 0) {
       const a = nextFloat(r) * Math.PI * 2;
       const m = nextFloat(r);
-      cmd = { moveX: Math.cos(a) * m, moveY: Math.sin(a) * m, sprint: nextFloat(r) > 0.6, pass: false, shoot: nextFloat(r) > 0.9, dribble: false, passHeld: false };
+      cmd = { moveX: Math.cos(a) * m, moveY: Math.sin(a) * m, sprint: nextFloat(r) > 0.6, pass: false, shoot: nextFloat(r) > 0.9, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false };
     }
     out.push(cmd);
   }

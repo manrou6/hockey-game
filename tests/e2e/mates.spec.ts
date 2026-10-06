@@ -37,7 +37,7 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   expect(errors).toEqual([]);
 });
 
-test('holding PASSADA fills the arc: orange (driven lofted), then purple (lob); the pass leaves on release', async ({ page }) => {
+test('PASSADA: holding fills the arc (power); sliding up turns it orange (driven) then purple (lob); it leaves on release', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto('./?quality=low');
   await page.click('#btn-play');
@@ -51,22 +51,64 @@ test('holding PASSADA fills the arc: orange (driven lofted), then purple (lob); 
   await expect.poll(() => page.evaluate(() => (window as any).__PATINS__.game.world.aimTarget as number), { timeout: 5_000 }).toBeGreaterThan(0);
 
   const btn = page.locator('#btn-pass');
-  await btn.dispatchEvent('pointerdown', { pointerId: 9, isPrimary: false });
+  const box = (await btn.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await btn.dispatchEvent('pointerdown', { pointerId: 9, isPrimary: false, clientX: x, clientY: y });
   await expect(btn).toHaveClass(/charging/);
-  await expect(btn).toHaveClass(/drive/, { timeout: 5_000 });
-  await expect(btn).not.toHaveClass(/lob/);
+  await expect(btn).not.toHaveClass(/drive|lob/); // no slide: low pass (white)
   expect((await state(page)).owner).toBe(0); // nothing leaves while held
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 75 });
+  await expect(btn).toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge.png' });
-  await expect(btn).toHaveClass(/lob/, { timeout: 5_000 });
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 140 });
+  await expect(btn).toHaveClass(/lob/);
   await expect(btn).not.toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge-lob.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false });
+  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 140 });
   await page.keyboard.up('KeyW');
   await page.keyboard.up('KeyD');
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
   await expect(btn).not.toHaveClass(/charging/);
   const kind = await page.evaluate(() => (window as any).__PATINS__.game.world.passKind as number);
   expect(kind).toBe(2); // lob
+});
+
+test('keyboard: J passes low, J with U held passes a driven lofted pass', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  await page.keyboard.down('KeyD');
+  await expect.poll(async () => (await state(page)).owner, { timeout: 30_000 }).toBe(0);
+  await page.keyboard.up('KeyD');
+  await page.waitForTimeout(800);
+  await page.keyboard.down('KeyU');
+  await page.keyboard.press('KeyJ');
+  await page.keyboard.up('KeyU');
+  await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
+  expect(await page.evaluate(() => (window as any).__PATINS__.game.world.passKind as number)).toBe(1);
+});
+
+test('CANVI button: switches to the teammate nearest the ball', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  const btn = page.locator('#btn-switch');
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveText('Canvi');
+  // Put the ball (loose, still) next to teammate #1 (index 1).
+  await page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    const m = w.players[1];
+    w.ball.owner = -1;
+    w.ball.x = w.ball.prevX = m.x + 1;
+    w.ball.y = w.ball.prevY = m.y;
+    w.ball.vx = w.ball.vy = w.ball.vz = 0;
+  });
+  await btn.dispatchEvent('pointerdown', { pointerId: 21, isPrimary: false });
+  await btn.dispatchEvent('pointerup', { pointerId: 21, isPrimary: false });
+  await expect.poll(async () => (await state(page)).controlled, { timeout: 5_000 }).toBe(1);
+  await page.screenshot({ path: 'test-results/screenshots/f1-switch.png' });
 });
 
 test('pass assist level is chosen in Settings (Lleugera by default) and remembered', async ({ page }) => {
@@ -83,7 +125,7 @@ test('pass assist level is chosen in Settings (Lleugera by default) and remember
   await page.screenshot({ path: 'test-results/screenshots/f1-settings-assist.png' });
 });
 
-test('pass arrow: shown while PASSADA is held (white → orange), a moment after a tap, and can be switched off in Settings', async ({ page }) => {
+test('pass arrow: shown while PASSADA is held (grows with power, white → orange when sliding up), fades after, and can be switched off', async ({ page }) => {
   test.setTimeout(120_000);
   const arrow = () => page.evaluate(() => (window as any).__PATINS__.renderer.passArrowState as { visible: boolean; r: number; g: number; b: number; length: number });
   await page.goto('./?quality=low');
@@ -95,13 +137,19 @@ test('pass arrow: shown while PASSADA is held (white → orange), a moment after
   expect((await arrow()).visible).toBe(false);
 
   const btn = page.locator('#btn-pass');
-  await btn.dispatchEvent('pointerdown', { pointerId: 11, isPrimary: false });
+  const box = (await btn.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await btn.dispatchEvent('pointerdown', { pointerId: 11, isPrimary: false, clientX: x, clientY: y });
   await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(true);
   const white = await arrow();
-  expect(white.b).toBeGreaterThan(0.9); // white: ground pass
+  expect(white.b).toBeGreaterThan(0.9); // white: low pass
+  // Holding charges the power: the arrow grows.
+  await expect.poll(async () => (await arrow()).length, { timeout: 5_000 }).toBeGreaterThan(white.length + 0.5);
+  await btn.dispatchEvent('pointermove', { pointerId: 11, isPrimary: false, clientX: x, clientY: y - 75 });
   await expect.poll(async () => (await arrow()).b, { timeout: 5_000 }).toBeLessThan(0.5); // orange: driven lofted
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-arrow.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false });
+  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false, clientX: x, clientY: y - 75 });
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
   // It fades away shortly after the pass.
   await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(false);

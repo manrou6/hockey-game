@@ -11,11 +11,11 @@ import { VirtualJoystick } from './virtualJoystick';
  * Button presses are latched until the simulation consumes them on a tick.
  */
 export class HumanInput implements CommandSource {
-  private readonly edges: ActionEdges = { pass: false, shoot: false, dribble: false };
+  private readonly edges: ActionEdges = { pass: false, shoot: false, dribble: false, switch: false, passHeight: 0 };
   readonly joystick = new VirtualJoystick();
   readonly buttons = new ActionButtons(this.edges);
   private readonly keyboard = new KeyboardInput(this.edges);
-  private readonly tmp = { x: 0, y: 0, sprint: false, passHeld: false };
+  private readonly tmp = { x: 0, y: 0, sprint: false, passHeld: false, passHeight: 0 };
   private _enabled = false;
 
   get enabled(): boolean {
@@ -34,7 +34,8 @@ export class HumanInput implements CommandSource {
     out.moveX = 0;
     out.moveY = 0;
     out.sprint = false;
-    out.pass = out.shoot = out.dribble = out.passHeld = false;
+    out.pass = out.shoot = out.dribble = out.passHeld = out.switchPlayer = false;
+    out.passHeight = 0;
     if (!this._enabled) {
       this.consumeEdges();
       return;
@@ -48,6 +49,7 @@ export class HumanInput implements CommandSource {
     const kSprint = t.sprint;
     readGamepad(t, this.edges);
     const padPass = t.passHeld;
+    const padHeight = t.passHeight;
     if (this.joystick.active) {
       this.joystick.read(t);
     } else if (kx !== 0 || ky !== 0) {
@@ -62,10 +64,14 @@ export class HumanInput implements CommandSource {
     out.shoot = this.edges.shoot;
     out.dribble = this.edges.dribble;
     out.passHeld = this.buttons.held('pass') || this.keyboard.passHeld || padPass;
+    // While PASE is held: the live height (slide / U / LB); once released: the height it had
+    // at that moment.
+    out.passHeight = out.passHeld ? Math.max(this.buttons.passHeight(), this.keyboard.passHeight, padHeight) : this.edges.passHeight;
+    out.switchPlayer = this.edges.switch;
   }
 
   /** Called once a simulation tick has used the presses. */
   consumeEdges(): void {
-    this.edges.pass = this.edges.shoot = this.edges.dribble = false;
+    this.edges.pass = this.edges.shoot = this.edges.dribble = this.edges.switch = false;
   }
 }

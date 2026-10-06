@@ -18,6 +18,7 @@ import { el } from './ui/dom';
 import { CAMERA_PRESET_IDS, type CameraPresetId } from './render/cameraPresets';
 import { saveSettings } from './ui/settings';
 import { createWorld, stepWorld } from './sim/world';
+import { passPower } from './sim/pass';
 
 registerSW({ immediate: true });
 
@@ -84,18 +85,19 @@ const menu = new Menu(settings, {
 game.world.assist = settings.assist;
 renderer.showPassArrow = settings.passArrow;
 
-// PASE button: an arc fills while it's held: white = ground pass (tap), orange = driven
-// lofted pass, purple = lob (it keeps filling: a longer lob to nobody).
+// PASE button: while it's held an arc fills with the power; its colour is the height chosen
+// by sliding up (white = low, orange = driven lofted, purple = lob), like the arrow.
 const passButton = input.buttons.buttons.pass;
 game.onFrame(() => {
   const p = game.world.players[game.world.controlled];
   const hold = p ? p.passHold : -1;
-  const k = TUNING.pass;
   const charging = hold >= 0;
+  const height = game.commands[0]!.passHeight;
   passButton.classList.toggle('charging', charging);
-  passButton.classList.toggle('drive', charging && hold >= k.tapTime && hold < k.lobTime);
-  passButton.classList.toggle('lob', charging && hold >= k.lobTime);
-  if (charging) passButton.style.setProperty('--charge', String(Math.min(1, hold / (k.lobTime + k.loftChargeTime))));
+  passButton.classList.toggle('drive', charging && height === 1);
+  passButton.classList.toggle('lob', charging && height >= 2);
+  // At least a sliver so the colour shows on a tap/slide before any power builds up.
+  if (charging) passButton.style.setProperty('--charge', String(Math.max(0.08, passPower(hold, TUNING.pass))));
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.
@@ -181,7 +183,7 @@ game.start();
   /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
   benchSim: (ticks: number): number => {
     const w = createWorld(7, TEAMMATES);
-    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false, passHeld: false }];
+    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false }];
     const t0 = performance.now();
     for (let i = 0; i < ticks; i++) {
       if (i % 90 === 0) cmds[0]!.moveY = -cmds[0]!.moveY;

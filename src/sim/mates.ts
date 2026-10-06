@@ -3,7 +3,7 @@ import type { Tuning } from '../config/tuning';
 import type { BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import type { PlayerState } from './player';
-import { dribbleFor, passFor, skatingFor } from './feel';
+import { dribbleFor, skatingFor } from './feel';
 import { PASS_DRIVE, PASS_LOB } from './pass';
 
 // Simple teammates for the F1.4 passing test bench (not the F2 team AI): they offer a
@@ -174,21 +174,19 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   const p = players[i]!;
   const me = players[controlled];
   out.moveX = out.moveY = 0;
-  out.sprint = out.pass = out.shoot = out.dribble = out.passHeld = false;
+  out.sprint = out.pass = out.shoot = out.dribble = out.passHeld = out.switchPlayer = false;
+  out.passHeight = 0;
 
   // With the ball (only when the control does not switch): turn to the controlled player and
   // give it back after returnDelay, the same kind of pass he received (the pass assist aims
-  // and leads it). A lofted one is a held PASE, exactly like the human's.
+  // and leads it).
   if (ball.owner === i) {
     if (!me) return;
     setMove(out, Math.atan2(me.y - p.y, me.x - p.x), TURN_ONLY);
-    // Hold PASE as long as the kind of pass needs (ground: a tap).
-    const k = passFor(p, tuning);
-    const holdFor = p.receivedKind === PASS_LOB ? k.lobTime + 0.05 : p.receivedKind === PASS_DRIVE ? k.tapTime + 0.05 : 0;
-    if (p.passHold >= 0) out.passHeld = p.passHold < holdFor;
-    else if (p.holdTime >= m.returnDelay) {
+    // A tap of PASE with the same height he received it (the assist gives the strength).
+    if (p.holdTime >= m.returnDelay) {
       out.pass = true;
-      out.passHeld = holdFor > 0;
+      out.passHeight = p.receivedKind === PASS_LOB ? 2 : p.receivedKind === PASS_DRIVE ? 1 : 0;
     }
     return;
   }

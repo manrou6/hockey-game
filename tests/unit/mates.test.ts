@@ -203,4 +203,64 @@ describe('teammates test bench (F1.4a)', () => {
     const a = run();
     expect(run()).toBe(a);
   });
+
+  it('loose ball: the control goes to the teammate nearest the ball, after a short delay', () => {
+    const tuning = tuningWith({ move: 0 });
+    const w = createWorld(12, 2);
+    // Ball loose, rolling slowly next to teammate 2, far from player 0.
+    const m = w.players[2]!;
+    w.ball.x = w.ball.prevX = m.x + 1.5;
+    w.ball.y = w.ball.prevY = m.y;
+    w.ball.vx = 0.5;
+    step(w, cmd(), tuning, 2);
+    expect(w.controlled).toBe(0); // not at once
+    step(w, cmd(), tuning, Math.ceil(tuning.mates.switchDelay * 60) + 2);
+    expect(w.controlled).toBe(2);
+    expect(Number.isNaN(w.latchDir)).toBe(true); // you steer him at once
+  });
+
+  it('no flicker: with two teammates at about the same distance it does not keep switching', () => {
+    const tuning = tuningWith({ move: 0 });
+    const w = createWorld(13, 2);
+    // Ball rolling slowly along the line between teammates 1 and 2 (both ~5 m from it).
+    w.ball.x = w.ball.prevX = -1;
+    w.ball.y = w.ball.prevY = 0;
+    w.ball.vy = 0.3;
+    const p0 = w.players[0]!;
+    p0.x = p0.prevX = -10;
+    let switches = 0;
+    let last = w.controlled;
+    for (let i = 0; i < 300; i++) {
+      // Wobble the ball across the middle line.
+      w.ball.vy = Math.sin(i / 10) * 0.6;
+      step(w, cmd(), tuning);
+      if (w.controlled !== last) {
+        switches++;
+        last = w.controlled;
+      }
+    }
+    expect(switches).toBeLessThanOrEqual(2);
+  });
+
+  it('CANVI switches to the teammate nearest the ball (the next one if you already are)', () => {
+    const tuning = tuningWith({ move: 0, autoSwitch: 0 });
+    const w = createWorld(14, 2);
+    const m = w.players[1]!;
+    w.ball.x = w.ball.prevX = m.x + 1;
+    w.ball.y = w.ball.prevY = m.y;
+    step(w, cmd(0, 0, { switchPlayer: true }), tuning);
+    expect(w.controlled).toBe(1);
+    // Again: you are the nearest now, so it goes to the next nearest.
+    step(w, cmd(0, 0, { switchPlayer: true }), tuning);
+    expect(w.controlled).not.toBe(1);
+  });
+
+  it('no automatic switch while you carry the ball or while a pass is on its way', () => {
+    const w = createWorld(15, 2);
+    takeBall(w, TUNING);
+    step(w, cmd(), TUNING, 60);
+    expect(w.controlled).toBe(0);
+    expect(w.ball.owner).toBe(0);
+  });
 });
+

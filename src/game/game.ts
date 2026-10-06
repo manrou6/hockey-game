@@ -63,8 +63,8 @@ export class Game {
       const cmd = this.commands[0]!;
       this.loop.advance(frameMs / 1000, () => {
         stepWorld(this.world, this.commands, TUNING);
-        if (cmd.pass || cmd.shoot || cmd.dribble) {
-          cmd.pass = cmd.shoot = cmd.dribble = false;
+        if (cmd.pass || cmd.shoot || cmd.dribble || cmd.switchPlayer) {
+          cmd.pass = cmd.shoot = cmd.dribble = cmd.switchPlayer = false;
           this.input?.consumeEdges?.();
         }
       });

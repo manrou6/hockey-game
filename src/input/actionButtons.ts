@@ -1,12 +1,18 @@
 import type { ActionId } from '../config/controlsLayout';
 import { TUNING } from '../config/tuning';
 import { capturePointer, el } from '../ui/dom';
+import { toLayout } from '../ui/layout';
 
 /** Presses waiting to be consumed by the simulation (never lost, never repeated). */
 export interface ActionEdges {
   pass: boolean;
   shoot: boolean;
   dribble: boolean;
+  /** CANVI (switch player). */
+  switch: boolean;
+  /** Height the pass had at the moment PASE was released (any device); kept until the next
+   * press, so a quick release between two frames is never lost. */
+  passHeight: number;
 }
 
 /**
@@ -18,7 +24,11 @@ export interface ActionEdges {
 export class ActionButtons {
   readonly element: HTMLElement;
   readonly buttons: Record<ActionId, HTMLButtonElement>;
-  private readonly pointers: Record<ActionId, Set<number>> = { pass: new Set(), shoot: new Set(), dribble: new Set() };
+  private readonly pointers: Record<ActionId, Set<number>> = { pass: new Set(), shoot: new Set(), dribble: new Set(), switch: new Set() };
+  /** PASE height by sliding up (docs/03 §3): where the finger went down, and how far up it is now. */
+  private readonly passStart = { x: 0, y: 0 };
+  private passLift = 0;
+  private readonly pt = { x: 0, y: 0 };
 
   constructor(private readonly edges: ActionEdges) {
     const make = (id: ActionId, i18n: string): HTMLButtonElement => {
@@ -30,8 +40,16 @@ export class ActionButtons {
       shoot: make('shoot', 'controls.shoot'),
       pass: make('pass', 'controls.pass'),
       dribble: make('dribble', 'controls.dribble'),
+      switch: make('switch', 'controls.switch'),
     };
-    this.element = el('div', { className: 'action-buttons' }, [this.buttons.pass, this.buttons.shoot, this.buttons.dribble]);
+    this.element = el('div', { className: 'action-buttons' }, [this.buttons.pass, this.buttons.shoot, this.buttons.dribble, this.buttons.switch]);
+    // Sliding the finger up on PASE (it keeps tracking above the button: pointer capture).
+    const pass = this.buttons.pass;
+    pass.addEventListener('pointermove', (e) => {
+      if (!this.pointers.pass.has(e.pointerId)) return;
+      toLayout(e.clientX, e.clientY, this.pt);
+      this.passLift = Math.max(0, this.passStart.y - this.pt.y);
+    });
     this.applyLayout();
   }
 
@@ -46,6 +64,7 @@ export class ActionButtons {
     place(this.buttons.pass, t.passRight, t.passBottom, t.passSize);
     place(this.buttons.shoot, t.shootRight, t.shootBottom, t.shootSize);
     place(this.buttons.dribble, t.dribbleRight, t.dribbleBottom, t.dribbleSize);
+    place(this.buttons.switch, t.switchRight, t.switchBottom, t.switchSize);
   }
 
   private bind(id: ActionId, b: HTMLButtonElement): void {
@@ -55,15 +74,31 @@ export class ActionButtons {
       capturePointer(b, e.pointerId);
       if (set.size === 0) this.edges[id] = true;
       set.add(e.pointerId);
+      if (id === 'pass') {
+        this.edges.passHeight = 0;
+        toLayout(e.clientX, e.clientY, this.passStart);
+        this.passLift = 0;
+      }
       b.classList.add('pressed');
     });
     const up = (e: PointerEvent): void => {
+      if (id === 'pass' && set.has(e.pointerId) && set.size === 1) this.edges.passHeight = this.liveHeight();
       if (!set.delete(e.pointerId)) return;
       if (set.size === 0) b.classList.remove('pressed');
     };
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
     b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  /** PASE height from the finger slid up while holding it: 0 low, 1 driven lofted, 2 lob. */
+  passHeight(): number {
+    return this.held('pass') ? this.liveHeight() : 0;
+  }
+
+  private liveHeight(): number {
+    const i = TUNING.input;
+    return this.passLift >= i.passSlideLob ? 2 : this.passLift >= i.passSlideDrive ? 1 : 0;
   }
 
   /** Is this button being held down right now? */
