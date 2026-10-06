@@ -270,10 +270,31 @@ const assistTmp: AssistParams = { cone: 0, correction: 0 };
  * Launch of a driven lofted pass landing `dist` m away: the elevation that peaks at about
  * driveMaxHeight (never steeper than driveLaunchAngle) and the speed for it (≤ driveMaxSpeed).
  */
+/** Steepest a driven pass is ever hit when it must reach far (rad, ~ the longest range with drag). */
+const DRIVE_MAX_ELEVATION = 0.7;
+
 function drivenLaunch(dist: number, k: Tuning['pass'], kb: Tuning['ball'], out: PassPlan): void {
   // Without drag a ballistic arc over d peaks at d·tan(θ)/4.
   out.elevation = Math.min(k.driveLaunchAngle, Math.atan((4 * k.driveMaxHeight) / Math.max(0.5, dist)));
-  out.speed = loftPassSpeed(dist, out.elevation, k.driveMaxSpeed, kb);
+  if (flight(k.driveMaxSpeed, out.elevation, kb, flightTmp).dist >= dist) {
+    out.speed = loftPassSpeed(dist, out.elevation, k.driveMaxSpeed, kb);
+    return;
+  }
+  // Too far for that flat a pass at the maximum speed: hit it at full strength and raise the
+  // angle just enough to get there (it flies a bit higher), so a long pass never falls short.
+  let lo = out.elevation;
+  let hi = DRIVE_MAX_ELEVATION;
+  if (flight(k.driveMaxSpeed, hi, kb, flightTmp).dist < dist) lo = hi; // out of range: furthest
+  else {
+    for (let i = 0; i < BISECT_STEPS; i++) {
+      const mid = (lo + hi) / 2;
+      if (flight(k.driveMaxSpeed, mid, kb, flightTmp).dist < dist) lo = mid;
+      else hi = mid;
+    }
+    lo = hi;
+  }
+  out.elevation = lo;
+  out.speed = k.driveMaxSpeed;
 }
 
 /**
@@ -383,7 +404,10 @@ export function performPass(
   p.passLockTarget = -2;
   // Human touch: a small direction and strength error (deterministic).
   const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning);
-  const speed = plan.speed * Math.max(0.5, 1 + gaussian(rng) * k.errorPower);
+  // A lofted pass's distance grows with the square of its speed: halve its strength error so
+  // its distance error matches a ground pass's (long passes don't randomly fall short).
+  const powerSd = plan.kind === PASS_GROUND ? k.errorPower : k.errorPower / 2;
+  const speed = plan.speed * Math.max(0.5, 1 + gaussian(rng) * powerSd);
 
   releaseBall(ball, p, tuning);
   // From the floor: ground passes roll, lofted ones rise from the stick.
