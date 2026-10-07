@@ -4,6 +4,7 @@ import { createWorld, stepWorld, type WorldState } from '../sim/world';
 import type { Renderer } from '../render/renderer';
 import { FixedStepLoop } from './fixedStepLoop';
 import { FrameStats } from './frameStats';
+import { gameSeconds } from './gameSpeed';
 
 /** Teammates on the rink next to the human's player (passing test bench, F1.4). */
 export const TEAMMATES = 2;
@@ -61,7 +62,8 @@ export class Game {
     if (!this.paused) {
       if (this.input) this.input.read(this.commands[0]!);
       const cmd = this.commands[0]!;
-      this.loop.advance(frameMs / 1000, () => {
+      // Game speed (panel): more or fewer fixed ticks per real second; the sim is untouched.
+      this.loop.advance(gameSeconds(frameMs / 1000), () => {
         stepWorld(this.world, this.commands, TUNING);
         if (cmd.pass || cmd.shoot || cmd.dribble || cmd.switchPlayer) {
           cmd.pass = cmd.shoot = cmd.dribble = cmd.switchPlayer = false;
@@ -69,7 +71,7 @@ export class Game {
         }
       });
     }
-    this.renderer.sync(this.world, this.loop.alpha, Math.min(frameMs, 100) / 1000);
+    this.renderer.sync(this.world, this.loop.alpha, gameSeconds(Math.min(frameMs, 100) / 1000));
     this.renderer.render();
     this.workStats.push(performance.now() - now);
     for (const cb of this.onFrameCallbacks) cb();

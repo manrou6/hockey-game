@@ -10,6 +10,16 @@ export const TUNING = {
     /** Max sim steps per rendered frame before dropping time (avoids spiral of death). */
     maxStepsPerFrame: 5,
   },
+  /**
+   * Game speed (v0.1.21): scales how fast game time runs against real time, for the whole game
+   * at once (skating, ball, passes, camera, animations). 1 = normal. The simulation itself is
+   * untouched (same fixed 60 Hz ticks, same results for the same inputs): only more or fewer
+   * ticks are run per real second. Times measured in game time (tap 0.2 s, input buffer,
+   * pass charge) scale with it. Range 0.8-1.4.
+   */
+  game: {
+    speed: 1,
+  },
   /** Skater movement (docs/03 §1). Speeds m/s, accelerations m/s², angles rad. */
   skating: {
     /** Collision radius of a player on the rink plane. */
@@ -158,7 +168,7 @@ export const TUNING = {
     lossRate: 3,
     /** Taking a loose ball: reach from the blade and max height (how well it is controlled:
      * the `receive` section). */
-    pickupRadius: 0.45,
+    pickupRadius: 0.5,
     pickupMaxHeight: 0.35,
     /** Time after passing/shooting/losing it before the same player can take the ball again (s). */
     relockTime: 0.3,
@@ -212,8 +222,10 @@ export const TUNING = {
     loftMaxSpeed: 24,
     loftMinDistance: 6,
     loftMaxDistance: 30,
-    /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be). */
-    lead: 1,
+    /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be).
+     * 0.5 since v0.1.21: the receiver (now the one you control) brakes and turns to meet the
+     * ball, so a full lead overshot him and chains broke. */
+    lead: 0.5,
     /** Direction error (rad, random but deterministic, about ±1 standard deviation): always,
      * at full sprint, under full pressure and when off balance (skid / trencada). */
     errorBase: 0.0261799,
@@ -275,8 +287,8 @@ export const TUNING = {
     lockTime: 0.25,
     /** First-touch pass: a pass leaving within this time of the reception (s) has its error
      * multiplied by firstTouchError (and more after a hard reception: × (1 + difficulty)). */
-    firstTouchWindow: 0.2,
-    firstTouchError: 1.6,
+    firstTouchWindow: 0.3,
+    firstTouchError: 1.25,
     /** 1 = a short coloured ring under the receiver shows how the reception went (render):
      * green clean, yellow heavy touch, orange rebound, red miss; it lasts feedbackTime (s). */
     showFeedback: 1,
@@ -290,6 +302,11 @@ export const TUNING = {
   assist: {
     lightCone: 0.4363323,
     lightCorrection: 0.7,
+    /** Mitjana (default since v0.1.21): between Lleugera and Forta, and its automatic strength
+     * is made for chaining short quick passes: ground passes arrive mediumArrivalBonus m/s faster. */
+    mediumCone: 0.6,
+    mediumCorrection: 0.85,
+    mediumArrivalBonus: 0.5,
     strongCone: 0.7853982,
     strongCorrection: 1,
     /** 1 = ring on the floor under the teammate the pass would go to. */
@@ -309,6 +326,7 @@ export const TUNING = {
     maxDistance: 14,
     /** How far (rad) the stick may be from the ideal direction, per assist level. */
     lightCone: 0.5,
+    mediumCone: 0.6,
     strongCone: 0.7,
     /** Speed at which the ball gets back to your stick (m/s). */
     arrivalSpeed: 11,
@@ -364,13 +382,18 @@ export const TUNING = {
     supportSide: 5,
     /** Speed while moving to the support spot (fraction of the normal top speed), and the
      * distance where they start slowing down to arrive (m). */
-    supportSpeed: 0.6,
+    supportSpeed: 0.85,
     arriveRadius: 1.5,
     /** A moving loose ball is "for" a teammate if its path passes this close (m) within
      * interceptMaxTime (s); he then goes to meet it at interceptSpeed (fraction of top speed). */
     interceptRadius: 2.5,
     interceptMaxTime: 2.5,
     interceptSpeed: 1,
+    /** Receiving: closer than settleRadius (m) to the meeting point, or with the ball less than
+     * settleTime (s) away (half of it when it is an aimed pass), he stops moving and just faces
+     * the ball (no time to move, never run into it). */
+    settleRadius: 0.3,
+    settleTime: 0.3,
     /** A slow loose ball this close (m) to a teammate (and closer to him than to you) is
      * picked up by him. */
     fetchRadius: 4,
@@ -409,7 +432,7 @@ export const TUNING = {
     passDragDistance: 40,
     passDragAngle: 0.2617994,
     /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */
-    bufferTime: 0.15,
+    bufferTime: 0.2,
     /**
      * Analog speed on the virtual joystick (docs/03 §3, changed 2026-10-02): thumb travel
      * (0 = centre, 1 = edge of the ring) below `joystickDeadZone` does nothing; from there to

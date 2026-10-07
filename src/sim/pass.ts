@@ -36,7 +36,7 @@ export function passPower(hold: number, k: Tuning['pass']): number {
 }
 
 /** Pass assist levels (Settings). Ids are persisted: never rename, only add. */
-export const ASSIST_LEVELS = ['off', 'light', 'strong'] as const;
+export const ASSIST_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
 export type AssistLevel = (typeof ASSIST_LEVELS)[number];
 
 export function isAssistLevel(v: unknown): v is AssistLevel {
@@ -52,8 +52,8 @@ export interface AssistParams {
 
 export function assistParams(level: AssistLevel, tuning: Tuning, out: AssistParams): AssistParams {
   const a = tuning.assist;
-  out.cone = level === 'strong' ? a.strongCone : level === 'light' ? a.lightCone : 0;
-  out.correction = level === 'strong' ? a.strongCorrection : level === 'light' ? a.lightCorrection : 0;
+  out.cone = level === 'strong' ? a.strongCone : level === 'medium' ? a.mediumCone : level === 'light' ? a.lightCone : 0;
+  out.correction = level === 'strong' ? a.strongCorrection : level === 'medium' ? a.mediumCorrection : level === 'light' ? a.lightCorrection : 0;
   return out;
 }
 
@@ -371,7 +371,7 @@ export function planPass(
       to = Math.atan2(ty - ball.y, tx - ball.x);
       if (kind === PASS_GROUND) {
         // Automatic strength, plus the charged power on top (up to the maximum).
-        const auto = groundPassSpeed(dist, groundArrivalFor(dist, k), k.groundMinSpeed, k.groundMaxSpeed, kb);
+        const auto = groundPassSpeed(dist, groundArrivalFor(dist, k) + (level === 'medium' ? tuning.assist.mediumArrivalBonus : 0), k.groundMinSpeed, k.groundMaxSpeed, kb);
         out.speed = auto + (Math.max(auto, k.groundMaxSpeed) - auto) * charge;
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;
@@ -403,7 +403,7 @@ export function planPass(
     out.speed = k.groundNoTargetSpeed + (Math.max(k.groundNoTargetSpeed, k.groundMaxSpeed) - k.groundNoTargetSpeed) * charge;
     // Nobody in the cone and aiming at a side board: the assist may make it a wall pass (F1.4d).
     const w = wallFor(p, tuning);
-    const cone = level === 'strong' ? w.strongCone : level === 'light' ? w.lightCone : 0;
+    const cone = level === 'strong' ? w.strongCone : level === 'medium' ? w.mediumCone : level === 'light' ? w.lightCone : 0;
     if (planWallPass(p, ball, aim, cmd.sprint, cone, Math.max(assist.correction, w.minCorrection), k.groundMinSpeed, k.groundMaxSpeed, tuning, wallTmp)) {
       out.wall = true;
       out.angle = wallTmp.angle;

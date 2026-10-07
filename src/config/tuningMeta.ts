@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -55,6 +55,10 @@ function cameraPresetParams(section: string): TuningParamMeta[] {
 
 /** Sections and parameters in the order shown (most impactful first). `sim` is not tunable. */
 export const TUNING_SECTIONS: TuningSectionMeta[] = [
+  {
+    id: 'game',
+    params: [{ path: 'game.speed', min: 80, max: 140, step: 5, unit: '%', scale: 100 }],
+  },
   {
     id: 'skating',
     params: [
@@ -201,6 +205,7 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'wall.assist', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'wall.maxDistance', min: 3, max: 25, step: 0.5, unit: 'm' },
       { path: 'wall.lightCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'wall.mediumCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
       { path: 'wall.strongCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
       { path: 'wall.arrivalSpeed', min: 3, max: 25, step: 0.5, unit: 'm/s' },
       { path: 'wall.lead', min: 0, max: 1.5, step: 0.05, unit: '' },
@@ -218,6 +223,9 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     params: [
       { path: 'assist.lightCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
       { path: 'assist.lightCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'assist.mediumCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'assist.mediumCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'assist.mediumArrivalBonus', min: -4, max: 8, step: 0.5, unit: 'm/s' },
       { path: 'assist.strongCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
       { path: 'assist.strongCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'assist.targetRing', min: 0, max: 1, step: 1, unit: '', toggle: true },
@@ -257,6 +265,8 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'mates.interceptRadius', min: 0.5, max: 5, step: 0.1, unit: 'm' },
       { path: 'mates.interceptMaxTime', min: 0.5, max: 4, step: 0.1, unit: 's' },
       { path: 'mates.interceptSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'mates.settleRadius', min: 0, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'mates.settleTime', min: 0, max: 1, step: 0.05, unit: 's' },
       { path: 'mates.fetchRadius', min: 0, max: 8, step: 0.5, unit: 'm' },
       { path: 'mates.speedVariation', min: 0, max: 50, step: 5, unit: '%', scale: 100 },
       { path: 'mates.spotVariation', min: 0, max: 4, step: 0.25, unit: 'm' },

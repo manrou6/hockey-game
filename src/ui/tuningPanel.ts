@@ -50,7 +50,8 @@ export class TuningPanel {
     const body = el('div', { className: 'tp-body' });
     TUNING_SECTIONS.forEach((section, i) => {
       const details = el('details', { className: 'tp-section' });
-      details.open = i === 0;
+      // Game speed (one row) and skating are open; the rest are folded.
+      details.open = i <= 1;
       details.append(el('summary', { i18n: `tuning.section.${section.id}` }));
       for (const meta of section.params) details.append(this.buildRow(meta));
       body.append(details);
