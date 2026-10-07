@@ -4,7 +4,7 @@ Documento para Guillem (no necesitas tocar código). Aquí tienes **cinco fichas
 
 Estado: actualizado el 2026-10-07 al **nuevo estilo: 3D low-poly heroico facetado** (decidido por Guillem; sustituye al «semi-realista»; ver `docs/04`). Todo lo de aquí respeta docs/01 (equipos y atributos), docs/04 (dirección de arte, presupuestos y licencias) y CLAUDE.md. Si algo de aquí choca con un documento, manda el documento y te lo digo antes de cambiarlo.
 
-**Referencias de estilo ya generadas** (guardadas en `docs/concept/style/`): la misma escena en low-poly con suelo **azul**, **parquet** y **crema** (`style_lowpoly_suelo-azul.jpg`, `style_lowpoly_suelo-parquet.jpg`, `style_lowpoly_suelo-crema.jpg`). Son la referencia principal del estilo y de los tres suelos: **adjúntalas a la conversación de ChatGPT** (con el clip) cuando generes la Ficha 1 y di «mismo estilo que estas imágenes».
+**Referencias de estilo ya generadas** (guardadas en `docs/concept/style/`): la misma escena en low-poly con suelo **azul**, **parquet** y **crema** (`style_lowpoly_suelo-azul.jpg`, `style_lowpoly_suelo-parquet.jpg`, `style_lowpoly_suelo-crema.jpg`) y **la primera versión del modo neón** (`style_lowpoly_neon.jpg`, que es la imagen **01N** de la Ficha 1 ya existente como referencia; si eliges otra variante más adelante, la sustituirá). Los prompts con los que se generaron están en `docs/prompts/` (`concept_01_suelos.txt` y `concept_01n_neon.txt`). Son la referencia principal del estilo, de los tres suelos y del neón: **adjúntalas a la conversación de ChatGPT** (con el clip) cuando generes la Ficha 1 y di «mismo estilo que estas imágenes».
 
 
 ## Antes de empezar (léelo una vez)
@@ -60,7 +60,7 @@ HASTA AQUÍ ↑
 | Nº | Imagen | Para qué lo uso |
 |---|---|---|
 | 01 | **Plano general de TV comparando los tres suelos**: la misma escena (pista completa vista desde la grada central, cámara elevada, jugadores pequeños en acción, público al fondo) en **tres versiones idénticas que solo cambian el suelo: azul mate, parquet claro y crema liso** | Cámara TV por defecto; **con esta imagen decides el suelo por defecto** |
-| 01N | **Modo NEÓN** (opción desbloqueable): la misma escena que la 01 (suelo oscuro), pabellón oscuro, **líneas de pista y vallas en cian y magenta luminosos**, **estela luminosa de la bola**, bordes de luz en los jugadores, público en silueta con algunas luces | Tema neón (colores, materiales y luz; mismos modelos) |
+| 01N | **Modo NEÓN** (opción desbloqueable; **ya existe una primera versión** como referencia, `docs/concept/style/style_lowpoly_neon.jpg`: se sustituye solo si eliges otra variante): la misma escena que la 01 (suelo oscuro), pabellón oscuro, **líneas de pista y vallas en cian y magenta luminosos**, **estela luminosa de la bola**, bordes de luz en los jugadores, público en silueta con algunas luces | Tema neón (colores, materiales y luz; mismos modelos) |
 | 02 | **Plano TV cercano**: un jugador conduciendo la bola, la valla con paneles geométricos detrás, fondo ligeramente desenfocado | Cámara cercana |
 | 03 | **Vista alta / táctica**: pista vista desde arriba en diagonal, se leen las posiciones y las líneas | Cámara táctica |
 | 04 | **Detalle de estilo y materiales**: jugador de cerca con la cara y el equipo facetados, valla, rueda de patín, pala del stick y bola naranja (todo mate, caras planas visibles) | Modelos y materiales |
@@ -179,9 +179,9 @@ Los tres suelos son **intercambiables** en Configuració y el **modo neón** (de
 | **Azul mate** | Color liso | `#4A88C4` |
 | **Parquet claro** | Color base + **patrón sutil de listones generado por código** (listones largos de 2-3 tonos de madera clara muy próximos, sin veta; se crea al arrancar, **0 bytes de descarga**) | `#DDBF98` |
 | **Crema liso** | Color liso | `#EBDDBF` |
-| **Neón (desbloqueable)** | Suelo oscuro `#0B0F1E`, líneas y vallas **emisivas en cian `#00E5FF` y magenta `#FF2BD6`**, estela luminosa de la bola; luz del pabellón muy baja | (aún sin imagen de referencia: llegará con la 01N) |
+| **Neón (desbloqueable)** | Pabellón casi a oscuras (azul marino `#14114E`), suelo azul intenso **brillante con reflejos** `#0A78C6`, líneas de pista y borde de la valla **emisivos en cian `#00E5FF` y magenta `#FF2BD6`**, estela luminosa **naranja** de la bola, equipaciones con detalles reflectantes, público en penumbra | **Ya hay primera referencia:** `docs/concept/style/style_lowpoly_neon.jpg` (colores muestreados de la imagen; provisionales) |
 
-Líneas de pista: blancas `#FFFFFF`, dibujadas por código. **El suelo por defecto lo decides tú** con la imagen 01 de la Ficha 1 (no se fija ninguno todavía).
+**Los hex de los suelos son provisionales** (Guillem, 2026-10-07). El suelo brillante con reflejos del neón es una excepción a «materiales mates»: se haría con un reflejo barato (specular alto y/o una textura de reflejo borrosa), **nada de reflejos planares costosos**; se confirma con medición en F4. Líneas de pista: blancas `#FFFFFF`, dibujadas por código. **El suelo por defecto lo decides tú** con la imagen 01 de la Ficha 1 (no se fija ninguno todavía).
 
 ### 3B. Vallas con patrocinadores inventados (1 atlas pequeño)
 

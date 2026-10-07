@@ -1,0 +1,16 @@
+Prompt de las imágenes de referencia de estilo con los tres suelos
+(docs/concept/style/style_lowpoly_suelo-azul.jpg, style_lowpoly_suelo-parquet.jpg y style_lowpoly_suelo-crema.jpg)
+
+Herramienta: ChatGPT Pro, GPT-6.1 Sol + Images 2.5. Fecha: 2026-10-07.
+Conversación: la misma que la de la imagen neón (docs/prompts/concept_01n_neon.txt).
+Orden: 1) un primer mensaje con el bloque de estilo (equivalente al BLOQUE DE ESTILO de docs/ASSETS_SPEC.md, versión 2026-10-07; no se duplica aquí); 2) este prompt.
+Resultado: 6 variantes; Guillem guardó una por suelo (azul, parquet, crema) como referencia de estilo.
+Confirmación de Guillem: no se parecen a nada real.
+
+--- PROMPT 01 (3 suelos: azul, parquet, crema) ---
+Genera la imagen conceptual nº 01. Formato apaisado 16:9 (1536x1024 o lo más parecido), en el estilo low-poly heroico facetado acordado, sin texto legible, sin interfaz ni marcadores dibujados, todo inventado.
+
+01 — Plano general de TV: la pista completa vista desde la grada lateral, cámara elevada a unos 10 m de altura mirando hacia el centro, jugadores en plena jugada y algo grandes en cuadro (acerca un poco la cámara sin perder la pista entera) para que se lean bien las dos manos en el stick, público al fondo, iluminación limpia de pabellón, vallas blancas con publicidad inventada. Equipos: uno de azul y amarillo, otro de rojo y blanco.
+En el juego el suelo será SELECCIONABLE, así que necesito ver las tres opciones: haz 6 variantes con la misma composición y las mismas posiciones de jugadores, 2 con suelo de parquet claro, 2 con suelo liso de color crema mate y 2 con suelo azul mate (líneas blancas finas en todas).
+
+Después de cada una, dime en una línea qué has cambiado respecto a la anterior.

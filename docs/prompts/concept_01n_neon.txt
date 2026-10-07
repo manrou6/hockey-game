@@ -1,0 +1,15 @@
+Prompt de la imagen de referencia del modo noche NEÓN (primera versión de la imagen 01N de la Ficha 1)
+(docs/concept/style/style_lowpoly_neon.jpg)
+
+Herramienta: ChatGPT Pro, GPT-6.1 Sol + Images 2.5. Fecha: 2026-10-07.
+Conversación: la misma que la de las imágenes de los tres suelos (docs/prompts/concept_01_suelos.txt), a continuación de ese prompt.
+Orden: 1) mensaje con el bloque de estilo (ver docs/ASSETS_SPEC.md); 2) prompt 01 (suelos); 3) este prompt.
+Estado: primera versión de la 01N; si Guillem elige otra variante más adelante, la sustituirá.
+Confirmación de Guillem: no se parece a nada real.
+
+--- PROMPT 01N (modo noche neón) ---
+Genera la imagen conceptual nº 01N. Formato apaisado 16:9 (1536x1024 o lo más parecido), en el estilo low-poly heroico facetado acordado, sin texto legible, sin interfaz ni marcadores dibujados, todo inventado.
+
+01N — La misma escena de la imagen 01 (plano general de TV desde la grada lateral elevada), pero en el MODO NOCHE NEÓN del juego: mismos jugadores y mismo estilo low-poly heroico facetado, pabellón casi a oscuras, líneas de la pista y borde de la valla iluminados en neón cian y magenta, la bola deja una estela luminosa naranja, equipaciones con detalles reflectantes, reflejos en el suelo brillante, público en penumbra. Equipos: uno de azul y amarillo, otro de rojo y blanco.
+
+Dame las variantes que te pido (4 si no digo otra cosa). Después de cada una, dime en una línea qué has cambiado respecto a la anterior.

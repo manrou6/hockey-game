@@ -9,7 +9,7 @@
 
 ### Suelo seleccionable y modo noche NEÓN (parte del alcance de F4)
 - **Suelo seleccionable por el jugador en Configuració** (y, en el futuro, un suelo por defecto por pabellón): **azul mate** (liso), **parquet claro** (patrón sutil de listones **generado por código**, sin archivo de textura) o **crema** (liso). **El suelo por defecto no está decidido todavía**: lo decidirá Guillem con la imagen 01 de la Ficha 1 de `ASSETS_SPEC.md`. No se fija ninguno hasta entonces.
-- **Modo noche NEÓN, opción DESBLOQUEABLE** (cómo se desbloquea se decidirá más adelante; **solo se deja prevista la opción**): los mismos modelos, pabellón oscuro, líneas de pista y vallas en cian/magenta emisivos y una estela luminosa de la bola. Aún no hay imagen de referencia del neón (llegará con la imagen 01N de la Ficha 1).
+- **Modo noche NEÓN, opción DESBLOQUEABLE** (cómo se desbloquea se decidirá más adelante; **solo se deja prevista la opción**): los mismos modelos, pabellón oscuro, líneas de pista y vallas en cian/magenta emisivos y una estela luminosa de la bola. Primera referencia: `docs/concept/style/style_lowpoly_neon.jpg` (imagen 01N de la Ficha 1; si Guillem elige otra variante, la sustituirá). Rasgos: pabellón casi a oscuras, líneas de pista y borde de la valla en neón cian y magenta, estela naranja de la bola, equipaciones con detalles reflectantes, suelo brillante con reflejos (reflejo barato, no planar) y público en penumbra.
 - **Regla de diseño:** cambiar de suelo o de modo es **solo cambiar colores, materiales y luz; nunca modelos distintos**. Por eso el arte se hace con un «tema» de pabellón como **datos** (color del suelo y patrón, color y fuerza de la luz principal y del contraluz, tinte de las vallas, color de las líneas y su emisión, estela de la bola, color del fondo/pabellón) que el render lee; el mismo número de mallas en todos los temas.
 
 ## Jugadores
@@ -44,7 +44,7 @@
 - Música solo en menús (CC0 o generada).
 
 ## Presupuestos de rendimiento (Pixel 8a, 60 fps)
-El low-poly facetado es mucho más ligero que el semi-realista. Se mantienen los **techos duros** de antes y se añaden **objetivos** más estrictos (propuestos el 2026-10-07; se confirman con medición en el Pixel 8a al empezar F4):
+El low-poly facetado es mucho más ligero que el semi-realista. Se mantienen los **techos duros** de antes y se añaden **objetivos** más estrictos (propuestos por Claude y **aceptados por Guillem el 2026-10-07 como objetivo provisional**; se confirman con medición en el Pixel 8a al empezar F4):
 
 | | Techo duro (de antes) | Objetivo low-poly |
 |---|---|---|
