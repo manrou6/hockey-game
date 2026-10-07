@@ -7,7 +7,9 @@ import {
   PASS_DRIVE,
   PASS_GROUND,
   PASS_LOB,
+  ASSIST_LEVELS,
   assistParams,
+  isAssistLevel,
   choosePassTarget,
   groundArrivalFor,
   groundPassSpeed,
@@ -130,6 +132,35 @@ describe('who the pass goes to (assist cone)', () => {
     expect(assistParams('light', TUNING, a).correction).toBeCloseTo(0.7);
     expect(assistParams('strong', TUNING, a).cone).toBeGreaterThan(TUNING.assist.lightCone);
     expect(assistParams('strong', TUNING, a).correction).toBe(1);
+  });
+
+  it('there are 4 levels in this order, and Mitjana (the default) sits between Lleugera and Forta', () => {
+    expect([...ASSIST_LEVELS]).toEqual(['off', 'light', 'medium', 'strong']);
+    const light = assistParams('light', TUNING, { cone: 0, correction: 0 });
+    const medium = assistParams('medium', TUNING, { cone: 0, correction: 0 });
+    const strong = assistParams('strong', TUNING, { cone: 0, correction: 0 });
+    expect(medium.cone).toBeGreaterThan(light.cone);
+    expect(medium.cone).toBeLessThan(strong.cone);
+    expect(medium.correction).toBeGreaterThan(light.correction);
+    expect(medium.correction).toBeLessThan(strong.correction);
+    expect(isAssistLevel('medium')).toBe(true);
+    expect(createWorld(1, 2).assist).toBe('medium');
+  });
+
+  it('Mitjana: the ground pass arrives faster (mediumArrivalBonus) than with the other levels, by the same distance', () => {
+    const tuning = tuningWith(exact);
+    const launch = (level: 'light' | 'medium' | 'strong'): number => {
+      const w = createWorld(3, 2);
+      w.assist = level;
+      takeBall(w, tuning);
+      w.players[1]!.x = w.players[1]!.prevX = w.players[0]!.x + 9;
+      w.players[1]!.y = w.players[1]!.prevY = w.players[0]!.y;
+      tap(w, aimAt(w, 1), tuning);
+      return Math.hypot(w.ball.vx, w.ball.vy);
+    };
+    expect(launch('medium')).toBeGreaterThan(launch('light'));
+    expect(launch('medium')).toBeGreaterThan(launch('strong'));
+    expect(launch('light')).toBeCloseTo(launch('strong'), 6);
   });
 });
 

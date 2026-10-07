@@ -246,7 +246,7 @@ describe('teammates test bench (F1.4a)', () => {
     const tuning = tuningWith({ move: 0, autoSwitch: 0 });
     const w = createWorld(14, 2);
     const m = w.players[1]!;
-    w.ball.x = w.ball.prevX = m.x + 1;
+    w.ball.x = w.ball.prevX = m.x + 1.6;
     w.ball.y = w.ball.prevY = m.y;
     step(w, cmd(0, 0, { switchPlayer: true }), tuning);
     expect(w.controlled).toBe(1);

@@ -118,10 +118,12 @@ test('CANVI button: switches to the teammate nearest the ball', async ({ page })
   await page.screenshot({ path: 'test-results/screenshots/f1-switch.png' });
 });
 
-test('pass assist level is chosen in Settings (Lleugera by default) and remembered', async ({ page }) => {
+test('pass assist: 4 levels in Settings, Mitjana by default, the choice is remembered', async ({ page }) => {
   await page.goto('./');
   await page.click('#btn-settings');
-  await expect(page.locator('#assist-light')).toHaveClass(/selected/);
+  for (const id of ['off', 'light', 'medium', 'strong']) await expect(page.locator(`#assist-${id}`)).toBeVisible();
+  await expect(page.locator('#assist-medium')).toHaveClass(/selected/);
+  expect(await page.evaluate(() => (window as any).__PATINS__.game.world.assist)).toBe('medium');
   await page.click('#assist-strong');
   await expect(page.locator('#assist-strong')).toHaveClass(/selected/);
   expect(await page.evaluate(() => (window as any).__PATINS__.game.world.assist)).toBe('strong');

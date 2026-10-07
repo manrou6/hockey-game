@@ -187,7 +187,7 @@ describe('wall pass in the world', () => {
       w.players[2]!.x = w.players[2]!.prevX = 8;
       w.players[2]!.y = w.players[2]!.prevY = -8;
       w.ball.owner = -1;
-      w.ball.x = w.ball.prevX = 9;
+      w.ball.x = w.ball.prevX = 9.8;
       w.ball.y = w.ball.prevY = 3;
       w.ball.vx = w.ball.vy = 0;
       if (wall) w.wallFrom = 0;

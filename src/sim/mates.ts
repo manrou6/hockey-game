@@ -85,10 +85,6 @@ function moveTo(p: PlayerState, tx: number, ty: number, speed: number, arriveRad
   return false;
 }
 
-/** Closer than this (m) to the meeting point a receiver just faces the ball and waits. */
-const SETTLE_RADIUS = 0.3;
-/** With the ball this close in time (s) there's no time to move: just face it. */
-const SETTLE_TIME = 0.3;
 /** Skaters can't shuffle backwards: a short step away from the ball would turn his back to it. */
 const NO_BACK_STEP = 1.5;
 
@@ -120,7 +116,7 @@ export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, o
   const d = Math.hypot(dx, dy);
   if (meet) {
     // Arrived, or the ball is about to arrive: face it and wait (never run into it).
-    if (d <= SETTLE_RADIUS || a.t < SETTLE_TIME / 2) setMove(out, face, TURN_ONLY);
+    if (d <= m.settleRadius || a.t < m.settleTime / 2) setMove(out, face, TURN_ONLY);
     else {
       const needed = d / Math.max(0.15, t);
       setMove(out, Math.atan2(dy, dx), Math.min(m.interceptSpeed, Math.max(d > 1 ? 0.3 : 0.1, needed / skatingFor(p, tuning).maxSpeed)));
@@ -128,7 +124,7 @@ export function interceptMove(p: PlayerState, ball: BallState, tuning: Tuning, o
     return;
   }
   const backwards = d < NO_BACK_STEP && (dx * Math.cos(face) + dy * Math.sin(face)) / Math.max(1e-6, d) < -0.5;
-  if (d <= SETTLE_RADIUS || a.t < SETTLE_TIME || backwards) setMove(out, face, TURN_ONLY);
+  if (d <= m.settleRadius || a.t < m.settleTime || backwards) setMove(out, face, TURN_ONLY);
   else moveTo(p, bx, by, m.interceptSpeed, 0.8, out);
 }
 

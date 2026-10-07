@@ -105,7 +105,7 @@ export function createWorld(seed: number, mates = 0): WorldState {
     lastSwitchTick: -1000,
     switchCandidate: -1,
     switchCandidateTicks: 0,
-    assist: 'light',
+    assist: 'medium',
     aimTarget: -1,
     passTo: -1,
     passKind: PASS_GROUND,
