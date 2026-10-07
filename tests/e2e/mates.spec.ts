@@ -44,7 +44,7 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   expect(errors).toEqual([]);
 });
 
-test('PASSADA: holding fills the arc (power); sliding up turns it orange (driven) then purple (lob); it leaves on release', async ({ page }) => {
+test('PASSADA: holding fills the arc (power); dragging up-left turns it orange (driven), up-right purple (lob); it leaves on release', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto('./?quality=low');
   await page.click('#btn-play');
@@ -65,14 +65,14 @@ test('PASSADA: holding fills the arc (power); sliding up turns it orange (driven
   await expect(btn).toHaveClass(/charging/);
   await expect(btn).not.toHaveClass(/drive|lob/); // no slide: low pass (white)
   expect((await state(page)).owner).toBe(0); // nothing leaves while held
-  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 75 });
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x - 45, clientY: y - 45 });
   await expect(btn).toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge.png' });
-  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 140 });
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x + 45, clientY: y - 45 });
   await expect(btn).toHaveClass(/lob/);
   await expect(btn).not.toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge-lob.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x, clientY: y - 140 });
+  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x + 45, clientY: y - 45 });
   await page.keyboard.up('KeyW');
   await page.keyboard.up('KeyD');
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
@@ -132,7 +132,7 @@ test('pass assist level is chosen in Settings (Lleugera by default) and remember
   await page.screenshot({ path: 'test-results/screenshots/f1-settings-assist.png' });
 });
 
-test('pass arrow: shown while PASSADA is held (grows with power, white → orange when sliding up), fades after, and can be switched off', async ({ page }) => {
+test('pass arrow: shown while PASSADA is held (grows with power, white → orange when dragging up-left), fades after, and can be switched off', async ({ page }) => {
   test.setTimeout(120_000);
   const arrow = () => page.evaluate(() => (window as any).__PATINS__.renderer.passArrowState as { visible: boolean; r: number; g: number; b: number; length: number });
   await page.goto('./?quality=low');
@@ -153,10 +153,10 @@ test('pass arrow: shown while PASSADA is held (grows with power, white → orang
   expect(white.b).toBeGreaterThan(0.9); // white: low pass
   // Holding charges the power: the arrow grows.
   await expect.poll(async () => (await arrow()).length, { timeout: 5_000 }).toBeGreaterThan(white.length + 0.5);
-  await btn.dispatchEvent('pointermove', { pointerId: 11, isPrimary: false, clientX: x, clientY: y - 75 });
+  await btn.dispatchEvent('pointermove', { pointerId: 11, isPrimary: false, clientX: x - 45, clientY: y - 45 });
   await expect.poll(async () => (await arrow()).b, { timeout: 5_000 }).toBeLessThan(0.5); // orange: driven lofted
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-arrow.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false, clientX: x, clientY: y - 75 });
+  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false, clientX: x - 45, clientY: y - 45 });
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
   // It fades away shortly after the pass.
   await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(false);
@@ -195,4 +195,28 @@ test('reception ring: a short coloured ring shows how the reception went (orange
   await expect.poll(feedback, { timeout: 2_000 }).toBe(2);
   await page.screenshot({ path: 'test-results/screenshots/f1-reception-ring.png' });
   await expect.poll(feedback, { timeout: 3_000 }).toBe(-1);
+});
+
+test('PASSADA with a REAL touch (not synthetic events): up-left drag = driven, up-right = lob, straight up = low', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  const cdp = await page.context().newCDPSession(page);
+  const btn = page.locator('#btn-pass');
+  const box = (await btn.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const height = () => page.evaluate(() => (window as any).__PATINS__.game.commands[0].passHeight as number);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', px?: number, py?: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: px!, y: py! }] });
+  for (const [dx, dy, expected] of [[-35, -35, 1], [35, -35, 2], [0, -70, 0], [-12, -50, 0]] as const) {
+    await touch('touchStart', x, y);
+    for (let i = 1; i <= 8; i++) {
+      await touch('touchMove', x + (dx * i) / 8, y + (dy * i) / 8);
+      await page.waitForTimeout(16);
+    }
+    await expect.poll(height, { timeout: 2_000 }).toBe(expected);
+    await touch('touchEnd');
+    await page.waitForTimeout(100);
+  }
 });

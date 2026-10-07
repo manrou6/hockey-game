@@ -164,6 +164,12 @@ function roll(v0: number, dist: number, k: Tuning['ball'], out: RollResult): Rol
 
 const rollTmp: RollResult = { speed: 0, time: 0 };
 
+/** Arrival speed a ground pass aims for at `dist` m: gentler when the receiver is close. */
+export function groundArrivalFor(dist: number, k: Tuning['pass']): number {
+  const u = Math.min(1, Math.max(0, (dist - k.groundShortFrom) / Math.max(0.1, k.groundShortTo - k.groundShortFrom)));
+  return k.groundShortArrivalSpeed + (k.groundArrivalSpeed - k.groundShortArrivalSpeed) * u;
+}
+
 /** Ground pass launch speed that reaches `dist` at `arrival` m/s (clamped to [min, max]). */
 export function groundPassSpeed(dist: number, arrival: number, min: number, max: number, k: Tuning['ball']): number {
   let lo = min;
@@ -388,7 +394,7 @@ export function planPass(
       to = Math.atan2(ty - ball.y, tx - ball.x);
       if (kind === PASS_GROUND) {
         // Automatic strength, plus the charged power on top (up to the maximum).
-        const auto = groundPassSpeed(dist, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, kb);
+        const auto = groundPassSpeed(dist, groundArrivalFor(dist, k), k.groundMinSpeed, k.groundMaxSpeed, kb);
         out.speed = auto + (Math.max(auto, k.groundMaxSpeed) - auto) * charge;
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;

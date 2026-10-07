@@ -9,6 +9,7 @@ import {
   PASS_LOB,
   assistParams,
   choosePassTarget,
+  groundArrivalFor,
   groundPassSpeed,
   loftPassSpeed,
   passErrorSd,
@@ -137,7 +138,7 @@ describe('automatic strength (matches the real ball physics)', () => {
   it('ground: reaches the distance at about the arrival speed', () => {
     const k = TUNING.pass;
     for (const d of [8, 14, 20]) {
-      const v0 = groundPassSpeed(d, k.groundArrivalSpeed, k.groundMinSpeed, k.groundMaxSpeed, TUNING.ball);
+      const v0 = groundPassSpeed(d, groundArrivalFor(d, k), k.groundMinSpeed, k.groundMaxSpeed, TUNING.ball);
       const b = createBall(-15, 0);
       b.vx = v0;
       let speedAt = 0;
@@ -145,7 +146,7 @@ describe('automatic strength (matches the real ball physics)', () => {
         stepBall(b, [], TUNING, createRng(1), DT, events);
         speedAt = b.vx;
       }
-      if (v0 > k.groundMinSpeed && v0 < k.groundMaxSpeed) expect(speedAt).toBeCloseTo(k.groundArrivalSpeed, 0);
+      if (v0 > k.groundMinSpeed && v0 < k.groundMaxSpeed) expect(speedAt).toBeCloseTo(groundArrivalFor(d, k), 0);
       else expect(speedAt).toBeGreaterThan(0);
     }
   });
@@ -585,5 +586,51 @@ describe('pass error (deterministic, Pase attribute)', () => {
       return JSON.stringify(w);
     };
     expect(run()).toBe(run());
+  });
+});
+
+describe('short passes arrive gently (v0.1.19)', () => {
+  it('the arrival speed rises from groundShortArrivalSpeed to groundArrivalSpeed with the distance', () => {
+    const k = TUNING.pass;
+    expect(groundArrivalFor(k.groundShortFrom - 2, k)).toBeCloseTo(k.groundShortArrivalSpeed);
+    expect(groundArrivalFor(k.groundShortTo + 5, k)).toBeCloseTo(k.groundArrivalSpeed);
+    const mid = groundArrivalFor((k.groundShortFrom + k.groundShortTo) / 2, k);
+    expect(mid).toBeGreaterThan(k.groundShortArrivalSpeed);
+    expect(mid).toBeLessThan(k.groundArrivalSpeed);
+  });
+
+  it('a tap to a teammate 6 m away leaves slower than a tap to one 25 m away, and both are received cleanly almost always', () => {
+    const tuning = tuningWith((t) => {
+      t.mates.move = 0;
+    });
+    const results = { clean: 0, total: 0 };
+    let speedShort = 0;
+    let speedLong = 0;
+    for (const [dist, isShort] of [[6, true], [25, false]] as const) {
+      for (let seed = 1; seed <= 40; seed++) {
+        const w = createWorld(seed, 2);
+        takeBall(w, tuning);
+        const p = w.players[0]!;
+        const r = w.players[1]!;
+        p.x = p.prevX = -15;
+        p.y = p.prevY = 0;
+        w.ball.x = w.ball.prevX = p.x + 0.5;
+        w.ball.y = w.ball.prevY = p.y;
+        r.x = r.prevX = p.x + dist;
+        r.y = r.prevY = 1;
+        w.players[2]!.x = w.players[2]!.prevX = -19;
+        w.players[2]!.y = w.players[2]!.prevY = 8;
+        tap(w, aimAt(w, 1), tuning);
+        const speed = Math.hypot(w.ball.vx, w.ball.vy);
+        if (isShort) speedShort += speed / 40;
+        else speedLong += speed / 40;
+        const t0 = w.tick;
+        runUntil(w, cmd(), tuning, () => w.lastReceptionTick >= t0 && w.lastReceptionPlayer === 1, 300);
+        results.total++;
+        if (w.lastReceptionTick >= t0 && w.lastReceptionOutcome === 0) results.clean++;
+      }
+    }
+    expect(speedShort).toBeLessThan(speedLong - 3);
+    expect(results.clean / results.total).toBeGreaterThan(0.93);
   });
 });

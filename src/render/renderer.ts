@@ -15,12 +15,14 @@ import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { Constants } from '@babylonjs/core/Engines/constants';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { SceneInstrumentation } from '@babylonjs/core/Instrumentation/sceneInstrumentation';
 import { EngineInstrumentation } from '@babylonjs/core/Instrumentation/engineInstrumentation';
 import '@babylonjs/core/Engines/Extensions/engine.query';
 import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
 import { BALL_RADIUS, type WorldState } from '../sim/world';
+import { RINK } from '../config/rink';
 import { TUNING } from '../config/tuning';
 import { buildRink } from './rinkBuilder';
 
@@ -64,6 +66,8 @@ export class Renderer {
   private readonly tmpVec = new Vector3();
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
+  /** The ball seen through whatever hides it (drawn only where something is in front of it). */
+  private readonly ballGhost: Mesh;
   /** Bright ring on the floor under the player the human controls. */
   private readonly controlRing: Mesh;
   /** Ring under the teammate the controlled player's pass would go to (assist target). */
@@ -112,6 +116,7 @@ export class Renderer {
     buildRink(this.scene);
     this.ballMesh = this.createBallMesh();
     this.ballMarker = this.createBallMarker();
+    this.ballGhost = this.createBallGhost();
     this.controlRing = this.createRing('controlRing', 'rgba(255,214,40,0.95)', 0.62, 12);
     this.targetRing = this.createRing('targetRing', 'rgba(110,235,255,1)', 0.6, 14);
     this.receptionRings = RECEPTION_COLORS.map((c, i) => {
@@ -193,6 +198,27 @@ export class Renderer {
     ball.isPickable = false;
     this.shadows?.addShadowCaster(ball);
     return ball;
+  }
+
+  /**
+   * Silhouette of the ball through the near board (v0.1.19). A copy of the ball, slightly
+   * bigger, that is drawn only where the depth buffer already holds something NEARER than it
+   * (depth function GREATER): so it shows where the board (or a player) hides the ball and is
+   * invisible when the ball is in view. One extra draw call, no per-frame cost besides that.
+   */
+  private createBallGhost(): Mesh {
+    const ghost = CreateSphere('ballGhost', { diameter: BALL_RADIUS * 2, segments: 12 }, this.scene);
+    const mat = new StandardMaterial('ballGhostMat', this.scene);
+    mat.diffuseColor = new Color3(1, 0.8, 0.35);
+    mat.emissiveColor = new Color3(1, 0.8, 0.35);
+    mat.disableLighting = true;
+    mat.depthFunction = Constants.GREATER;
+    mat.disableDepthWrite = true;
+    mat.alpha = TUNING.ball.ghostOpacity;
+    ghost.material = mat;
+    ghost.isPickable = false;
+    ghost.isVisible = false;
+    return ghost;
   }
 
   /** Soft disc on the floor under the ball (readability; fades as the ball rises). */
@@ -447,6 +473,15 @@ export class Renderer {
     const scale = Math.max(1, k.visualScale * sizeFactor);
     this.ballMesh.scaling.setAll(scale);
     this.ballMesh.position.set(bx, by + BALL_RADIUS * (scale - 1), bz);
+    // Silhouette through the near board: only close to it (the board is the −z side).
+    const ghost = this.ballGhost;
+    const nearBoard = bz + RINK.width / 2;
+    ghost.isVisible = k.ghost >= 0.5 && nearBoard < k.ghostDistance;
+    if (ghost.isVisible) {
+      ghost.scaling.setAll(scale * Math.max(1.05, k.ghostSize));
+      ghost.position.copyFrom(this.ballMesh.position);
+      (ghost.material as StandardMaterial).alpha = k.ghostOpacity;
+    }
     const mr = k.markerRadius * Math.max(0.5, sizeFactor);
     this.ballMarker.isVisible = mr > 0;
     if (mr > 0) {
@@ -500,6 +535,11 @@ export class Renderer {
       ring.position.set(mesh.position.x, 0.009, mesh.position.z);
       ring.visibility = 1 - age / r.feedbackTime;
     });
+  }
+
+  /** Is the ball silhouette being drawn (tests/debug)? */
+  get ballGhostVisible(): boolean {
+    return this.ballGhost.isVisible;
   }
 
   /** Reception ring on screen: the outcome it shows (0 clean … 3 miss), −1 = none (tests). */
