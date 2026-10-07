@@ -41,6 +41,10 @@ export interface PlayerState {
   passLockOffset: number;
   /** Kind of the last pass this player received (teammates give it back the same way). */
   receivedKind: number;
+  /** F1.4c: ticks left to pass "first touch" after receiving, and how hard that
+   * reception was (final difficulty, src/sim/receive.ts): a pass in that time is less exact. */
+  firstTouchTicks: number;
+  receiveDifficulty: number;
   /** Ticks during which this player can't take the ball (just passed / shot / lost it). */
   noPickupTicks: number;
   /** Input buffer (docs/03 §3): ticks left for a PASE / TIRO / REGATE press to still fire. */
@@ -99,7 +103,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,

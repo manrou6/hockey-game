@@ -149,10 +149,10 @@ export const TUNING = {
     /** Separation above which the ball can get away, and how fast (per metre of excess, per second). */
     safeSeparation: 0.35,
     lossRate: 3,
-    /** Taking a loose ball: reach from the blade, max height and max relative speed. */
+    /** Taking a loose ball: reach from the blade and max height (how well it is controlled:
+     * the `receive` section). */
     pickupRadius: 0.45,
     pickupMaxHeight: 0.35,
-    pickupMaxRelSpeed: 11,
     /** Time after passing/shooting/losing it before the same player can take the ball again (s). */
     relockTime: 0.3,
     /** Sprint top speed while carrying the ball (sprint without ball: skating.sprintSpeed). */
@@ -200,13 +200,6 @@ export const TUNING = {
     loftMaxSpeed: 24,
     loftMinDistance: 6,
     loftMaxDistance: 30,
-    /** Reception zone of the teammate a pass is aimed at: the ball within this distance of
-     * him (m, low enough and not too fast) reaches his stick (a stretch, not a magnet).
-     * F1.4c: its outer part will be a harder control (heavy touch / rebound). */
-    receiveReach: 0.65,
-    /** PROVISIONAL until F1.4c (reception): fastest ball (relative to him, m/s) the receiver
-     * of an aimed pass still controls (a loose ball: dribble.pickupMaxRelSpeed). */
-    receiveMaxRelSpeed: 20,
     /** How much the pass leads a moving receiver (0 = to where he is, 1 = to where he'll be). */
     lead: 1,
     /** Direction error (rad, random but deterministic, about ±1 standard deviation): always,
@@ -221,6 +214,61 @@ export const TUNING = {
     errorPower: 0.04,
     /** How much a perfect Pase attribute (99) reduces the errors (0 = nothing, 1 = no error). */
     attributeAdvantage: 0.5,
+  },
+  /**
+   * Reception (F1.4c, docs/03 §3): every time a loose ball reaches a stick it is rolled once
+   * (deterministic) how well it is controlled. Difficulty = speed + where it comes from +
+   * height/bounce + the receiver's state + stretching, reduced by the Control attribute, plus
+   * some randomness; then: clean < heavyAt ≤ heavy touch < reboundAt ≤ rebound < missAt ≤ miss.
+   * Values of an AVERAGE player (read through src/sim/feel.ts receiveFor).
+   */
+  receive: {
+    /** Reception zone of the receiver of an aimed pass: the ball within this distance of his
+     * body (m, low enough) reaches his stick (stretching for it: harder, see stretchPenalty).
+     * Anybody else needs it at the blade (dribble.pickupRadius). */
+    reach: 0.65,
+    /** Ball speed relative to the receiver (m/s): up to easySpeed it adds nothing; at hardSpeed
+     * it adds 1 (a rebound on its own for an average player, before Control). */
+    easySpeed: 10,
+    hardSpeed: 25,
+    /** Faster than this (relative, m/s) nobody can touch it: it goes past. */
+    maxRelSpeed: 30,
+    /** Coming from behind the receiver (vs. from the front); from the side counts half. */
+    behindPenalty: 0.6,
+    /** Arriving in the air at dribble.pickupMaxHeight, and bouncing at bounceSpeed (m/s) or more. */
+    heightPenalty: 0.3,
+    bouncePenalty: 0.2,
+    bounceSpeed: 3,
+    /** Receiver at full sprint, and off balance (skid stop or trencada). */
+    sprintPenalty: 0.25,
+    offBalancePenalty: 0.4,
+    /** Stretching: the ball at the edge of the reception zone, far from the blade. */
+    stretchPenalty: 0.5,
+    /** How much a perfect Control attribute (99) reduces the difficulty (0 = nothing, 1 = all). */
+    controlAdvantage: 0.5,
+    /** Random spread added to the difficulty (total width; 0 = always the same outcome). */
+    randomness: 0.35,
+    /** Outcome thresholds of the final difficulty. */
+    heavyAt: 0.35,
+    reboundAt: 0.7,
+    missAt: 1.05,
+    /** Heavy touch: the ball stays this far off the stick at first (m; it may get away). */
+    heavySeparation: 0.55,
+    /** Rebound: it bounces back off the stick keeping this fraction of its relative speed,
+     * within ±spread (rad) of straight back, popping up at lift (m/s). */
+    reboundKeep: 0.35,
+    reboundSpread: 0.7,
+    reboundLift: 1,
+    /** After a rebound or a miss he can't touch it again for this long (s). */
+    lockTime: 0.25,
+    /** First-touch pass: a pass leaving within this time of the reception (s) has its error
+     * multiplied by firstTouchError (and more after a hard reception: × (1 + difficulty)). */
+    firstTouchWindow: 0.2,
+    firstTouchError: 1.6,
+    /** 1 = a short coloured ring under the receiver shows how the reception went (render):
+     * green clean, yellow heavy touch, orange rebound, red miss; it lasts feedbackTime (s). */
+    showFeedback: 1,
+    feedbackTime: 0.6,
   },
   /**
    * Pass assist (docs/03 §3): the teammate closest to the aimed direction inside the cone is

@@ -47,11 +47,11 @@ describe('dribbling: taking the ball', () => {
     expect(w.ball.owner).toBe(0);
   });
 
-  it('a ball arriving too fast is not controlled', () => {
+  it('a ball arriving faster than receive.maxRelSpeed is not controlled', () => {
     const w = createWorld(1);
     const p = w.players[0]!;
     placeBall(w.ball, p.x + 6, p.y - TUNING.dribble.stickSide);
-    w.ball.vx = -25;
+    w.ball.vx = -(TUNING.receive.maxRelSpeed + 2);
     run(w, cmd(0, 0), 30);
     expect(w.ball.owner).toBe(-1);
   });

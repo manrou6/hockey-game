@@ -23,6 +23,9 @@ import { QUALITY_PRESETS, type QualityLevel } from '../config/quality';
 import { BALL_RADIUS, type WorldState } from '../sim/world';
 import { TUNING } from '../config/tuning';
 import { buildRink } from './rinkBuilder';
+
+/** Reception ring colours by outcome (src/sim/receive.ts order). */
+const RECEPTION_COLORS = ['rgba(70,230,100,1)', 'rgba(255,225,60,1)', 'rgba(255,140,30,1)', 'rgba(255,60,60,1)'];
 import { CameraRig } from './cameraRig';
 import type { CameraContext, CameraPresetId } from './cameraPresets';
 
@@ -65,6 +68,10 @@ export class Renderer {
   private readonly controlRing: Mesh;
   /** Ring under the teammate the controlled player's pass would go to (assist target). */
   private readonly targetRing: Mesh;
+  /** Short ring under a player after he receives the ball, one per outcome (F1.4c):
+   * green clean, yellow heavy touch, orange rebound, red miss. */
+  private readonly receptionRings: Mesh[];
+  private receptionShown = -1;
   /** Shirt number floating above each player's head (always facing the camera). */
   private readonly numberLabels: Mesh[] = [];
   /** Arrow on the floor showing the pass while PASE is held (and a moment after it leaves). */
@@ -107,6 +114,11 @@ export class Renderer {
     this.ballMarker = this.createBallMarker();
     this.controlRing = this.createRing('controlRing', 'rgba(255,214,40,0.95)', 0.62, 12);
     this.targetRing = this.createRing('targetRing', 'rgba(110,235,255,1)', 0.6, 14);
+    this.receptionRings = RECEPTION_COLORS.map((c, i) => {
+      const ring = this.createRing(`receptionRing${i}`, c, 0.85, 10);
+      ring.isVisible = false;
+      return ring;
+    });
     this.arrow = this.createPassArrow();
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
@@ -420,6 +432,7 @@ export class Renderer {
     const target = this.playerMeshes[world.aimTarget];
     this.targetRing.isVisible = Boolean(target) && TUNING.assist.targetRing >= 0.5;
     if (target) this.targetRing.position.set(target.position.x, 0.007, target.position.z);
+    this.syncReceptionRing(world);
     // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
     // compensated by the distance to the camera (last frame's pose) and multiplied by the
     // current camera's own factor; never smaller than the real ball.
@@ -474,6 +487,26 @@ export class Renderer {
   }
 
   /** Is the pass arrow drawn right now, and its colour (for tests/debug). */
+  /** Reception feedback ring: shown for receive.feedbackTime after a reception, fading out. */
+  private syncReceptionRing(world: WorldState): void {
+    const r = TUNING.receive;
+    const age = (world.tick - world.lastReceptionTick) / TUNING.sim.tickRate;
+    const mesh = this.playerMeshes[world.lastReceptionPlayer];
+    const show = r.showFeedback >= 0.5 && Boolean(mesh) && age >= 0 && age < r.feedbackTime;
+    this.receptionShown = show ? world.lastReceptionOutcome : -1;
+    this.receptionRings.forEach((ring, i) => {
+      ring.isVisible = show && i === world.lastReceptionOutcome;
+      if (!ring.isVisible || !mesh) return;
+      ring.position.set(mesh.position.x, 0.009, mesh.position.z);
+      ring.visibility = 1 - age / r.feedbackTime;
+    });
+  }
+
+  /** Reception ring on screen: the outcome it shows (0 clean … 3 miss), −1 = none (tests). */
+  get receptionFeedback(): number {
+    return this.receptionShown;
+  }
+
   get passArrowState(): { visible: boolean; r: number; g: number; b: number; length: number } {
     const a = this.arrow;
     const c = a.mat.emissiveColor;

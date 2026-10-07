@@ -157,18 +157,19 @@ export function releaseBall(ball: BallState, owner: PlayerState, tuning: Tuning)
 }
 
 /**
- * Can this player take the loose ball right now? Normally the ball must reach his blade; the
- * receiver of an aimed pass has a bigger reception zone around his body (`reach`, m) and can
- * control a faster ball (`maxRelSpeed`, m/s; 0 = the usual limit).
+ * Can the loose ball reach this player's stick right now? Distance from his blade (m), or −1
+ * if not. Normally it must reach the blade (pickupRadius); the receiver of an aimed pass has a
+ * bigger reception zone around his body (`reach`, m: stretching for it). Whether he controls
+ * it is decided by the reception (src/sim/receive.ts).
  */
-export function canPickUp(ball: BallState, p: PlayerState, tuning: Tuning, reach = 0, maxRelSpeed = 0): boolean {
+export function pickupDistance(ball: BallState, p: PlayerState, tuning: Tuning, reach = 0): number {
   const d = dribbleFor(p, tuning);
-  if (ball.owner !== -1 || ball.inGoal !== 0 || p.noPickupTicks > 0) return false;
-  if (ball.z - RINK.ballRadius > d.pickupMaxHeight) return false;
+  if (ball.owner !== -1 || ball.inGoal !== 0 || p.noPickupTicks > 0) return -1;
+  if (ball.z - RINK.ballRadius > d.pickupMaxHeight) return -1;
   const b = bladePoint(p, tuning);
-  const inZone = Math.hypot(ball.x - b.x, ball.y - b.y) <= d.pickupRadius || (reach > 0 && Math.hypot(ball.x - p.x, ball.y - p.y) <= reach);
-  if (!inZone) return false;
-  return Math.hypot(ball.vx - p.vx, ball.vy - p.vy) <= Math.max(d.pickupMaxRelSpeed, maxRelSpeed);
+  const blade = Math.hypot(ball.x - b.x, ball.y - b.y);
+  const inZone = blade <= d.pickupRadius || (reach > 0 && Math.hypot(ball.x - p.x, ball.y - p.y) <= reach);
+  return inZone ? blade : -1;
 }
 
 export function pickUp(ball: BallState, index: number, p: PlayerState): void {
@@ -187,6 +188,7 @@ export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning
   p.bufShoot = cmd.shoot ? ticks : Math.max(0, p.bufShoot - 1);
   p.bufDribble = cmd.dribble ? ticks : Math.max(0, p.bufDribble - 1);
   if (p.noPickupTicks > 0) p.noPickupTicks--;
+  if (p.firstTouchTicks > 0) p.firstTouchTicks--;
 }
 
 /**

@@ -27,3 +27,7 @@ export function dribbleFor(_p: PlayerState, tuning: Tuning): Tuning['dribble'] {
 export function passFor(_p: PlayerState, tuning: Tuning): Tuning['pass'] {
   return tuning.pass;
 }
+
+export function receiveFor(_p: PlayerState, tuning: Tuning): Tuning['receive'] {
+  return tuning.receive;
+}

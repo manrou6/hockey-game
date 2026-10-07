@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -125,7 +125,6 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'dribble.stickForward', min: 0.3, max: 0.9, step: 0.01, unit: 'm' },
       { path: 'dribble.stickSide', min: -0.4, max: 0.4, step: 0.01, unit: 'm' },
       { path: 'dribble.pickupRadius', min: 0.2, max: 1, step: 0.05, unit: 'm' },
-      { path: 'dribble.pickupMaxRelSpeed', min: 3, max: 30, step: 0.5, unit: 'm/s' },
       { path: 'dribble.pickupMaxHeight', min: 0.05, max: 1, step: 0.05, unit: 'm' },
       { path: 'dribble.pressureRadius', min: 0.5, max: 4, step: 0.1, unit: 'm' },
       { path: 'dribble.relockTime', min: 0, max: 1, step: 0.05, unit: 's' },
@@ -144,8 +143,6 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'pass.driveLandShort', min: 0, max: 5, step: 0.25, unit: 'm' },
       { path: 'pass.driveNoTargetDistance', min: 4, max: 30, step: 0.5, unit: 'm' },
       { path: 'pass.driveNoTargetMaxDistance', min: 6, max: 40, step: 0.5, unit: 'm' },
-      { path: 'pass.receiveReach', min: 0.2, max: 2, step: 0.05, unit: 'm' },
-      { path: 'pass.receiveMaxRelSpeed', min: 5, max: 30, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundArrivalSpeed', min: 1, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundMinSpeed', min: 3, max: 25, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundMaxSpeed', min: 10, max: 35, step: 0.5, unit: 'm/s' },
@@ -163,6 +160,36 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'pass.errorLoft', min: 1, max: 3, step: 0.1, unit: '×' },
       { path: 'pass.errorPower', min: 0, max: 20, step: 1, unit: '%', scale: 100 },
       { path: 'pass.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+    ],
+  },
+  {
+    id: 'receive',
+    params: [
+      { path: 'receive.easySpeed', min: 0, max: 20, step: 0.5, unit: 'm/s' },
+      { path: 'receive.hardSpeed', min: 8, max: 40, step: 0.5, unit: 'm/s' },
+      { path: 'receive.controlAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'receive.randomness', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'receive.heavyAt', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.reboundAt', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.missAt', min: 0, max: 3, step: 0.05, unit: '' },
+      { path: 'receive.behindPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.heightPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.bouncePenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.bounceSpeed', min: 0.5, max: 8, step: 0.25, unit: 'm/s' },
+      { path: 'receive.sprintPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.offBalancePenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.stretchPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'receive.reach', min: 0.2, max: 2, step: 0.05, unit: 'm' },
+      { path: 'receive.maxRelSpeed', min: 10, max: 50, step: 0.5, unit: 'm/s' },
+      { path: 'receive.heavySeparation', min: 0, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'receive.reboundKeep', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'receive.reboundSpread', min: 0, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'receive.reboundLift', min: 0, max: 5, step: 0.1, unit: 'm/s' },
+      { path: 'receive.lockTime', min: 0, max: 1, step: 0.05, unit: 's' },
+      { path: 'receive.firstTouchWindow', min: 0, max: 1, step: 0.05, unit: 's' },
+      { path: 'receive.firstTouchError', min: 1, max: 4, step: 0.1, unit: '×' },
+      { path: 'receive.showFeedback', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'receive.feedbackTime', min: 0.1, max: 2, step: 0.05, unit: 's' },
     ],
   },
   {
