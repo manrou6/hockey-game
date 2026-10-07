@@ -2,11 +2,12 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bufferActions, canPickUp, pickUp, provisionalShot, stepDribble } from './dribble';
+import { bufferActions, pickupDistance, provisionalShot, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
-import { passFor, skatingFor } from './feel';
+import { passFor, receiveFor, skatingFor } from './feel';
+import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
@@ -63,6 +64,10 @@ export interface WorldState {
   lastPassKind: PassKind;
   meetX: number;
   meetY: number;
+  /** The last reception (F1.4c): tick, who, and how it went (src/sim/receive.ts). */
+  lastReceptionTick: number;
+  lastReceptionPlayer: number;
+  lastReceptionOutcome: ReceiveOutcome;
 }
 
 const IDLE: PlayerCommand = emptyCommand();
@@ -105,6 +110,9 @@ export function createWorld(seed: number, mates = 0): WorldState {
     lastPassKind: PASS_GROUND,
     meetX: Number.NaN,
     meetY: Number.NaN,
+    lastReceptionTick: -1000,
+    lastReceptionPlayer: -1,
+    lastReceptionOutcome: RECEIVE_CLEAN,
   };
 }
 
@@ -324,18 +332,25 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       const p = players[i]!;
       // The receiver of a pass has a bigger reception zone (stretching for it).
       const aimedAt = i === world.passTo;
-      if (canPickUp(ball, p, tuning, aimedAt ? passFor(p, tuning).receiveReach : 0, aimedAt ? passFor(p, tuning).receiveMaxRelSpeed : 0)) {
-        pickUp(ball, i, p);
-        p.holdTime = 0;
-        p.receivedKind = i === world.passTo ? world.passKind : PASS_GROUND;
-        world.passTo = -1;
-        world.passFrom = -1;
-        // A teammate who gets the ball becomes the controlled player.
-        if (tuning.mates.switchControl >= 0.5 && p.bot && p.team === players[world.controlled]?.team) switchControl(world, i, human);
-        // Input buffer: a pass/shot released just before receiving fires now (first touch).
-        ballActions(world, i, i === world.controlled ? human : effective[i]!, human, tuning);
+      const blade = pickupDistance(ball, p, tuning, aimedAt ? receiveFor(p, tuning).reach : 0);
+      if (blade < 0) continue;
+      // One roll per approach: clean, heavy touch, rebound or miss (src/sim/receive.ts).
+      const outcome = receiveBall(ball, i, p, blade, tuning, world.rng, world.events);
+      world.lastReceptionTick = world.tick;
+      world.lastReceptionPlayer = i;
+      world.lastReceptionOutcome = outcome;
+      if (outcome !== RECEIVE_CLEAN && outcome !== RECEIVE_HEAVY) {
+        // A rebound off his stick ends the pass (it hit something); a miss goes on past him.
         break;
       }
+      p.receivedKind = aimedAt ? world.passKind : PASS_GROUND;
+      world.passTo = -1;
+      world.passFrom = -1;
+      // A teammate who gets the ball becomes the controlled player.
+      if (tuning.mates.switchControl >= 0.5 && p.bot && p.team === players[world.controlled]?.team) switchControl(world, i, human);
+      // Input buffer: a pass/shot released just before receiving fires now (first touch).
+      ballActions(world, i, i === world.controlled ? human : effective[i]!, human, tuning);
+      break;
     }
   }
   freePlayBallRules(world);
@@ -373,7 +388,7 @@ function passDied(world: WorldState, tuning: Tuning): boolean {
   const r = world.players[world.passTo];
   if (!r) return true;
   const a = ballApproach(ball, r.x, r.y, approachTmp);
-  const reach = passFor(r, tuning).receiveReach;
+  const reach = receiveFor(r, tuning).reach;
   return a !== null && a.t < -0.15 && Math.hypot(ball.x - r.x, ball.y - r.y) > reach + 1;
 }
 

@@ -3,7 +3,7 @@ import type { Tuning } from '../config/tuning';
 import { GRAVITY, type BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import { pressureOn, releaseBall } from './dribble';
-import { dribbleFor, passFor, skatingFor } from './feel';
+import { dribbleFor, passFor, receiveFor, skatingFor } from './feel';
 import { isCutting, isSkidding, wrapAngle, type PlayerState } from './player';
 import { nextFloat, type RngState } from './rng';
 
@@ -248,6 +248,12 @@ export function passErrorSd(p: PlayerState, players: readonly PlayerState[], lof
   return raw * (loft ? k.errorLoft : 1) * (1 - k.attributeAdvantage * skill);
 }
 
+/** Error multiplier of a pass right after receiving (first touch, F1.4c); 1 otherwise. */
+export function firstTouchFactor(p: PlayerState, tuning: Tuning): number {
+  if (p.firstTouchTicks <= 0) return 1;
+  return receiveFor(p, tuning).firstTouchError * (1 + Math.max(0, p.receiveDifficulty));
+}
+
 export interface PassResult {
   /** Receiver chosen by the assist (−1 = pass into space). */
   target: number;
@@ -436,10 +442,12 @@ export function performPass(
   const plan = planPass(players, ball, from, cmd, level, p.passKind as PassKind, p.passCharge, p.passLockTarget, p.passLockOffset, tuning, planTmp);
   p.passLockTarget = -2;
   // Human touch: a small direction and strength error (deterministic).
-  const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning);
+  // First touch (F1.4c): right after receiving it is less exact, more after a hard reception.
+  const touch = firstTouchFactor(p, tuning);
+  const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning) * touch;
   // A lofted pass's distance grows with the square of its speed: halve its strength error so
   // its distance error matches a ground pass's (long passes don't randomly fall short).
-  const powerSd = plan.kind === PASS_GROUND ? k.errorPower : k.errorPower / 2;
+  const powerSd = (plan.kind === PASS_GROUND ? k.errorPower : k.errorPower / 2) * touch;
   const speed = plan.speed * Math.max(0.5, 1 + gaussian(rng) * powerSd);
 
   releaseBall(ball, p, tuning);

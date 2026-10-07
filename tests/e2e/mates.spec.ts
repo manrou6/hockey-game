@@ -32,6 +32,13 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   await page.keyboard.up('KeyD');
   const receiver = (await state(page)).controlled;
   await expect.poll(async () => (await state(page)).owner, { timeout: 15_000 }).toBe(receiver);
+  // F1.4c: the reception was rolled (clean or heavy touch, since he has it).
+  const rec = await page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    return { player: w.lastReceptionPlayer as number, outcome: w.lastReceptionOutcome as number };
+  });
+  expect(rec.player).toBe(receiver);
+  expect(rec.outcome).toBeLessThanOrEqual(1);
   await page.waitForTimeout(600);
   await page.screenshot({ path: 'test-results/screenshots/f1-mates-switched.png' });
   expect(errors).toEqual([]);
@@ -172,4 +179,20 @@ test('pass arrow: shown while PASSADA is held (grows with power, white → orang
   await page.waitForTimeout(400);
   expect((await arrow()).visible).toBe(false);
   await btn.dispatchEvent('pointerup', { pointerId: 12, isPrimary: false });
+});
+
+test('reception ring: a short coloured ring shows how the reception went (orange = rebound)', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  const feedback = () => page.evaluate(() => (window as any).__PATINS__.renderer.receptionFeedback as number);
+  await page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    w.lastReceptionTick = w.tick;
+    w.lastReceptionPlayer = 1;
+    w.lastReceptionOutcome = 2;
+  });
+  await expect.poll(feedback, { timeout: 2_000 }).toBe(2);
+  await page.screenshot({ path: 'test-results/screenshots/f1-reception-ring.png' });
+  await expect.poll(feedback, { timeout: 3_000 }).toBe(-1);
 });
