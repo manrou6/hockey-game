@@ -91,6 +91,13 @@ export const TUNING = {
     /** Radius of the soft marker drawn on the floor under the ball (m, 0 = off). Helps read
      * where the ball is and how high it flies (render only). */
     markerRadius: 0.22,
+    /** Silhouette of the ball seen through whatever hides it (the near board, v0.1.19; render
+     * only): 1 = on. It only shows within ghostDistance (m) of the near board, with this opacity,
+     * drawn ghostSize times the (already enlarged) ball so it reads on a phone. */
+    ghost: 1,
+    ghostOpacity: 0.8,
+    ghostDistance: 3,
+    ghostSize: 2.2,
   },
   /**
    * Trencada: lateral four-wheel cut that redirects (docs/03 §1). Triggered at ≥ minSpeed when
@@ -174,7 +181,12 @@ export const TUNING = {
     /** Ground pass to a teammate: launch speed so it reaches him at arrivalSpeed, within
      * [minSpeed, maxSpeed]; to nobody: noTargetSpeed (m/s). Charging adds speed up to maxSpeed. */
     groundArrivalSpeed: 14,
-    groundMinSpeed: 17,
+    /** Short passes arrive gentler (v0.1.19): the arrival speed goes from shortArrivalSpeed up
+     * to groundArrivalSpeed as the distance goes from shortFrom to shortTo (m). */
+    groundShortArrivalSpeed: 12,
+    groundShortFrom: 5,
+    groundShortTo: 14,
+    groundMinSpeed: 12,
     groundMaxSpeed: 30,
     groundNoTargetSpeed: 18,
     /** Driven lofted pass (real ballistics, v0.1.14): it leaves the stick from the floor at
@@ -229,8 +241,8 @@ export const TUNING = {
     reach: 0.65,
     /** Ball speed relative to the receiver (m/s): up to easySpeed it adds nothing; at hardSpeed
      * it adds 1 (a rebound on its own for an average player, before Control). */
-    easySpeed: 10,
-    hardSpeed: 25,
+    easySpeed: 12,
+    hardSpeed: 26,
     /** Faster than this (relative, m/s) nobody can touch it: it goes past. */
     maxRelSpeed: 30,
     /** Coming from behind the receiver (vs. from the front); from the side counts half. */
@@ -348,10 +360,12 @@ export const TUNING = {
   },
   /** Human input devices (docs/03 §3). */
   input: {
-    /** PASE height by sliding the finger up on the button (CSS px of the landscape layout;
-     * ~60 px ≈ 1 cm on a Pixel 8a): from slideDrive = driven lofted, from slideLob = lob. */
-    passSlideDrive: 60,
-    passSlideLob: 120,
+    /** PASE height by dragging the finger diagonally while holding the button (v0.1.19): up-left
+     * = driven lofted, up-right = lob, no drag = low. The drag must be at least passDragDistance
+     * long (CSS px of the landscape layout; ~40 px ≈ 0.6 cm on a Pixel 8a) and lean at least
+     * passDragAngle (rad) away from straight up (a straight-up drag changes nothing). */
+    passDragDistance: 40,
+    passDragAngle: 0.2617994,
     /** Input buffer: a PASE/TIRO pressed this long before you get the ball still fires (s). */
     bufferTime: 0.15,
     /**

@@ -1,6 +1,7 @@
 import type { ActionId } from '../config/controlsLayout';
 import { TUNING } from '../config/tuning';
 import { capturePointer, el } from '../ui/dom';
+import { dragHeight } from './passGesture';
 import { toLayout } from '../ui/layout';
 
 /** Presses waiting to be consumed by the simulation (never lost, never repeated). */
@@ -17,17 +18,19 @@ export interface ActionEdges {
 
 /**
  * Right-thumb buttons (docs/03 §3A): PASE, TIRO, REGATE. Presses register on touch-down
- * (fastest response); PASE also reports when it is held (tap = ground pass, hold = lofted,
- * the pass leaves on release). Sprint is not on a button any more: it's the outer zone of the joystick.
+ * (fastest response); PASE also reports when it is held (the pass leaves on release; a diagonal
+ * drag picks the height). Sprint is not on a button any more: it's the outer zone of the joystick.
  * Position and size come from TUNING.buttons (editable live in the tuning panel).
  */
 export class ActionButtons {
   readonly element: HTMLElement;
   readonly buttons: Record<ActionId, HTMLButtonElement>;
   private readonly pointers: Record<ActionId, Set<number>> = { pass: new Set(), shoot: new Set(), dribble: new Set(), switch: new Set() };
-  /** PASE height by sliding up (docs/03 §3): where the finger went down, and how far up it is now. */
+  /** PASE height by dragging diagonally (docs/03 §3): where the finger went down, and how far
+   * it is now to the right (dx) and up (dy). */
   private readonly passStart = { x: 0, y: 0 };
-  private passLift = 0;
+  private passDx = 0;
+  private passDy = 0;
   private readonly pt = { x: 0, y: 0 };
 
   constructor(private readonly edges: ActionEdges) {
@@ -43,12 +46,13 @@ export class ActionButtons {
       switch: make('switch', 'controls.switch'),
     };
     this.element = el('div', { className: 'action-buttons' }, [this.buttons.pass, this.buttons.shoot, this.buttons.dribble, this.buttons.switch]);
-    // Sliding the finger up on PASE (it keeps tracking above the button: pointer capture).
+    // Dragging the finger diagonally on PASE (it keeps tracking outside the button: pointer capture).
     const pass = this.buttons.pass;
     pass.addEventListener('pointermove', (e) => {
       if (!this.pointers.pass.has(e.pointerId)) return;
       toLayout(e.clientX, e.clientY, this.pt);
-      this.passLift = Math.max(0, this.passStart.y - this.pt.y);
+      this.passDx = this.pt.x - this.passStart.x;
+      this.passDy = this.passStart.y - this.pt.y;
     });
     this.applyLayout();
   }
@@ -77,7 +81,7 @@ export class ActionButtons {
       if (id === 'pass') {
         this.edges.passHeight = 0;
         toLayout(e.clientX, e.clientY, this.passStart);
-        this.passLift = 0;
+        this.passDx = this.passDy = 0;
       }
       b.classList.add('pressed');
     });
@@ -91,14 +95,14 @@ export class ActionButtons {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  /** PASE height from the finger slid up while holding it: 0 low, 1 driven lofted, 2 lob. */
+  /** PASE height from the finger dragged while holding it: 0 low, 1 driven lofted (up-left), 2 lob (up-right). */
   passHeight(): number {
     return this.held('pass') ? this.liveHeight() : 0;
   }
 
   private liveHeight(): number {
     const i = TUNING.input;
-    return this.passLift >= i.passSlideLob ? 2 : this.passLift >= i.passSlideDrive ? 1 : 0;
+    return dragHeight(this.passDx, this.passDy, i.passDragDistance, i.passDragAngle);
   }
 
   /** Is this button being held down right now? */
