@@ -33,11 +33,12 @@ Aceptación: un partido completo de 2 × 5 min sin bloqueos; la IA ataca, defien
 Aceptación: tests unitarios de todas las reglas de docs/02 en verde; un partido "sucio" de prueba aplica bien sanciones.
 
 ## F4 — Presentación TV y arte
-- Jugadores semi-realistas con equipamiento, animación procedural de patinaje + tren superior, LOD.
-- Pabellones (3), público, iluminación PBR, marcador final, repeticiones de gol, celebraciones.
+- Jugadores **low-poly heroicos facetados** (proporciones atléticas algo exageradas, colores lisos sin texturas, stick a dos manos) con equipamiento, animación procedural de patinaje + tren superior, LOD (docs/04).
+- Pabellones (3) facetados, público de pocos polígonos instanciado, iluminación limpia mate con contraluz suave, marcador final, repeticiones de gol, celebraciones.
+- **Suelo seleccionable** por el jugador en Configuració (azul mate / parquet claro / crema; por pabellón en el futuro) y **modo noche NEÓN desbloqueable** (cómo se desbloquea se decide más adelante; la opción queda prevista): **forman parte del alcance de F4**. El arte se diseña para que cambiar de suelo o de modo sea **solo cambiar colores, materiales y luz, sin modelos distintos** (un «tema» de pabellón como datos). El suelo por defecto lo decide Guillem con la imagen 01 de `docs/ASSETS_SPEC.md`.
 - Audio completo (docs/04). Menús definitivos.
-- 12 equipos ficticios con escudos, colores y plantillas generadas.
-Aceptación: capturas comparables a un juego deportivo móvil comercial modesto; 60 fps en preset Medio en el Pixel.
+- 12 equipos ficticios con escudos (SVG planos), colores y plantillas generadas.
+Aceptación: capturas comparables a un juego deportivo móvil comercial modesto y coherentes con `docs/concept/style/`; 60 fps en preset Medio en el Pixel; los tres suelos y el tema neón se cambian en vivo sin recargar y con el mismo número de mallas (test).
 
 ## F5 — Modos
 - Liga (12 equipos, ida/vuelta, clasificación, estadísticas), Copa (grupos + KO), Modo carrera (creación de jugador, progresión, ofertas, selección), guardado local con exportar/importar.
