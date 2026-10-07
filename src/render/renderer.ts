@@ -76,6 +76,9 @@ export class Renderer {
    * green clean, yellow heavy touch, orange rebound, red miss. */
   private readonly receptionRings: Mesh[];
   private receptionShown = -1;
+  /** Wall pass markers on the floor (F1.4d): where the ball will hit the board / where you meet it. */
+  private readonly wallRing: Mesh;
+  private readonly meetRing: Mesh;
   /** Shirt number floating above each player's head (always facing the camera). */
   private readonly numberLabels: Mesh[] = [];
   /** Arrow on the floor showing the pass while PASE is held (and a moment after it leaves). */
@@ -124,6 +127,9 @@ export class Renderer {
       ring.isVisible = false;
       return ring;
     });
+    this.wallRing = this.createRing('wallRing', 'rgba(255,170,40,1)', 0.8, 12);
+    this.meetRing = this.createRing('meetRing', 'rgba(120,255,160,1)', 0.7, 12);
+    this.wallRing.isVisible = this.meetRing.isVisible = false;
     this.arrow = this.createPassArrow();
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
@@ -459,6 +465,7 @@ export class Renderer {
     this.targetRing.isVisible = Boolean(target) && TUNING.assist.targetRing >= 0.5;
     if (target) this.targetRing.position.set(target.position.x, 0.007, target.position.z);
     this.syncReceptionRing(world);
+    this.syncWallMarkers(world);
     // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
     // compensated by the distance to the camera (last frame's pose) and multiplied by the
     // current camera's own factor; never smaller than the real ball.
@@ -522,6 +529,30 @@ export class Renderer {
   }
 
   /** Is the pass arrow drawn right now, and its colour (for tests/debug). */
+  /**
+   * Wall pass markers (F1.4d): while aiming one (the arrow already points at the board), a ring
+   * where the ball will hit it and one where you will meet it; they stay until it is back.
+   */
+  private syncWallMarkers(world: WorldState): void {
+    const on = TUNING.wall.showMarkers >= 0.5;
+    const aiming = world.aimActive && world.aimPlan.wall;
+    const flying = world.wallFrom >= 0 || (world.wallBack >= 0 && world.passTo === world.wallBack);
+    const show = on && (aiming || flying);
+    this.wallRing.isVisible = this.meetRing.isVisible = show;
+    if (!show) return;
+    const wx = aiming ? world.aimPlan.wallX : world.wallX;
+    const wy = aiming ? world.aimPlan.wallY : world.wallY;
+    const mx = aiming ? world.aimPlan.meetX : world.meetX;
+    const my = aiming ? world.aimPlan.meetY : world.meetY;
+    this.wallRing.position.set(wx, 0.006, wy);
+    this.meetRing.position.set(mx, 0.006, my);
+  }
+
+  /** Wall pass markers on screen (tests/debug). */
+  get wallMarkersVisible(): boolean {
+    return this.wallRing.isVisible;
+  }
+
   /** Reception feedback ring: shown for receive.feedbackTime after a reception, fading out. */
   private syncReceptionRing(world: WorldState): void {
     const r = TUNING.receive;

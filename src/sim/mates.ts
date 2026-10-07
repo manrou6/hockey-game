@@ -183,8 +183,10 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   if (ball.owner === i) {
     if (!me) return;
     setMove(out, Math.atan2(me.y - p.y, me.x - p.x), TURN_ONLY);
-    // A tap of PASE with the same height he received it (the assist gives the strength).
-    if (p.holdTime >= m.returnDelay) {
+    // A tap of PASE with the same height he received it (the assist gives the strength). If
+    // you are on the move (a give-and-go: you passed and ran on) he gives it back at once.
+    const onTheMove = m.quickReturn >= 0.5 && Math.hypot(me.vx, me.vy) >= m.quickReturnSpeed;
+    if (p.holdTime >= (onTheMove ? m.quickReturnDelay : m.returnDelay)) {
       out.pass = true;
       out.passHeight = p.receivedKind === PASS_LOB ? 2 : p.receivedKind === PASS_DRIVE ? 1 : 0;
     }

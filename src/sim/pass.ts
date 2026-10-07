@@ -3,9 +3,11 @@ import type { Tuning } from '../config/tuning';
 import { GRAVITY, type BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import { pressureOn, releaseBall } from './dribble';
-import { dribbleFor, passFor, receiveFor, skatingFor } from './feel';
+import { dribbleFor, passFor, receiveFor, skatingFor, wallFor } from './feel';
 import { isCutting, isSkidding, wrapAngle, type PlayerState } from './player';
 import { nextFloat, type RngState } from './rng';
+import { BISECT_STEPS, roll, SOLVER_DT, SOLVER_MAX_TIME, type RollResult } from './rolling';
+import { createWallPlan, planWallPass } from './wallPass';
 
 // The pass (docs/03 §3). PASE tap = ground pass, hold = driven lofted pass ("alt fort"), hold
 // longer = lob ("vaselina"); it leaves when the button is released (or, within the input
@@ -131,37 +133,6 @@ export function choosePassTarget(players: readonly PlayerState[], from: number, 
 
 // --- Strength solvers (same force model as the ball physics, integrated per tick) ---------
 
-const SOLVER_DT = 1 / 120;
-const SOLVER_MAX_TIME = 6;
-const BISECT_STEPS = 28;
-
-interface RollResult {
-  /** Speed when it has rolled `dist` metres (0 if it stops before). */
-  speed: number;
-  time: number;
-}
-
-/** Roll a ball on the floor from speed v0 for `dist` metres. */
-function roll(v0: number, dist: number, k: Tuning['ball'], out: RollResult): RollResult {
-  let v = v0;
-  let x = 0;
-  let t = 0;
-  while (x < dist && t < SOLVER_MAX_TIME) {
-    v = Math.max(0, v - (k.rollingDecel + k.rollingDrag * v) * SOLVER_DT);
-    v *= Math.max(0, 1 - k.airDrag * v * SOLVER_DT);
-    if (v <= 0) {
-      out.speed = 0;
-      out.time = Infinity;
-      return out;
-    }
-    x += v * SOLVER_DT;
-    t += SOLVER_DT;
-  }
-  out.speed = x >= dist ? v : 0;
-  out.time = x >= dist ? t : Infinity;
-  return out;
-}
-
 const rollTmp: RollResult = { speed: 0, time: 0 };
 
 /** Arrival speed a ground pass aims for at `dist` m: gentler when the receiver is close. */
@@ -267,6 +238,10 @@ export interface PassResult {
   /** Where the pass was aimed to meet the receiver's stick (NaN = into space). */
   meetX: number;
   meetY: number;
+  /** A wall pass (F1.4d): against a side board, back to the passer. wallX/Y = where it hits. */
+  wall: boolean;
+  wallX: number;
+  wallY: number;
 }
 
 /** A pass worked out before the human error: what the arrow shows and what gets launched. */
@@ -278,7 +253,7 @@ export interface PassPlan extends PassResult {
 }
 
 export function createPassPlan(): PassPlan {
-  return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, angle: 0, speed: 0, elevation: 0 };
+  return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, wall: false, wallX: Number.NaN, wallY: Number.NaN, angle: 0, speed: 0, elevation: 0 };
 }
 
 const assistTmp: AssistParams = { cone: 0, correction: 0 };
@@ -375,6 +350,8 @@ export function planPass(
   out.elevation = 0;
   out.speed = k.groundNoTargetSpeed;
   out.meetX = out.meetY = Number.NaN;
+  out.wall = false;
+  out.wallX = out.wallY = Number.NaN;
   if (target >= 0) {
     const r = players[target]!;
     const d = dribbleFor(r, tuning);
@@ -422,11 +399,26 @@ export function planPass(
     out.speed = loftPassSpeed(k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * charge, k.loftAngle, k.loftMaxSpeed, kb);
   } else if (kind === PASS_DRIVE) {
     drivenLaunch(k.driveNoTargetDistance + (k.driveNoTargetMaxDistance - k.driveNoTargetDistance) * charge, k, kb, out);
-  } else out.speed = k.groundNoTargetSpeed + (Math.max(k.groundNoTargetSpeed, k.groundMaxSpeed) - k.groundNoTargetSpeed) * charge;
+  } else {
+    out.speed = k.groundNoTargetSpeed + (Math.max(k.groundNoTargetSpeed, k.groundMaxSpeed) - k.groundNoTargetSpeed) * charge;
+    // Nobody in the cone and aiming at a side board: the assist may make it a wall pass (F1.4d).
+    const w = wallFor(p, tuning);
+    const cone = level === 'strong' ? w.strongCone : level === 'light' ? w.lightCone : 0;
+    if (planWallPass(p, ball, aim, cmd.sprint, cone, Math.max(assist.correction, w.minCorrection), k.groundMinSpeed, k.groundMaxSpeed, tuning, wallTmp)) {
+      out.wall = true;
+      out.angle = wallTmp.angle;
+      out.speed = wallTmp.speed;
+      out.wallX = wallTmp.wallX;
+      out.wallY = wallTmp.wallY;
+      out.meetX = wallTmp.meetX;
+      out.meetY = wallTmp.meetY;
+    }
+  }
   return out;
 }
 
 const planTmp: PassPlan = createPassPlan();
+const wallTmp = createWallPlan();
 
 /**
  * Player `from` passes the ball he is carrying, using the kind/charge queued by the button,
@@ -449,7 +441,8 @@ export function performPass(
   p.passLockTarget = -2;
   // Human touch: a small direction and strength error (deterministic).
   // First touch (F1.4c): right after receiving it is less exact, more after a hard reception.
-  const touch = firstTouchFactor(p, tuning);
+  // A wall pass is planned (the assist worked out the bounce): smaller errors (F1.4d).
+  const touch = firstTouchFactor(p, tuning) * (plan.wall ? wallFor(p, tuning).errorFactor : 1);
   const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning) * touch;
   // A lofted pass's distance grows with the square of its speed: halve its strength error so
   // its distance error matches a ground pass's (long passes don't randomly fall short).
@@ -468,5 +461,8 @@ export function performPass(
   out.kind = plan.kind;
   out.meetX = plan.meetX;
   out.meetY = plan.meetY;
+  out.wall = plan.wall;
+  out.wallX = plan.wallX;
+  out.wallY = plan.wallY;
   return out;
 }

@@ -31,3 +31,7 @@ export function passFor(_p: PlayerState, tuning: Tuning): Tuning['pass'] {
 export function receiveFor(_p: PlayerState, tuning: Tuning): Tuning['receive'] {
   return tuning.receive;
 }
+
+export function wallFor(_p: PlayerState, tuning: Tuning): Tuning['wall'] {
+  return tuning.wall;
+}

@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -196,6 +196,24 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     ],
   },
   {
+    id: 'wall',
+    params: [
+      { path: 'wall.assist', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'wall.maxDistance', min: 3, max: 25, step: 0.5, unit: 'm' },
+      { path: 'wall.lightCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'wall.strongCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
+      { path: 'wall.arrivalSpeed', min: 3, max: 25, step: 0.5, unit: 'm/s' },
+      { path: 'wall.lead', min: 0, max: 1.5, step: 0.05, unit: '' },
+      { path: 'wall.sprintGain', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'wall.minSpeed', min: 0, max: 6, step: 0.25, unit: 'm/s' },
+      { path: 'wall.standingAhead', min: 0, max: 8, step: 0.25, unit: 'm' },
+      { path: 'wall.minCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'wall.errorFactor', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'wall.reach', min: 0.2, max: 2, step: 0.05, unit: 'm' },
+      { path: 'wall.showMarkers', min: 0, max: 1, step: 1, unit: '', toggle: true },
+    ],
+  },
+  {
     id: 'assist',
     params: [
       { path: 'assist.lightCone', min: 5, max: 90, step: 1, unit: '°', scale: DEG },
@@ -229,6 +247,9 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'mates.move', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'mates.switchLatchAngle', min: 10, max: 120, step: 5, unit: '°', scale: DEG },
       { path: 'mates.returnDelay', min: 0, max: 2, step: 0.05, unit: 's' },
+      { path: 'mates.quickReturn', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'mates.quickReturnSpeed', min: 0.5, max: 8, step: 0.5, unit: 'm/s' },
+      { path: 'mates.quickReturnDelay', min: 0, max: 1, step: 0.05, unit: 's' },
       { path: 'mates.supportAhead', min: -4, max: 8, step: 0.5, unit: 'm' },
       { path: 'mates.supportSide', min: 2, max: 9, step: 0.5, unit: 'm' },
       { path: 'mates.supportSpeed', min: 20, max: 100, step: 5, unit: '%', scale: 100 },

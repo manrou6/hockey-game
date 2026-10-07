@@ -296,6 +296,43 @@ export const TUNING = {
     targetRing: 1,
   },
   /**
+   * Wall pass (F1.4d, docs/03 §3): a low pass against a side board that comes back to where you
+   * will be. With the pass assist on (Ligera / Fuerta), when the stick points near the
+   * direction that makes the ball come back to you (continuing at your current velocity), the
+   * direction is corrected towards it (by the assist's correction) and the strength is
+   * automatic (arrives at arrivalSpeed). If a teammate is in the pass cone, the pass goes to him.
+   */
+  wall: {
+    /** 1 = the assist works out wall passes. */
+    assist: 1,
+    /** Longest first leg to the board (m). */
+    maxDistance: 14,
+    /** How far (rad) the stick may be from the ideal direction, per assist level. */
+    lightCone: 0.5,
+    strongCone: 0.7,
+    /** Speed at which the ball gets back to your stick (m/s). */
+    arrivalSpeed: 11,
+    /** The ball is aimed where you will be: continuing at your velocity (1 = exactly). Standing
+     * still (below minSpeed, m/s), it is aimed standingAhead metres ahead of where you face. */
+    lead: 1,
+    /** Sprinting, how far he is expected to speed up from the normal top speed towards the
+     * sprint top speed once the ball has left (0 = not at all, 1 = fully). */
+    sprintGain: 0.25,
+    minSpeed: 2,
+    standingAhead: 2.5,
+    /** At least this much of your aiming error is corrected (0..1), whatever the assist level
+     * (a bounce is hard to aim by hand): 1 = the direction is always the ideal one. */
+    minCorrection: 0.9,
+    /** A wall pass is a planned pass: its direction and strength errors are this fraction of a
+     * normal pass's (the board's own random deflection stays). */
+    errorFactor: 0.5,
+    /** The passer's reception zone for the ball coming back (m, around his body): bigger than
+     * a normal reception because the bounce is hard to read; stretching for it costs control. */
+    reach: 0.95,
+    /** 1 = markers on the floor where the ball will hit the board and where you will meet it. */
+    showMarkers: 1,
+  },
+  /**
    * Teammates test bench (F1.4) and who the human controls. Final design (docs/03 §3): after
    * a pass the control goes to the receiver and the passer moves on his own (FIFA-like).
    */
@@ -339,6 +376,11 @@ export const TUNING = {
     fetchRadius: 4,
     /** Only with switchControl = 0: time a teammate keeps the ball before giving it back (s). */
     returnDelay: 0.5,
+    /** Quick return (F1.4d, the give-and-go): if you are running on (faster than quickReturnSpeed,
+     * m/s) he gives it back after only quickReturnDelay (s), so the ball is ahead of you at once. */
+    quickReturn: 1,
+    quickReturnSpeed: 3,
+    quickReturnDelay: 0.1,
     /** So they don't mirror you: each teammate has his own rhythm (speed ± this fraction)
      * and his support spot drifts slowly by up to this many metres. */
     speedVariation: 0.15,
