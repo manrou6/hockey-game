@@ -6,7 +6,7 @@ import { bufferActions, pickupDistance, provisionalShot, stepDribble } from './d
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
-import { passFor, receiveFor, skatingFor } from './feel';
+import { passFor, receiveFor, skatingFor, wallFor } from './feel';
 import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
@@ -64,6 +64,16 @@ export interface WorldState {
   lastPassKind: PassKind;
   meetX: number;
   meetY: number;
+  /**
+   * Wall pass (F1.4d): while a wall pass travels to the board, `wallFrom` is the passer
+   * (otherwise −1); once it has bounced, `wallBack` is the passer it comes back to (it is then
+   * also `passTo`: he gets the receiver's bigger reception zone and goes to meet it).
+   * `wallX/Y` is where the ball will hit the board.
+   */
+  wallFrom: number;
+  wallBack: number;
+  wallX: number;
+  wallY: number;
   /** The last reception (F1.4c): tick, who, and how it went (src/sim/receive.ts). */
   lastReceptionTick: number;
   lastReceptionPlayer: number;
@@ -110,6 +120,10 @@ export function createWorld(seed: number, mates = 0): WorldState {
     lastPassKind: PASS_GROUND,
     meetX: Number.NaN,
     meetY: Number.NaN,
+    wallFrom: -1,
+    wallBack: -1,
+    wallX: Number.NaN,
+    wallY: Number.NaN,
     lastReceptionTick: -1000,
     lastReceptionPlayer: -1,
     lastReceptionOutcome: RECEIVE_CLEAN,
@@ -164,7 +178,7 @@ function manualSwitch(world: WorldState, human: PlayerCommand): void {
 function autoSwitch(world: WorldState, human: PlayerCommand, tuning: Tuning): void {
   const m = tuning.mates;
   const me = world.players[world.controlled];
-  if (!me || m.autoSwitch < 0.5 || m.switchControl < 0.5 || world.passTo >= 0 || !ballLooseForTeam(world)) {
+  if (!me || m.autoSwitch < 0.5 || m.switchControl < 0.5 || world.passTo >= 0 || world.wallFrom >= 0 || !ballLooseForTeam(world)) {
     world.switchCandidate = -1;
     world.switchCandidateTicks = 0;
     return;
@@ -214,7 +228,7 @@ function freePlayBallRules(world: WorldState): void {
 /** Per-player commands actually applied this tick (scratch, reused: no allocation). */
 const effective: PlayerCommand[] = [];
 const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0, meetX: Number.NaN, meetY: Number.NaN };
-const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0 };
+const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0, wall: false, wallX: 0, wallY: 0 };
 const assistTmp: AssistParams = { cone: 0, correction: 0 };
 
 function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
@@ -267,14 +281,21 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   if (world.passTo >= 0 || world.passFrom >= 0) {
     const taken = ball.owner >= 0;
     const died = !taken && world.passTo >= 0 && passDied(world, tuning);
-    if (taken || died || (world.passTo < 0 && (Math.hypot(ball.vx, ball.vy) < 1 || hitSomething(world)))) {
+    if (world.wallFrom >= 0 && !taken && world.passTo < 0 && world.events.some((e) => e.type === 'board')) {
+      // A wall pass has bounced off the board: it comes back to the passer, who goes to meet it.
+      world.passTo = world.wallBack = world.wallFrom;
+      world.wallFrom = -1;
+      world.passFrom = -1;
+    } else if (taken || died || (world.passTo < 0 && (Math.hypot(ball.vx, ball.vy) < 1 || hitSomething(world)))) {
       // A lost pass: the control goes to the teammate nearest the ball (if enabled).
       if (died && tuning.mates.lostPassSwitch >= 0.5 && tuning.mates.switchControl >= 0.5) {
         const nearest = nearestTeammate(world, ball.x, ball.y);
         if (nearest >= 0 && nearest !== world.controlled) switchControl(world, nearest, human, false);
       }
       world.passTo = -1;
-      world.passFrom = -1; // e.g. off the boards it may be his again (wall pass, F1.4d)
+      world.passFrom = -1; // off the boards the ball may be his again (wall pass, F1.4d)
+      world.wallFrom = -1;
+      world.wallBack = -1;
     }
   }
   world.events.length = 0;
@@ -332,7 +353,9 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       const p = players[i]!;
       // The receiver of a pass has a bigger reception zone (stretching for it).
       const aimedAt = i === world.passTo;
-      const blade = pickupDistance(ball, p, tuning, aimedAt ? receiveFor(p, tuning).reach : 0);
+      // The passer of a wall pass has a bigger zone for the ball coming back from the board.
+      const reach = !aimedAt ? 0 : i === world.wallBack ? Math.max(receiveFor(p, tuning).reach, wallFor(p, tuning).reach) : receiveFor(p, tuning).reach;
+      const blade = pickupDistance(ball, p, tuning, reach);
       if (blade < 0) continue;
       // One roll per approach: clean, heavy touch, rebound or miss (src/sim/receive.ts).
       const outcome = receiveBall(ball, i, p, blade, tuning, world.rng, world.events);
@@ -346,6 +369,7 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       p.receivedKind = aimedAt ? world.passKind : PASS_GROUND;
       world.passTo = -1;
       world.passFrom = -1;
+      world.wallFrom = world.wallBack = -1;
       // A teammate who gets the ball becomes the controlled player.
       if (tuning.mates.switchControl >= 0.5 && p.bot && p.team === players[world.controlled]?.team) switchControl(world, i, human);
       // Input buffer: a pass/shot released just before receiving fires now (first touch).
@@ -417,6 +441,7 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   const p = world.players[i]!;
   if (provisionalShot(world.ball, p, tuning)) {
     world.passTo = -1;
+    world.wallFrom = world.wallBack = -1;
     return true;
   }
   if (p.bufPass <= 0) return false;
@@ -425,6 +450,11 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   world.passTo = passResult.target;
   world.passKind = passResult.kind;
   world.passFrom = i;
+  // A wall pass: the ball goes to the board; the passer gets it back once it has bounced.
+  world.wallFrom = passResult.wall ? i : -1;
+  world.wallBack = -1;
+  world.wallX = passResult.wallX;
+  world.wallY = passResult.wallY;
   if (i === world.controlled) {
     world.lastPassTick = world.tick;
     world.lastPassX = p.x;
@@ -438,7 +468,7 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   // Without an assisted receiver (assist off, or nobody in the cone) the teammate the ball is
   // actually heading to is the receiver: it doesn't steer the ball, it only means he goes for
   // it as the receiver of a pass (reception zone, no meeting point).
-  if (world.passTo < 0) world.passTo = findReceiver(world.players, world.ball, tuning, i);
+  if (world.passTo < 0 && !passResult.wall) world.passTo = findReceiver(world.players, world.ball, tuning, i);
   // FIFA-like: the control goes straight to the receiver.
   if (i === world.controlled && tuning.mates.switchControl >= 0.5) {
     const to = world.passTo;

@@ -44,7 +44,7 @@ test('two teammates; a pass gives the control to the receiver (FIFA-like) and he
   expect(errors).toEqual([]);
 });
 
-test('PASSADA: holding fills the arc (power); dragging up-left turns it orange (driven), up-right purple (lob); it leaves on release', async ({ page }) => {
+test('PASSADA: holding fills the arc (power); dragging up-right turns it orange (driven), up-left purple (lob); it leaves on release', async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto('./?quality=low');
   await page.click('#btn-play');
@@ -65,14 +65,14 @@ test('PASSADA: holding fills the arc (power); dragging up-left turns it orange (
   await expect(btn).toHaveClass(/charging/);
   await expect(btn).not.toHaveClass(/drive|lob/); // no slide: low pass (white)
   expect((await state(page)).owner).toBe(0); // nothing leaves while held
-  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x - 45, clientY: y - 45 });
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x + 45, clientY: y - 45 });
   await expect(btn).toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge.png' });
-  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x + 45, clientY: y - 45 });
+  await btn.dispatchEvent('pointermove', { pointerId: 9, isPrimary: false, clientX: x - 45, clientY: y - 45 });
   await expect(btn).toHaveClass(/lob/);
   await expect(btn).not.toHaveClass(/drive/);
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-charge-lob.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x + 45, clientY: y - 45 });
+  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x - 45, clientY: y - 45 });
   await page.keyboard.up('KeyW');
   await page.keyboard.up('KeyD');
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
@@ -132,7 +132,7 @@ test('pass assist level is chosen in Settings (Lleugera by default) and remember
   await page.screenshot({ path: 'test-results/screenshots/f1-settings-assist.png' });
 });
 
-test('pass arrow: shown while PASSADA is held (grows with power, white → orange when dragging up-left), fades after, and can be switched off', async ({ page }) => {
+test('pass arrow: shown while PASSADA is held (grows with power, white → orange when dragging up-right), fades after, and can be switched off', async ({ page }) => {
   test.setTimeout(120_000);
   const arrow = () => page.evaluate(() => (window as any).__PATINS__.renderer.passArrowState as { visible: boolean; r: number; g: number; b: number; length: number });
   await page.goto('./?quality=low');
@@ -153,10 +153,10 @@ test('pass arrow: shown while PASSADA is held (grows with power, white → orang
   expect(white.b).toBeGreaterThan(0.9); // white: low pass
   // Holding charges the power: the arrow grows.
   await expect.poll(async () => (await arrow()).length, { timeout: 5_000 }).toBeGreaterThan(white.length + 0.5);
-  await btn.dispatchEvent('pointermove', { pointerId: 11, isPrimary: false, clientX: x - 45, clientY: y - 45 });
+  await btn.dispatchEvent('pointermove', { pointerId: 11, isPrimary: false, clientX: x + 45, clientY: y - 45 });
   await expect.poll(async () => (await arrow()).b, { timeout: 5_000 }).toBeLessThan(0.5); // orange: driven lofted
   await page.screenshot({ path: 'test-results/screenshots/f1-pass-arrow.png' });
-  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false, clientX: x - 45, clientY: y - 45 });
+  await btn.dispatchEvent('pointerup', { pointerId: 11, isPrimary: false, clientX: x + 45, clientY: y - 45 });
   await expect.poll(async () => (await state(page)).owner, { timeout: 5_000 }).not.toBe(0);
   // It fades away shortly after the pass.
   await expect.poll(async () => (await arrow()).visible, { timeout: 5_000 }).toBe(false);
@@ -197,7 +197,7 @@ test('reception ring: a short coloured ring shows how the reception went (orange
   await expect.poll(feedback, { timeout: 3_000 }).toBe(-1);
 });
 
-test('PASSADA with a REAL touch (not synthetic events): up-left drag = driven, up-right = lob, straight up = low', async ({ page }) => {
+test('PASSADA with a REAL touch (not synthetic events): up-right drag = driven, up-left = lob, straight up = low', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('./?quality=low');
   await page.click('#btn-play');
@@ -209,7 +209,7 @@ test('PASSADA with a REAL touch (not synthetic events): up-left drag = driven, u
   const height = () => page.evaluate(() => (window as any).__PATINS__.game.commands[0].passHeight as number);
   const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', px?: number, py?: number) =>
     cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: px!, y: py! }] });
-  for (const [dx, dy, expected] of [[-35, -35, 1], [35, -35, 2], [0, -70, 0], [-12, -50, 0]] as const) {
+  for (const [dx, dy, expected] of [[35, -35, 1], [-35, -35, 2], [0, -70, 0], [12, -50, 0]] as const) {
     await touch('touchStart', x, y);
     for (let i = 1; i <= 8; i++) {
       await touch('touchMove', x + (dx * i) / 8, y + (dy * i) / 8);
@@ -219,4 +219,36 @@ test('PASSADA with a REAL touch (not synthetic events): up-left drag = driven, u
     await touch('touchEnd');
     await page.waitForTimeout(100);
   }
+});
+
+test('wall pass markers: rings on the floor where the ball hits the board and where he meets it, until it is back (the flow itself is in the unit tests)', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('./?quality=low');
+  await page.click('#btn-play');
+  const markers = () => page.evaluate(() => (window as any).__PATINS__.renderer.wallMarkersVisible as boolean);
+  expect(await markers()).toBe(false);
+  await page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    w.ball.owner = -1;
+    w.ball.x = w.ball.prevX = -3;
+    w.ball.y = w.ball.prevY = 4;
+    w.ball.vx = w.ball.vy = w.ball.vz = 0;
+    w.wallFrom = 0; // a wall pass on its way to the board
+    w.wallX = 0;
+    w.wallY = 9.9;
+    w.meetX = 8;
+    w.meetY = 0;
+  });
+  await expect.poll(markers, { timeout: 3_000 }).toBe(true);
+  await page.screenshot({ path: 'test-results/screenshots/f1-wall-pass-markers.png' });
+  await page.evaluate(() => {
+    (window as any).__PATINS__.tuning.set('wall.showMarkers', 0);
+  });
+  await expect.poll(markers, { timeout: 3_000 }).toBe(false);
+  await page.evaluate(() => {
+    const P = (window as any).__PATINS__;
+    P.tuning.set('wall.showMarkers', 1);
+    P.game.world.wallFrom = -1; // it is over
+  });
+  await expect.poll(markers, { timeout: 3_000 }).toBe(false);
 });
