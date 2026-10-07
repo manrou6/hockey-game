@@ -3,7 +3,7 @@
 ## Dirección visual
 **Cambio de dirección de arte (decidido por Guillem, 2026-10-07; sustituye al «semi-realista» anterior):** **3D low-poly heroico facetado.** Referencia principal del estilo: las 3 imágenes de `docs/concept/style/` (la misma escena con suelo azul, parquet y crema).
 - **Facetado y limpio:** caras planas visibles y aristas nítidas en todo (sombreado plano, `convertToFlatShadedMesh()` o normales por cara en el propio modelo). Nada de fotorrealismo, nada de cartoon redondeado, nada de pixel art.
-- **Materiales mates**, de color liso (sin texturas fotográficas): nada de reflejos duros ni brillos. Luz limpia de pabellón cubierto con **contraluz suave** y **sombras suaves**; sin HDRI.
+- **Materiales mates**, de color liso (sin texturas fotográficas): nada de reflejos duros ni brillos. Luz limpia de pabellón cubierto con **contraluz suave** y **sombras suaves**; sin HDRI. **Única excepción** (aceptada por Guillem el 2026-10-07): el suelo del modo neón es brillante, con un reflejo barato (sin espejo real ni reflejos planares), siempre que cambiar de modo siga siendo solo colores, materiales y luz.
 - Prioridad de calidad visual: 1) jugadores y animación, 2) pista y bola, 3) porterías y vallas, 4) pabellón, 5) público.
 - Colores de equipación saturados y lisos para leer bien a los equipos desde la cámara lejana.
 
