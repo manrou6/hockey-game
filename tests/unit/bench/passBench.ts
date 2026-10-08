@@ -364,3 +364,142 @@ export function measureTurn(tuning: Tuning, slowTurn: number): CutStats {
   }
   return { turned, recovered, distance: dist, cut };
 }
+
+// --- Pass into space (P7, v0.1.22) -------------------------------------------------------
+
+export interface SpacePolicy {
+  /** How far ahead of the runner the human aims, as a fraction of the "ideal" lead (1 = exact). */
+  lead: number;
+  /** What the human does with the new controlled player: release the stick (auto-receive) or chase the ball. */
+  receive: 'release' | 'chase';
+}
+
+export interface SpaceStats {
+  n: number;
+  /** % of passes in which the ball gets within 1.2 m of the runner's body (a recoverable zone). */
+  zone: number;
+  /** % in which the runner ends up with the ball within 4 s of the release. */
+  has: number;
+  /** % clean receptions (of all). */
+  clean: number;
+  /** Seconds from the release to having the ball (those that did), mean and p90. */
+  timeMean: number;
+  timeP90: number;
+  /** % in which the control did not switch to the runner (no receiver chosen). */
+  noSwitch: number;
+}
+
+/** Ball speed (m/s) a human assumes when he leads a runner. */
+const HUMAN_BALL_SPEED = 11.5;
+
+/**
+ * One pass to a teammate who is RUNNING (constant velocity until the ball leaves): the human aims
+ * ahead of him, at where he will be, with `policy.lead` × the ideal lead and an aiming error.
+ * Then he plays the new controlled player as `policy.receive` says. Raso, tap, 4 s to recover it.
+ */
+export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aimError = 0.12, n = 150, runSpeed = 6.5): SpaceStats {
+  let zone = 0;
+  let has = 0;
+  let clean = 0;
+  let noSwitch = 0;
+  const times: number[] = [];
+  for (let seed = 1; seed <= n; seed++) {
+    const rnd = lcg(seed * 131 + 17);
+    const t = tuning;
+    const w = createWorld(seed, 2);
+    w.assist = level as WorldState['assist'];
+    const step = (c: PlayerCommand): void => stepWorld(w, [c], t);
+    for (let i = 0; i < 120 && w.ball.owner !== 0; i++) step(cmd(0.5, 0));
+    for (let i = 0; i < 60; i++) step(cmd());
+    const p = w.players[0]!;
+    const r = w.players[1]!;
+    const o = w.players[2]!;
+    p.x = p.prevX = -14 + rnd() * 4;
+    p.y = p.prevY = rnd() * 6 - 3;
+    p.vx = p.vy = 0;
+    w.ball.x = w.ball.prevX = p.x + 0.5;
+    w.ball.y = w.ball.prevY = p.y - 0.2;
+    // The runner: 6-14 m away, mostly to the side/ahead, running across (perpendicular to the line of sight ±).
+    const dist = 6 + rnd() * 8;
+    const bearing = (rnd() * 2 - 1) * 0.6;
+    r.x = r.prevX = Math.min(17, p.x + Math.cos(bearing) * dist);
+    r.y = r.prevY = Math.max(-6.5, Math.min(6.5, p.y + Math.sin(bearing) * dist));
+    let psi = bearing + Math.PI / 2 + (rnd() * 2 - 1) * 0.35;
+    if (Math.sin(psi) * r.y > 0) psi = bearing - Math.PI / 2 + (rnd() * 2 - 1) * 0.35; // towards the middle of the rink
+    const rvx = Math.cos(psi) * runSpeed;
+    const rvy = Math.sin(psi) * runSpeed;
+    o.x = o.prevX = Math.max(-19, p.x - 6);
+    o.y = o.prevY = p.y;
+    o.vx = o.vy = 0;
+    const force = (): void => {
+      r.vx = rvx;
+      r.vy = rvy;
+      r.heading = psi;
+    };
+    force();
+    // Where he will be when the ball gets there (human estimate), scaled by policy.lead.
+    const tapTicks = 6;
+    let tau = 0.1 + dist / HUMAN_BALL_SPEED;
+    let ax = 0;
+    let ay = 0;
+    for (let it = 0; it < 3; it++) {
+      ax = r.x + rvx * tau * policy.lead;
+      ay = r.y + rvy * tau * policy.lead;
+      tau = 0.1 + Math.hypot(ax - w.ball.x, ay - w.ball.y) / HUMAN_BALL_SPEED;
+    }
+    const a = Math.atan2(ay - p.y, ax - p.x) + (rnd() * 2 - 1) * aimError;
+    const sx = Math.cos(a);
+    const sy = Math.sin(a);
+    const startPass = w.lastPassTick;
+    let released = -1;
+    for (let k = 0; k < tapTicks + 20 && released < 0; k++) {
+      force();
+      step(cmd(sx, sy, { pass: k === 0, passHeld: k < tapTicks - 1 }));
+      if (w.lastPassTick !== startPass) released = w.tick;
+    }
+    if (released < 0) continue;
+    if (w.controlled !== 1) noSwitch++;
+    let outcome = -1;
+    let minD = Infinity;
+    let got = -1;
+    for (let k = 0; k < 240 && got < 0; k++) {
+      let c = cmd();
+      if (policy.receive === 'chase' && w.controlled === 1 && k >= 9) {
+        // Pure pursuit of the ball's predicted position, sprinting when far.
+        const bx = w.ball.x;
+        const by = w.ball.y;
+        const d0 = Math.hypot(bx - r.x, by - r.y);
+        const tt = Math.min(1.5, d0 / 8);
+        const px = bx + w.ball.vx * tt;
+        const py = by + w.ball.vy * tt;
+        const dd = Math.hypot(px - r.x, py - r.y);
+        if (dd > 0.6) c = cmd((px - r.x) / dd, (py - r.y) / dd, { sprint: dd > 4 });
+      }
+      step(c);
+      minD = Math.min(minD, Math.hypot(w.ball.x - r.x, w.ball.y - r.y));
+      if (w.lastReceptionTick >= released && w.lastReceptionPlayer === 1 && outcome < 0) outcome = w.lastReceptionOutcome;
+      if (w.ball.owner === 1) got = k;
+    }
+    if (minD <= 1.2) zone++;
+    if (got >= 0) {
+      has++;
+      times.push((got + 1) / 60);
+    }
+    if (outcome === 0) clean++;
+  }
+  const s = [...times].sort((x, y) => x - y);
+  return {
+    n,
+    zone: (100 * zone) / n,
+    has: (100 * has) / n,
+    clean: (100 * clean) / n,
+    timeMean: mean(times),
+    timeP90: s.length ? s[Math.min(s.length - 1, Math.floor(0.9 * s.length))]! : Number.NaN,
+    noSwitch: (100 * noSwitch) / n,
+  };
+}
+
+export function fmtSpace(s: SpaceStats): string {
+  const f = (v: number): string => (Number.isNaN(v) ? '  -' : v.toFixed(2));
+  return `zone ${s.zone.toFixed(0)}% | has ball ${s.has.toFixed(0)}% clean ${s.clean.toFixed(0)}% | time ${f(s.timeMean)}s p90 ${f(s.timeP90)}s | no control switch ${s.noSwitch.toFixed(0)}%`;
+}

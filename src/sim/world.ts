@@ -229,7 +229,7 @@ function freePlayBallRules(world: WorldState): void {
 const effective: PlayerCommand[] = [];
 const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0, meetX: Number.NaN, meetY: Number.NaN };
 const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0, wall: false, wallX: 0, wallY: 0 };
-const assistTmp: AssistParams = { cone: 0, correction: 0 };
+const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
 
 function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.moveX = from.moveX;
@@ -325,7 +325,7 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     if (updatePassButton(p, cmd, tuning, dt) === 'pressed') {
       // The receiver is chosen when PASE is pressed (the ring then stays on him).
       const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
-      lockPassTarget(players, i, aimAngle(p, i === world.controlled ? human : cmd), assistParams(level, tuning, assistTmp).cone);
+      lockPassTarget(players, i, aimAngle(p, i === world.controlled ? human : cmd), assistParams(level, tuning, assistTmp));
     }
     stepPlayer(p, cmd, tuning, dt, ball.owner === i);
     p.holdTime = ball.owner === i ? p.holdTime + dt : 0;
@@ -381,12 +381,13 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
   autoSwitch(world, human, tuning);
   // Who the controlled player's pass would go to right now (ring under that teammate).
   const me = players[world.controlled];
+  const assist = assistParams(world.assist, tuning, assistTmp);
   // While PASE is held the receiver is locked: the ring stays on him.
   world.aimTarget = !me || ball.owner !== world.controlled
     ? -1
     : me.passHold >= 0 && me.passLockTarget > -2
       ? me.passLockTarget
-      : choosePassTarget(players, world.controlled, aimAngle(me, human), assistParams(world.assist, tuning, assistTmp).cone);
+      : choosePassTarget(players, world.controlled, aimAngle(me, human), assist.cone, assist.spaceCone, assist.spaceMinSpeed);
   // The arrow: the pass as it would leave right now while PASE is held (no human error).
   world.aimActive = Boolean(me) && ball.owner === world.controlled && me!.passHold >= 0;
   if (world.aimActive) {

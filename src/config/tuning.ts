@@ -311,6 +311,29 @@ export const TUNING = {
     strongCorrection: 1,
     /** 1 = ring on the floor under the teammate the pass would go to. */
     targetRing: 1,
+    /**
+     * Pass into space (P7, v0.1.22). Aiming AHEAD of a teammate who is running (to where he is
+     * going) used to pull the ball back to his body, or, beyond the cone, no receiver was chosen
+     * at all (a fast ball past him, no switch of control). Now a running teammate (at least
+     * `spaceMinSpeed` m/s across your line of sight) is still the receiver up to `spaceCone` rad
+     * beyond the cone of the level, on the side he is running to (the ring shows it, the control
+     * goes to him, the pass is led as always).
+     *
+     * `<level>SpaceRespect` (0..1) additionally keeps more of your aim: the ball goes to the
+     * point of his path (his speed and direction) that your aim crosses, between `spaceMinTime`
+     * and `spaceMaxTime` s ahead of him, instead of to the usual lead. It acts when you aim more
+     * than `spaceDeadzone` rad ahead of him, easing in over `spaceRamp`. Measured in the bench
+     * it did NOT help (the ball ends too far for him to recover it): 0 = off in the three levels.
+     */
+    lightSpaceRespect: 0,
+    mediumSpaceRespect: 0,
+    strongSpaceRespect: 0,
+    spaceCone: 0.6,
+    spaceMinSpeed: 2.5,
+    spaceMinTime: 0.25,
+    spaceMaxTime: 2,
+    spaceDeadzone: 0.35,
+    spaceRamp: 0.17,
   },
   /**
    * Wall pass (F1.4d, docs/03 §3): a low pass against a side board that comes back to where you
