@@ -312,28 +312,37 @@ export const TUNING = {
     /** 1 = ring on the floor under the teammate the pass would go to. */
     targetRing: 1,
     /**
-     * Pass into space (P7, v0.1.22). Aiming AHEAD of a teammate who is running (to where he is
-     * going) used to pull the ball back to his body, or, beyond the cone, no receiver was chosen
-     * at all (a fast ball past him, no switch of control). Now a running teammate (at least
-     * `spaceMinSpeed` m/s across your line of sight) is still the receiver up to `spaceCone` rad
-     * beyond the cone of the level, on the side he is running to (the ring shows it, the control
-     * goes to him, the pass is led as always).
+     * Pass into space (P7, v0.1.22 + v0.1.23). Aiming AHEAD of a teammate who is running (to where
+     * he is going) used to pull the ball back to his body, or, beyond the cone, no receiver was
+     * chosen at all (a fast ball past him, no switch of control).
      *
-     * `<level>SpaceRespect` (0..1) additionally keeps more of your aim: the ball goes to the
-     * point of his path (his speed and direction) that your aim crosses, between `spaceMinTime`
-     * and `spaceMaxTime` s ahead of him, instead of to the usual lead. It acts when you aim more
-     * than `spaceDeadzone` rad ahead of him, easing in over `spaceRamp`. Measured in the bench
-     * it did NOT help (the ball ends too far for him to recover it): 0 = off in the three levels.
+     * RANGE: a running teammate (at least `spaceMinSpeed` m/s across your line of sight) is still
+     * the receiver up to `spaceCone` rad beyond the cone of the level, on the side he is running
+     * to (the ring shows it, the control goes to him).
+     *
+     * HOW FAR AHEAD: `<level>SpaceRespect` (0..1) = how much of your aim is kept. The ball goes to
+     * the point of his path (his speed and direction) that your aim crosses, instead of to the usual
+     * lead (0 = the usual lead, about 0.5 s ahead of him whatever you aim at), limited to
+     * `spaceMinTime`..`spaceMaxTime` s ahead of him. It acts when you aim more than `spaceDeadzone`
+     * rad ahead of him, easing in over `spaceRamp`. Forta keeps 0: its job is to put the ball at his feet.
+     * v0.1.23: the ball goes where you aim (up to spaceMaxTime of his running ahead) and, to give him
+     * time to get there, a ground pass into space arrives slowly (`spaceArrivalSpeed`, may be launched
+     * from `spaceLaunchMin`). Measured in the bench (docs/DECISIONS.md): the ball goes 3 times as far
+     * ahead (1.5 s instead of 0.5 s) and he recovers it as often or more.
      */
-    lightSpaceRespect: 0,
-    mediumSpaceRespect: 0,
+    lightSpaceRespect: 1,
+    mediumSpaceRespect: 1,
     strongSpaceRespect: 0,
-    spaceCone: 0.6,
+    spaceCone: 0.9,
     spaceMinSpeed: 2.5,
     spaceMinTime: 0.25,
     spaceMaxTime: 2,
-    spaceDeadzone: 0.35,
+    spaceDeadzone: 0.25,
     spaceRamp: 0.17,
+    /** Strength of a pass into space (ground): the ball arrives at most this fast (m/s) and may be launched
+     * from this slow (m/s), in proportion to how much of a pass into space it is (the aim respected). */
+    spaceArrivalSpeed: 6,
+    spaceLaunchMin: 4.5,
   },
   /**
    * Wall pass (F1.4d, docs/03 §3): a low pass against a side board that comes back to where you

@@ -259,6 +259,8 @@
   "tuning.assist.spaceCone": "Pass into space: forward range around a running teammate",
   "tuning.assist.spaceMinTime": "Pass into space: minimum seconds ahead of the teammate",
   "tuning.assist.spaceMaxTime": "Pass into space: maximum seconds ahead of the teammate",
+  "tuning.assist.spaceArrivalSpeed": "Pass into space: top arrival speed of the low pass",
+  "tuning.assist.spaceLaunchMin": "Pass into space: lowest launch speed of the low pass",
   "tuning.assist.spaceDeadzone": "Pass into space: smallest aim ahead that counts",
   "tuning.assist.spaceRamp": "Pass into space: degrees until fully respected",
   "tuning.assist.spaceMinSpeed": "Pass into space: teammate's minimum speed (across the line of sight)",

@@ -498,20 +498,24 @@ describe('passing to the teammates (world)', () => {
   });
 
   it('Strong helps more than Light, and aiming still matters with Light', () => {
+    // The pass into space (P7) widens the range for running teammates: tested in passSpace.test.ts.
+    const T = tuningWith((t) => {
+      t.assist.spaceCone = 0;
+    });
     const rate = (level: 'light' | 'strong'): number => {
       let ok = 0;
       for (let seed = 1; seed <= 30; seed++) {
         const w = createWorld(seed, 2);
         w.assist = level;
-        takeBall(w, TUNING);
-        step(w, cmd(0.8, 0.2), TUNING, 50);
+        takeBall(w, T);
+        step(w, cmd(0.8, 0.2), T, 50);
         const target = 1 + (seed % 2);
         // Aimed 30° off the teammate (seen from the player): outside Light's cone.
         const p = w.players[0]!;
         const r = w.players[target]!;
         const a = Math.atan2(r.y - p.y, r.x - p.x) + (seed % 2 ? 1 : -1) * 0.52;
-        tap(w, cmd(Math.cos(a), Math.sin(a)), TUNING);
-        if (runUntil(w, cmd(), TUNING, () => w.ball.owner >= 0, 240) >= 0 && w.ball.owner === target) ok++;
+        tap(w, cmd(Math.cos(a), Math.sin(a)), T);
+        if (runUntil(w, cmd(), T, () => w.ball.owner >= 0, 240) >= 0 && w.ball.owner === target) ok++;
       }
       return ok / 30;
     };
