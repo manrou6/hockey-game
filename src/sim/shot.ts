@@ -69,6 +69,8 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
     p.shotCharge = p.shotQuick ? 0 : shotPower(p.shotHold, k);
     p.shotHold = -1;
     p.bufShoot = hasBall ? 1 : Math.max(1, Math.round(tuning.input.bufferTime * tuning.sim.tickRate));
+    // Without the ball it may also be a remate en el aire (F1.5d): remember when.
+    if (!hasBall) p.shotSinceRelease = 0;
   }
 }
 
@@ -171,12 +173,12 @@ const DEFAULT_DISTANCE = 15;
 const HIGH_MAX_ELEVATION = 0.6;
 const BISECT = 24;
 
-/** Height (m) of a ball launched from the floor at speed v and elevation e when it has covered `dist` horizontally (−1 if it lands before). */
-export function heightAt(v: number, e: number, dist: number, k: Tuning['ball']): number {
+/** Height (m) of a ball launched from the floor (or from height z0) at speed v and elevation e when it has covered `dist` horizontally (−1 if it lands before). */
+export function heightAt(v: number, e: number, dist: number, k: Tuning['ball'], z0: number = RINK.ballRadius): number {
   let vh = v * Math.cos(e);
   let vz = v * Math.sin(e);
   let x = 0;
-  let z = RINK.ballRadius;
+  let z = z0;
   let t = 0;
   while (x < dist && t < SOLVER_MAX_TIME) {
     vz -= GRAVITY * SOLVER_DT;
@@ -329,10 +331,15 @@ export interface ShotResult {
   /** A first-touch shot / after a turn (F1.5b). */
   firstTouch: boolean;
   turned: boolean;
+  /** A remate en el aire (F1.5d): its timing (s from the contact; − = released before) and the
+   * height of the ball when struck (m above the floor). */
+  aerial: boolean;
+  timing: number;
+  contactHeight: number;
 }
 
 export function createShotResult(): ShotResult {
-  return { kind: SHOT_LOW, targetY: 0, targetZ: 0, aimed: false, angle: 0, elevation: 0, speed: 0, firstTouch: false, turned: false };
+  return { kind: SHOT_LOW, targetY: 0, targetZ: 0, aimed: false, angle: 0, elevation: 0, speed: 0, firstTouch: false, turned: false, aerial: false, timing: Number.NaN, contactHeight: Number.NaN };
 }
 
 const planTmp = createShotPlan();
@@ -356,7 +363,11 @@ export function performShot(p: PlayerState, ball: BallState, cmd: PlayerCommand,
   ball.z = RINK.ballRadius;
   out.firstTouch = p.firstTouchTicks > 0;
   out.turned = p.shotTurned;
+  out.aerial = false;
+  out.timing = Number.NaN;
+  out.contactHeight = Number.NaN;
   p.bufShoot = 0;
+  p.shotSinceRelease = 1e6;
   p.bufPass = 0;
   p.passHold = -1;
   p.shotTurned = false;

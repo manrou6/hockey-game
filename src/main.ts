@@ -115,6 +115,13 @@ game.onFrame(() => {
   shootButton.classList.toggle('drive', shooting && shotHeight === 1);
   shootButton.classList.toggle('lob', shooting && shotHeight >= 2);
   if (shooting) shootButton.style.setProperty('--charge', String(Math.max(0.08, shotPower(shotHold, TUNING.shot))));
+  // Remate en el aire (F1.5d): while a ball in the air comes to the stick TIR glows and its arc
+  // fills up to the good moment (the ball at the stick), when it flashes.
+  const volley = game.world.volley;
+  const volleyOn = volley.open && game.world.ball.owner < 0;
+  shootButton.classList.toggle('volley', volleyOn);
+  shootButton.classList.toggle('volley-good', volleyOn && volley.good);
+  if (volleyOn) shootButton.style.setProperty('--charge', String(Math.max(0.08, volley.progress)));
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.

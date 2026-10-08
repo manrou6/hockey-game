@@ -33,11 +33,11 @@ describe('src/sim purity', () => {
 });
 
 describe('player feel layer (F2 attributes)', () => {
-  it('movement, passing and shooting code read skating/cut/dribble/pass/receive/wall/shot numbers only through src/sim/feel.ts', () => {
+  it('movement, passing and shooting code read skating/cut/dribble/pass/receive/wall/shot/volley numbers only through src/sim/feel.ts', () => {
     for (const f of listTs(SIM_DIR)) {
       if (f.endsWith('feel.ts')) continue;
       const code = readFileSync(f, 'utf-8');
-      expect(/tuning\.(skating|cut|dribble|pass|receive|wall|shot)\b/.test(code), f).toBe(false);
+      expect(/tuning\.(skating|cut|dribble|pass|receive|wall|shot|volley)\b/.test(code), f).toBe(false);
     }
   });
 });

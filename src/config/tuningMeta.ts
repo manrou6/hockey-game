@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'volley' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -223,6 +223,26 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'shot.sweetSpot', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'shot.sweetSpotStart', min: 50, max: 100, step: 1, unit: '%', scale: 100 },
       { path: 'shot.sweetSpotError', min: 0, max: 300, step: 10, unit: '%', scale: 100 },
+    ],
+  },
+  {
+    id: 'volley',
+    params: [
+      { path: 'volley.windowTime', min: 0.1, max: 1, step: 0.02, unit: 's' },
+      { path: 'volley.good', min: 0.02, max: 0.3, step: 0.01, unit: 's' },
+      { path: 'volley.powerBonus', min: 0, max: 50, step: 1, unit: '%', scale: 100 },
+      { path: 'volley.badError', min: 0, max: 3, step: 0.1, unit: '×' },
+      { path: 'volley.minHeight', min: 0, max: 0.5, step: 0.01, unit: 'm' },
+      { path: 'volley.maxHeight', min: 0.3, max: 2, step: 0.05, unit: 'm' },
+      { path: 'volley.reach', min: 0.3, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'volley.easySpeed', min: 0, max: 20, step: 0.5, unit: 'm/s' },
+      { path: 'volley.hardSpeed', min: 5, max: 40, step: 0.5, unit: 'm/s' },
+      { path: 'volley.idealLow', min: 0, max: 1, step: 0.05, unit: 'm' },
+      { path: 'volley.idealHigh', min: 0.2, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'volley.lowPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'volley.highPenalty', min: 0, max: 2, step: 0.05, unit: '' },
+      { path: 'volley.lowTarget', min: 0.05, max: 1, step: 0.05, unit: 'm' },
+      { path: 'volley.lookahead', min: 0.2, max: 1.5, step: 0.05, unit: 's' },
     ],
   },
   {

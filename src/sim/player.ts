@@ -62,6 +62,9 @@ export interface PlayerState {
   /** Heading when TIRO was pressed carrying the ball (NaN = pressed without it): a quick shot
    * pressed with the goal behind him is a media vuelta (F1.5c). */
   shotPressHeading: number;
+  /** Ticks since TIRO was last released without the ball (a large number = none pending): a
+   * remate en el aire uses it to time the strike (F1.5d). */
+  shotSinceRelease: number;
   /** Direction the ball was travelling (relative to him, rad) when he last got it; NaN = none. */
   receivedBallAngle: number;
   /** Kind of the last pass this player received (teammates give it back the same way). */
@@ -128,7 +131,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, shotAccuracy: 75, shotPower: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, shotWithBall: false, shotTurn: 0, shotTurnFrom: 0, shotTurnTo: 0, shotTurned: false, shotPressHeading: Number.NaN, receivedBallAngle: Number.NaN, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, shotAccuracy: 75, shotPower: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, shotWithBall: false, shotTurn: 0, shotTurnFrom: 0, shotTurnTo: 0, shotTurned: false, shotPressHeading: Number.NaN, shotSinceRelease: 1e6, receivedBallAngle: Number.NaN, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,

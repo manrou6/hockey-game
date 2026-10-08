@@ -192,4 +192,5 @@ export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning
   p.bufDribble = cmd.dribble ? ticks : Math.max(0, p.bufDribble - 1);
   if (p.noPickupTicks > 0) p.noPickupTicks--;
   if (p.firstTouchTicks > 0) p.firstTouchTicks--;
+  if (p.shotSinceRelease < 1e6) p.shotSinceRelease++;
 }
