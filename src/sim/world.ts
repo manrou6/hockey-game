@@ -2,7 +2,7 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bufferActions, pickupDistance, stepDribble } from './dribble';
+import { bufferActions, pickupDistance, pressureOn, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
@@ -497,7 +497,7 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
     }
     world.lastShotX = world.ball.x;
     world.lastShotY = world.ball.y;
-    performShot(p, world.ball, shotCmd, level, world.rng, tuning, world.lastShot);
+    performShot(p, world.ball, shotCmd, level, world.rng, tuning, world.lastShot, pressureOn(p, world.players, tuning));
     world.lastShotTick = world.tick;
     world.lastShotPlayer = i;
     world.passTo = -1;

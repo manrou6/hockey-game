@@ -215,11 +215,11 @@ export const TUNING = {
      * charge), at full sprint, off balance (skid / trencada), and per rad that the shot turns
      * away from where the player faces beyond turnFree (rad). The height error is errorHeight ×
      * the direction error; the strength error a fraction of the speed. Medium / strong assist
-     * multiply the errors by these factors; a perfect Tir attribute (99) reduces them by
-     * attributeAdvantage. */
+     * multiply the errors by these factors; a perfect shotAccuracy attribute (99) reduces them
+     * by attributeAdvantage. */
     errorBase: 0.0349066,
     chargePrecision: 0.5,
-    errorSprint: 0.0523599,
+    errorSprint: 0.0261799,
     errorOffBalance: 0.0872665,
     errorTurn: 0.0698132,
     turnFree: 1.0471976,
@@ -228,6 +228,38 @@ export const TUNING = {
     mediumErrorFactor: 0.9,
     strongErrorFactor: 0.8,
     attributeAdvantage: 0.5,
+    /**
+     * Error by context (F1.5c, option 2, decided by Guillem 2026-10-08). Every weight at 0 = the
+     * v0.1.25 model exactly. The base error (errorBase after the charge) is multiplied by
+     * (1 + ctxDistance per m beyond ctxDistanceFree) × (1 + ctxAngle × min(1, angle from the goal
+     * axis / ctxAngleFull)) × (1 + ctxPressure × the nearest rival's pressure 0..1; no rivals
+     * until F1.6/F2). ctxSprint (0..1) moves the errorSprint term from the v0.1.25 measure
+     * (against the sprint without the ball, which a player carrying it never reaches: ≤ ~0.6°)
+     * to the real one (against dribble.sprintSpeedWithBall: errorSprint whole at full sprint).
+     * (errorSprint was 3°, which the sprint never reached; with the real sprint 1.5° keeps the
+     * sprint column of the bench at the option-2 ceiling Guillem set, 3° goes past it.)
+     * ctxOffBalance adds that fraction to errorOffBalance. The assist then removes part of all
+     * that extra: ctxAssist × ½ with Mitjana, × 1 with Forta (none with Lleugera / Desactivada).
+     */
+    ctxSprint: 1,
+    ctxOffBalance: 0,
+    ctxDistance: 0.05,
+    ctxDistanceFree: 6,
+    ctxAngle: 0.5,
+    ctxAngleFull: 1.0471976,
+    ctxPressure: 0,
+    ctxAssist: 0.5,
+    /**
+     * Option 3, sweet spot of power (F1.5c; sweetSpot 1 = on, off by default): beyond
+     * sweetSpotStart of the charge the base error grows, up to × (1 + sweetSpotError) at full
+     * charge.
+     */
+    sweetSpot: 0,
+    sweetSpotStart: 0.85,
+    sweetSpotError: 1,
+    /** shotPower attribute (F1.5c): the quick and charged shots are powerGain faster at 90 than
+     * at 40 (75 = the speeds above). */
+    powerGain: 0.1,
     /** The aim reticle on the goal shows while you carry the ball within this distance of the
      * goal line (m), and always while TIRO is held (the reticle itself is on/off in Settings). */
     reticleRange: 20,

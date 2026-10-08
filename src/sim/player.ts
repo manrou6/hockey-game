@@ -39,8 +39,10 @@ export interface PlayerState {
    * him the stick was aimed then (rad). */
   passLockTarget: number;
   passLockOffset: number;
-  /** Tir attribute 0-99 (docs/01): smaller shot errors. */
-  shooting: number;
+  /** Shot attributes 0-99 (Ficha 4, docs/ASSETS_SPEC.md; F1.5c): shotAccuracy = smaller shot
+   * errors, shotPower = faster quick and charged shots. */
+  shotAccuracy: number;
+  shotPower: number;
   /** TIRO held for this long (s) while carrying the ball (a drag-shot charge); −1 = not held.
    * On release the shot is queued (bufShoot) with its kind (0 low, 1 high, 2 chip;
    * src/sim/shot.ts), whether it was a quick shot (a tap) and its power 0..1. */
@@ -123,7 +125,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, shooting: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, shotWithBall: false, shotTurn: 0, shotTurnFrom: 0, shotTurnTo: 0, shotTurned: false, receivedBallAngle: Number.NaN, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, shotAccuracy: 75, shotPower: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, shotWithBall: false, shotTurn: 0, shotTurnFrom: 0, shotTurnTo: 0, shotTurned: false, receivedBallAngle: Number.NaN, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,
@@ -329,8 +331,9 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     p.wasSprinting = false;
   } else {
     // Right after a trencada you can't sprint yet: re-accelerate first. Charging a drag shot
-    // (F1.5a) you can't sprint either, and skate a bit slower.
-    const charging = hasBall && p.shotHold >= 0;
+    // (F1.5a) you can't sprint either, and skate a bit slower; not during a tap (a quick shot
+    // keeps the sprint, F1.5c).
+    const charging = hasBall && p.shotHold >= shotFor(p, tuning).tapTime;
     const sprinting = cmd.sprint && p.cutRecovery <= 0 && !charging;
     if (p.cutRecovery > 0) p.wasSprinting = cmd.sprint; // no sprint push when the recovery ends
     // Sprint push: a short burst of extra acceleration when a sprint starts.

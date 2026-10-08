@@ -3,7 +3,7 @@ import { goalLineX, RINK } from '../../src/config/rink';
 import { TUNING, type Tuning } from '../../src/config/tuning';
 import { createBall } from '../../src/sim/ball';
 import { emptyCommand, type PlayerCommand } from '../../src/sim/commands';
-import { createPlayer } from '../../src/sim/player';
+import { createPlayer, wrapAngle, type PlayerState } from '../../src/sim/player';
 import {
   createShotPlan,
   heightAt,
@@ -11,9 +11,11 @@ import {
   SHOT_CHIP,
   SHOT_HIGH,
   SHOT_LOW,
+  shotErrorFactor,
   shotErrorSd,
   shotKindFromHeight,
   shotPower,
+  shotPowerFactor,
   updateShotButton,
 } from '../../src/sim/shot';
 import { createWorld, stepWorld, type WorldState } from '../../src/sim/world';
@@ -169,7 +171,7 @@ describe('error', () => {
   const p = createPlayer(0, 0, 0);
   const plan = createShotPlan();
   plan.angle = 0;
-  it('charging makes it more precise; sprinting, turning away and less assist make it less; the Tir attribute reduces it', () => {
+  it('charging makes it more precise; sprinting, turning away and less assist make it less; shotAccuracy reduces it', () => {
     const quick = shotErrorSd(p, plan, true, 0, 'medium', TUNING);
     expect(shotErrorSd(p, plan, false, 1, 'medium', TUNING)).toBeCloseTo(quick * (1 - TUNING.shot.chargePrecision), 6);
     expect(shotErrorSd(p, plan, true, 0, 'strong', TUNING)).toBeLessThan(quick);
@@ -181,8 +183,122 @@ describe('error', () => {
     turned.angle = deg(120);
     expect(shotErrorSd(p, turned, true, 0, 'medium', TUNING)).toBeGreaterThan(quick);
     const star = createPlayer(0, 0, 0);
-    star.shooting = 99;
+    star.shotAccuracy = 99;
     expect(shotErrorSd(star, plan, true, 0, 'medium', TUNING)).toBeLessThan(quick);
+  });
+});
+
+/** The v0.1.25 shot error (before F1.5c), written out: what every context weight at 0 must give. */
+function v0125Error(p: PlayerState, plan: ReturnType<typeof createShotPlan>, quick: boolean, charge: number, level: 'light' | 'medium' | 'strong', t: Tuning): number {
+  const k = t.shot;
+  const sk = t.skating;
+  const sprint = Math.min(1, Math.max(0, (Math.hypot(p.vx, p.vy) - sk.maxSpeed) / (sk.sprintSpeed - sk.maxSpeed)));
+  const off = p.skidTime > 0 || p.cutPrep > 0 || p.cutTime > 0 ? 1 : 0;
+  const turn = Math.max(0, Math.abs(wrapAngle(plan.angle - p.heading)) - k.turnFree);
+  const base = k.errorBase * (quick ? 1 : 1 - k.chargePrecision * charge);
+  return (base + k.errorSprint * sprint + k.errorOffBalance * off + k.errorTurn * turn) * shotErrorFactor(level, k) * (1 - k.attributeAdvantage * (p.shotAccuracy / 99));
+}
+
+/** A plan for a shot from `dist` m and `angleDeg` off the axis of the +x goal. */
+function planFrom(dist: number, angleDeg: number): ReturnType<typeof createShotPlan> {
+  const plan = createShotPlan();
+  plan.targetX = GX;
+  plan.fromX = GX - dist * Math.cos(deg(angleDeg));
+  plan.fromY = dist * Math.sin(deg(angleDeg));
+  plan.angle = Math.atan2(-plan.fromY, GX - plan.fromX);
+  return plan;
+}
+
+describe('error by context (F1.5c, option 2 with weights)', () => {
+  const k = TUNING.shot;
+  const zero = tuningWith((t) => Object.assign(t.shot, { ctxSprint: 0, ctxOffBalance: 0, ctxAngle: 0, ctxDistance: 0, ctxPressure: 0, ctxAssist: 0 }));
+  const shooter = (speed = 0, heading = 0): PlayerState => {
+    const p = createPlayer(0, 0, 0);
+    p.heading = heading;
+    p.vx = speed * Math.cos(heading);
+    p.vy = speed * Math.sin(heading);
+    return p;
+  };
+  it('every weight at 0 gives the v0.1.25 error exactly (standing, sprinting, off balance, far and wide, any level)', () => {
+    for (const [dist, angle] of [[5, 0], [14, 30], [18, 55], [25, 70]] as const) {
+      const plan = planFrom(dist, angle);
+      for (const speed of [0, 6, TUNING.dribble.sprintSpeedWithBall, TUNING.skating.sprintSpeed]) {
+        for (const level of ['light', 'medium', 'strong'] as const) {
+          for (const [quick, charge] of [[true, 0], [false, 0.5], [false, 1]] as const) {
+            const p = shooter(speed, plan.angle + 0.3);
+            expect(shotErrorSd(p, plan, quick, charge, level, zero, 0.8)).toBeCloseTo(v0125Error(p, plan, quick, charge, level, zero), 12);
+            p.skidTime = 0.2;
+            expect(shotErrorSd(p, plan, quick, charge, level, zero, 0.8)).toBeCloseTo(v0125Error(p, plan, quick, charge, level, zero), 12);
+          }
+        }
+      }
+    }
+  });
+  it('further away and at a closer angle the error grows by its weight; standing square-on within ctxDistanceFree it does not', () => {
+    const t = tuningWith((x) => Object.assign(x.shot, { ctxAssist: 0 }));
+    const p = shooter();
+    const near = shotErrorSd(p, planFrom(k.ctxDistanceFree, 0), true, 0, 'light', t);
+    expect(near).toBeCloseTo(shotErrorSd(p, planFrom(k.ctxDistanceFree, 0), true, 0, 'light', zero), 12);
+    const far = shotErrorSd(p, planFrom(k.ctxDistanceFree + 10, 0), true, 0, 'light', t);
+    expect(far).toBeCloseTo(near * (1 + 10 * k.ctxDistance), 9);
+    const wide = shotErrorSd(p, planFrom(k.ctxDistanceFree, 30), true, 0, 'light', t);
+    expect(wide).toBeCloseTo(near * (1 + k.ctxAngle * (deg(30) / k.ctxAngleFull)), 9);
+    // Past the full angle (or behind the goal line) it stops growing.
+    const steep = planFrom(k.ctxDistanceFree, 75);
+    expect(shotErrorSd(shooter(0, steep.angle), steep, true, 0, 'light', t)).toBeCloseTo(near * (1 + k.ctxAngle), 9);
+  });
+  it('the sprint is measured against the real top speed with the ball: errorSprint whole at full sprint (v0.1.25: never more than a fraction)', () => {
+    const t = tuningWith((x) => Object.assign(x.shot, { ctxAssist: 0, ctxDistance: 0, ctxAngle: 0 }));
+    const plan = planFrom(5, 0);
+    const still = shotErrorSd(shooter(), plan, true, 0, 'light', t);
+    const sprint = shotErrorSd(shooter(TUNING.dribble.sprintSpeedWithBall), plan, true, 0, 'light', t);
+    const factor = 1 - k.attributeAdvantage * (75 / 99);
+    expect(sprint - still).toBeCloseTo(k.errorSprint * factor, 9);
+    const old = shotErrorSd(shooter(TUNING.dribble.sprintSpeedWithBall), plan, true, 0, 'light', zero) - shotErrorSd(shooter(), plan, true, 0, 'light', zero);
+    expect(old).toBeLessThan(0.25 * k.errorSprint * factor);
+  });
+  it('a rival pressing adds ctxPressure (0 by factory: no rivals until F1.6/F2); ctxOffBalance adds to a skid or trencada', () => {
+    const plan = planFrom(5, 0);
+    const p = shooter();
+    expect(shotErrorSd(p, plan, true, 0, 'light', TUNING, 1)).toBeCloseTo(shotErrorSd(p, plan, true, 0, 'light', TUNING, 0), 12);
+    const t = tuningWith((x) => Object.assign(x.shot, { ctxPressure: 1, ctxOffBalance: 0.5 }));
+    expect(shotErrorSd(p, plan, true, 0, 'light', t, 1)).toBeGreaterThan(shotErrorSd(p, plan, true, 0, 'light', t, 0) * 1.9);
+    const skid = shooter();
+    skid.skidTime = 0.2;
+    expect(shotErrorSd(skid, plan, true, 0, 'light', t) - shotErrorSd(skid, plan, true, 0, 'light', TUNING)).toBeCloseTo(0.5 * k.errorOffBalance * (1 - k.attributeAdvantage * (75 / 99)), 9);
+  });
+  it('the assist takes away part of the extra: Mitjana half of ctxAssist, Forta all of it; Lleugera none', () => {
+    const plan = planFrom(18, 30);
+    const p = shooter();
+    const extra = (level: 'light' | 'medium' | 'strong'): number => shotErrorSd(p, plan, true, 0, level, TUNING) / shotErrorFactor(level, k) - shotErrorSd(p, plan, true, 0, level, zero) / shotErrorFactor(level, k);
+    expect(extra('medium')).toBeCloseTo(extra('light') * (1 - k.ctxAssist / 2), 9);
+    expect(extra('strong')).toBeCloseTo(extra('light') * (1 - k.ctxAssist), 9);
+  });
+  it('option 3, the sweet spot: off by factory; on, the error grows again past sweetSpotStart of the charge', () => {
+    const plan = planFrom(14, 0);
+    const p = shooter();
+    expect(k.sweetSpot).toBe(0);
+    const t = tuningWith((x) => (x.shot.sweetSpot = 1));
+    const at = (charge: number, tt: Tuning): number => shotErrorSd(p, plan, false, charge, 'medium', tt);
+    expect(at(k.sweetSpotStart, t)).toBeCloseTo(at(k.sweetSpotStart, TUNING), 12);
+    expect(at(1, t)).toBeGreaterThan(at(1, TUNING) * 1.5);
+    expect(at(1, t)).toBeGreaterThan(at(k.sweetSpotStart, t));
+  });
+  it('shotPower: 90 is powerGain faster than 40, 75 is the plain speed; quick and charged shots', () => {
+    const p = createPlayer(0, 0, 0);
+    p.shotPower = 75;
+    expect(shotPowerFactor(p, k)).toBeCloseTo(1, 12);
+    p.shotPower = 90;
+    const fast = shotPowerFactor(p, k);
+    p.shotPower = 40;
+    expect(fast / shotPowerFactor(p, k)).toBeCloseTo(1 + k.powerGain, 9);
+    const ball = createBall(GX - 10, 0);
+    const strong = createPlayer(0, 0, 0);
+    strong.shotPower = 90;
+    const q = planShot(strong, ball, cmd(1, 0), 'medium', SHOT_LOW, 0, true, TUNING, createShotPlan());
+    expect(q.speed).toBeCloseTo(k.quickSpeed * fast, 9);
+    const f = planShot(strong, ball, cmd(1, 0), 'medium', SHOT_LOW, 1, false, TUNING, createShotPlan());
+    expect(f.speed).toBeCloseTo(k.maxSpeed * fast, 9);
   });
 });
 
@@ -255,13 +371,28 @@ describe('in the world', () => {
     let maxSpeed = 0;
     for (let i = 0; i < 60; i++) {
       stepWorld(w, [dir(0, { shootHeld: true, sprint: true })], t);
-      maxSpeed = Math.max(maxSpeed, Math.hypot(p.vx, p.vy));
+      // Once it is a charge (past the tap) he slows down to the charge speed.
+      if (i >= 30) maxSpeed = Math.max(maxSpeed, Math.hypot(p.vx, p.vy));
       expect(w.ball.owner).toBe(0);
       expect(w.ball.separation).toBeLessThan(0.05);
     }
     expect(maxSpeed).toBeLessThanOrEqual(t.skating.maxSpeed * t.shot.chargeSpeedFactor + 1e-6);
     stepWorld(w, [dir(0)], t);
     expect(w.lastShot.speed).toBeCloseTo(t.shot.maxSpeed, 6);
+  });
+  it('a tap of TIRO keeps the sprint (only a charge slows him down, F1.5c)', () => {
+    const t = tuningWith(exact);
+    const w = shooterWorld(t, 20);
+    const p = w.players[0]!;
+    p.vx = t.dribble.sprintSpeedWithBall;
+    for (let i = 0; i < 30; i++) stepWorld(w, [dir(0, { sprint: true })], t);
+    const before = Math.hypot(p.vx, p.vy);
+    expect(before).toBeGreaterThan(t.skating.maxSpeed);
+    stepWorld(w, [dir(0, { shoot: true, shootHeld: true, sprint: true })], t);
+    for (let i = 0; i < 4; i++) stepWorld(w, [dir(0, { shootHeld: true, sprint: true })], t);
+    expect(Math.hypot(p.vx, p.vy)).toBeGreaterThan(t.skating.maxSpeed);
+    stepWorld(w, [dir(0, { sprint: true })], t);
+    expect(w.lastShotTick).toBe(w.tick - 1);
   });
   it('PASE is ignored while charging a shot', () => {
     const t = tuningWith(exact);
