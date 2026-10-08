@@ -64,8 +64,10 @@ describe('TIRO button (carrying the ball)', () => {
     expect(hold(k.tapTime + k.chargeTime * 2, 2).shotKind).toBe(SHOT_CHIP);
     expect(shotPower(k.tapTime / 2, k)).toBe(0);
   });
-  it('without the ball TIRO does nothing yet (the first-touch shot is F1.5b); losing the ball cancels a charge; not while PASE is held', () => {
-    expect(hold(0.4, 0, false).bufShoot).toBe(0);
+  it('without the ball the release waits in the input buffer (first touch, F1.5b); pressed with the ball, losing it cancels the charge; not while PASE is held', () => {
+    const buffered = hold(0.15, 0, false);
+    expect(buffered.bufShoot).toBe(Math.round(TUNING.input.bufferTime * 60));
+    expect(buffered.shotWithBall).toBe(false);
     const p = createPlayer(0, 0, 0);
     updateShotButton(p, cmd(0, 0, { shoot: true, shootHeld: true }), TUNING, DT, true);
     expect(p.shotHold).toBe(0);
@@ -292,5 +294,141 @@ describe('in the world', () => {
       return [w.ball.x, w.ball.y, w.ball.z, w.lastShot.angle, w.lastShot.speed];
     };
     expect(run()).toEqual(run());
+  });
+});
+
+// --- F1.5b: first-touch shot and turn shot ------------------------------------------------
+
+/** A ground pass rolling to the blade of the (still) player 7 m in front of the goal, from `gap` m away at his side. */
+function passToShooter(tuning: Tuning, speed = 14, gap = 6): WorldState {
+  const w = createWorld(5, 0);
+  const p = w.players[0]!;
+  p.x = p.prevX = GX - 7.5;
+  p.y = p.prevY = 0;
+  p.heading = p.prevHeading = Math.PI / 2; // facing +y, where the pass comes from
+  const bladeX = p.x + 0.55 * Math.cos(p.heading) + 0.14 * Math.sin(p.heading);
+  const bladeY = p.y + 0.55 * Math.sin(p.heading) - 0.14 * Math.cos(p.heading);
+  w.ball.owner = -1;
+  w.ball.x = w.ball.prevX = bladeX;
+  w.ball.y = w.ball.prevY = bladeY + gap;
+  w.ball.vx = 0;
+  w.ball.vy = -speed;
+  w.passTo = 0;
+  w.meetX = bladeX;
+  w.meetY = bladeY;
+  void tuning;
+  return w;
+}
+
+describe('first-touch shot (F1.5b)', () => {
+  it('TIRO released just before the ball arrives: the shot leaves on the tick he gets it', () => {
+    const t = tuningWith(exact);
+    const w = passToShooter(t, 14, 2); // ~0.15 s away: inside the input buffer
+    stepWorld(w, [cmd(0, 0, { shoot: true, shootHeld: true })], t);
+    stepWorld(w, [cmd(0, 0)], t); // released without the ball: waits in the buffer
+    expect(w.players[0]!.bufShoot).toBeGreaterThan(0);
+    for (let i = 0; i < 60 && w.lastShotTick < 0; i++) stepWorld(w, [dir(0)], t);
+    expect(w.lastShotTick).toBeGreaterThan(0);
+    expect(w.lastShotTick).toBe(w.lastReceptionTick);
+    expect(w.lastShot.firstTouch).toBe(true);
+  });
+  it('released too early (before the input buffer), nothing happens when he gets it', () => {
+    const t = tuningWith(exact);
+    const w = passToShooter(t, 6);
+    stepWorld(w, [cmd(0, 0, { shoot: true, shootHeld: true })], t);
+    stepWorld(w, [cmd(0, 0)], t);
+    for (let i = 0; i < 90 && w.ball.owner !== 0; i++) stepWorld(w, [cmd()], t);
+    expect(w.ball.owner).toBe(0);
+    expect(w.lastShotTick).toBeLessThan(0);
+  });
+  it('TIRO right after getting it (within the first-touch window) is a first-touch shot; later it is not', () => {
+    const t = tuningWith(exact);
+    const w = passToShooter(t);
+    for (let i = 0; i < 90 && w.ball.owner !== 0; i++) stepWorld(w, [cmd()], t);
+    expect(w.ball.owner).toBe(0);
+    stepWorld(w, [dir(0, { shoot: true })], t);
+    expect(w.lastShot.firstTouch).toBe(true);
+    const w2 = passToShooter(t);
+    for (let i = 0; i < 90 && w2.ball.owner !== 0; i++) stepWorld(w2, [cmd()], t);
+    for (let i = 0; i < Math.round(t.receive.firstTouchWindow * 60) + 2; i++) stepWorld(w2, [cmd()], t);
+    stepWorld(w2, [dir(0, { shoot: true })], t);
+    expect(w2.lastShot.firstTouch).toBe(false);
+  });
+  it('its error: × firstTouchError × (1 + how hard the reception was), plus the redirection of the ball beyond redirectFree', () => {
+    const p = createPlayer(0, 0, 0);
+    const plan = createShotPlan();
+    plan.angle = 0;
+    const normal = shotErrorSd(p, plan, true, 0, 'medium', TUNING);
+    p.firstTouchTicks = 5;
+    p.receiveDifficulty = 0;
+    p.receivedBallAngle = 0; // the ball was going the way he shoots: no redirection
+    expect(shotErrorSd(p, plan, true, 0, 'medium', TUNING)).toBeCloseTo(normal * TUNING.shot.firstTouchError, 9);
+    p.receiveDifficulty = 0.3;
+    expect(shotErrorSd(p, plan, true, 0, 'medium', TUNING)).toBeCloseTo(normal * TUNING.shot.firstTouchError * 1.3, 9);
+    p.receivedBallAngle = Math.PI; // shooting it straight back: redirected 180°
+    expect(shotErrorSd(p, plan, true, 0, 'medium', TUNING)).toBeGreaterThan(normal * TUNING.shot.firstTouchError * 1.3 + 1e-6);
+  });
+});
+
+/** The human's player with the ball `dist` m in front of the +x goal, his back to it. */
+function backToGoal(tuning: Tuning, dist: number): WorldState {
+  const w = shooterWorld(tuning, dist);
+  const p = w.players[0]!;
+  p.heading = p.prevHeading = Math.PI;
+  p.x = p.prevX = w.ball.x + 0.55;
+  p.y = p.prevY = w.ball.y - 0.14;
+  w.ball.y = w.ball.prevY = p.y + 0.14;
+  w.ball.x = w.ball.prevX = p.x - 0.55;
+  return w;
+}
+
+describe('turn shot (media vuelta, F1.5b)', () => {
+  it('back to the goal and near it, TIRO turns him (the ball stays on the stick) and then shoots at the goal, within 0.35 s of pressing', () => {
+    const t = tuningWith(exact);
+    const w = backToGoal(t, 5);
+    const p = w.players[0]!;
+    // A 0.1 s tap with the stick released.
+    stepWorld(w, [cmd(0, 0, { shoot: true, shootHeld: true })], t);
+    for (let i = 0; i < 4; i++) stepWorld(w, [cmd(0, 0, { shootHeld: true })], t);
+    stepWorld(w, [cmd()], t);
+    expect(w.lastTurnTick).toBe(w.tick - 1);
+    expect(w.lastShotTick).toBeLessThan(0);
+    let ticks = 6;
+    while (w.lastShotTick < 0 && ticks < 60) {
+      expect(w.ball.owner).toBe(0);
+      stepWorld(w, [cmd()], t);
+      ticks++;
+    }
+    expect(ticks / 60).toBeLessThanOrEqual(0.35);
+    expect(w.lastShot.turned).toBe(true);
+    expect(Math.abs(p.heading)).toBeLessThan(0.4); // now facing the goal (+x)
+    expect(Math.cos(w.lastShot.angle)).toBeGreaterThan(0.9);
+  });
+  it('far from the goal (beyond turnRange) there is no turn', () => {
+    const t = tuningWith(exact);
+    const w = backToGoal(t, t.shot.turnRange + 4);
+    stepWorld(w, [cmd(0, 0, { shoot: true })], t);
+    expect(w.lastTurnTick).toBeLessThan(0);
+    expect(w.lastShotTick).toBe(w.tick - 1);
+  });
+  it('facing the goal there is no turn either; a turned shot has turnError more error', () => {
+    const t = tuningWith(exact);
+    const w = shooterWorld(t, 5);
+    stepWorld(w, [dir(0, { shoot: true })], t);
+    expect(w.lastTurnTick).toBeLessThan(0);
+    const p = createPlayer(0, 0, 0);
+    const plan = createShotPlan();
+    const normal = shotErrorSd(p, plan, true, 0, 'medium', TUNING);
+    p.shotTurned = true;
+    expect(shotErrorSd(p, plan, true, 0, 'medium', TUNING)).toBeCloseTo(normal * TUNING.shot.turnError, 9);
+  });
+  it('is deterministic', () => {
+    const go = (): number[] => {
+      const w = backToGoal(TUNING, 6);
+      stepWorld(w, [cmd(0, 0, { shoot: true })], TUNING);
+      for (let i = 0; i < 60; i++) stepWorld(w, [cmd()], TUNING);
+      return [w.ball.x, w.ball.y, w.lastShot.angle, w.lastShotTick];
+    };
+    expect(go()).toEqual(go());
   });
 });

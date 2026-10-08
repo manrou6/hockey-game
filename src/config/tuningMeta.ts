@@ -199,6 +199,13 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'shot.strongErrorFactor', min: 0.2, max: 1.5, step: 0.05, unit: '×' },
       { path: 'shot.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'shot.reticleRange', min: 0, max: 40, step: 1, unit: 'm' },
+      { path: 'shot.firstTouchError', min: 1, max: 3, step: 0.05, unit: '×' },
+      { path: 'shot.redirectFree', min: 0, max: 180, step: 5, unit: '°', scale: DEG },
+      { path: 'shot.errorRedirect', min: 0, max: 15, step: 0.5, unit: '°/rad', scale: DEG },
+      { path: 'shot.turnRange', min: 0, max: 25, step: 0.5, unit: 'm' },
+      { path: 'shot.turnMinAngle', min: 60, max: 180, step: 5, unit: '°', scale: DEG },
+      { path: 'shot.turnTime', min: 0.05, max: 0.8, step: 0.01, unit: 's' },
+      { path: 'shot.turnError', min: 1, max: 3, step: 0.05, unit: '×' },
     ],
   },
   {

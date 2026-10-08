@@ -77,6 +77,7 @@ export function receiveBall(ball: BallState, index: number, p: PlayerState, blad
   }
   if (outcome === RECEIVE_CLEAN || outcome === RECEIVE_HEAVY) {
     pickUp(ball, index, p);
+    p.receivedBallAngle = Math.atan2(rvy, rvx);
     if (outcome === RECEIVE_HEAVY) ball.separation = Math.max(ball.separation, r.heavySeparation);
     p.holdTime = 0;
     p.firstTouchTicks = Math.round(r.firstTouchWindow * tuning.sim.tickRate);

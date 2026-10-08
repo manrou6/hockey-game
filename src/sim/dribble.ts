@@ -103,8 +103,8 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
   ball.prevZ = ball.z;
 
   const speed = Math.hypot(owner.vx, owner.vy);
-  // Charging a drag shot (F1.5a): the ball is glued to the blade.
-  const charging = owner.shotHold >= 0;
+  // Charging a drag shot (F1.5a) or turning to shoot (F1.5b): the ball is glued to the blade.
+  const charging = owner.shotHold >= 0 || owner.shotTurn > 0;
   const target = charging ? 0 : targetSeparation(owner, pressureOn(owner, players, tuning), tuning);
   // Separation changes smoothly (no pops), quicker to grow than to settle back.
   const rate = target > ball.separation ? 10 : 5;
