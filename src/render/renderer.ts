@@ -44,6 +44,8 @@ interface StickRig {
   heel: Vector3;
 }
 const PLAYER_HEIGHT_VISUAL = 1.75;
+/** Shot reticle colour by kind: white = low, orange = high, purple = chip (as the TIRO arc). */
+const RETICLE_COLORS = ['rgba(255,255,255,1)', 'rgba(245,178,60,1)', 'rgba(177,108,255,1)'];
 /** Pass arrow colour by kind: white = ground, orange = driven lofted, purple = lob (as the PASE arc). */
 const ARROW_COLORS = [new Color3(1, 1, 1), new Color3(0.96, 0.7, 0.24), new Color3(0.69, 0.42, 1)];
 /** Placeholder shirt numbers by player index (until teams/rosters arrive in F2). */
@@ -85,6 +87,12 @@ export class Renderer {
   private readonly arrow: { root: TransformNode; shaft: Mesh; head: Mesh; mat: StandardMaterial };
   /** Player setting: draw the pass arrow. */
   showPassArrow = true;
+  /** Aim reticle on the goal mouth (F1.5a), one per shot kind (white low, orange high, purple
+   * chip, as the TIRO arc): where the shot would cross the goal line. */
+  private readonly reticles: Mesh[];
+  private reticleShown = -1;
+  /** Player setting: draw the shot reticle. */
+  showShotReticle = true;
 
   constructor(canvas: HTMLCanvasElement, quality: QualityLevel, cameraPreset: CameraPresetId = 'tv') {
     this.quality = quality;
@@ -131,6 +139,7 @@ export class Renderer {
     this.meetRing = this.createRing('meetRing', 'rgba(120,255,160,1)', 0.7, 12);
     this.wallRing.isVisible = this.meetRing.isVisible = false;
     this.arrow = this.createPassArrow();
+    this.reticles = RETICLE_COLORS.map((c, i) => this.createReticle(`shotReticle${i}`, c));
     this.cameraRig = new CameraRig(this.scene, cameraPreset);
     this.scene.activeCamera = this.cameraRig.camera;
     this.setQuality(quality);
@@ -274,6 +283,38 @@ export class Renderer {
     mat.backFaceCulling = false;
     disc.material = mat;
     disc.isPickable = false;
+    return disc;
+  }
+
+  /** Shot reticle (F1.5a): a ring with a dot and four ticks, upright on the goal line (radius 1, scaled per frame). */
+  private createReticle(name: string, color: string): Mesh {
+    const disc = CreateDisc(name, { radius: 1, tessellation: 24 }, this.scene);
+    // Upright, facing along the rink (Babylon x).
+    disc.rotation.y = Math.PI / 2;
+    const tex = new DynamicTexture(`${name}Tex`, { width: 128, height: 128 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    ctx.clearRect(0, 0, 128, 128);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(64, 64, 44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(64, 64, 10, 0, Math.PI * 2);
+    ctx.fill();
+    for (const [x, y, w, h] of [[58, 0, 12, 22], [58, 106, 12, 22], [0, 58, 22, 12], [106, 58, 22, 12]] as const) ctx.fillRect(x, y, w, h);
+    tex.update();
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial(`${name}Mat`, this.scene);
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    disc.material = mat;
+    disc.isPickable = false;
+    disc.isVisible = false;
     return disc;
   }
 
@@ -466,6 +507,7 @@ export class Renderer {
     if (target) this.targetRing.position.set(target.position.x, 0.007, target.position.z);
     this.syncReceptionRing(world);
     this.syncWallMarkers(world);
+    this.syncShotReticle(world);
     // Ball: interpolated and drawn bigger than real so it reads on a phone. The size is
     // compensated by the distance to the camera (last frame's pose) and multiplied by the
     // current camera's own factor; never smaller than the real ball.
@@ -546,6 +588,39 @@ export class Renderer {
     const my = aiming ? world.aimPlan.meetY : world.meetY;
     this.wallRing.position.set(wx, 0.006, wy);
     this.meetRing.position.set(mx, 0.006, my);
+  }
+
+  /** Shot reticle (F1.5a): where the shot would cross the goal line, while carrying the ball near
+   * the goal or charging; brighter while TIRO is held. */
+  private syncShotReticle(world: WorldState): void {
+    const show = this.showShotReticle && world.shotAimActive;
+    const kind = show ? world.shotAim.kind : -1;
+    this.reticleShown = kind;
+    const me = world.players[world.controlled];
+    const charging = Boolean(me) && me!.shotHold >= 0;
+    const cam = this.cameraRig.camera.position;
+    this.reticles.forEach((r, i) => {
+      r.isVisible = i === kind;
+      if (!r.isVisible) return;
+      // Slightly in front of the goal line (towards the shooter) so the net never hides it; as
+      // big as a ball drawn at that distance would be (readable from the TV camera), never
+      // taller than the goal mouth.
+      const side = world.shotAim.targetX > 0 ? 1 : -1;
+      const x = world.shotAim.targetX - side * 0.05;
+      const y = world.shotAim.targetZ;
+      const z = world.shotAim.targetY;
+      const k = TUNING.ball;
+      const size = Math.max(1, (k.visualScale * Math.hypot(cam.x - x, cam.y - y, cam.z - z)) / k.visualRefDistance) * this.cameraRig.ballScale;
+      const radius = Math.min(0.5, 0.16 * size);
+      r.scaling.setAll(radius);
+      r.position.set(x, Math.max(radius, y), z);
+      r.visibility = charging ? 1 : 0.6;
+    });
+  }
+
+  /** Shot reticle on screen: the kind it shows (0 low, 1 high, 2 chip), −1 = none (tests). */
+  get shotReticleKind(): number {
+    return this.reticleShown;
   }
 
   /** Wall pass markers on screen (tests/debug). */

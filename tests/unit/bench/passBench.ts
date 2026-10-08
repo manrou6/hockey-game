@@ -2,6 +2,7 @@ import { TUNING, type Tuning } from '../../../src/config/tuning';
 import { emptyCommand, type PlayerCommand } from '../../../src/sim/commands';
 import { aimAhead, assistParams, type AssistParams } from '../../../src/sim/pass';
 import { roll, type RollResult } from '../../../src/sim/rolling';
+import { skatingFor } from '../../../src/sim/feel';
 import { createWorld, stepWorld, type WorldState } from '../../../src/sim/world';
 
 // Passing test bench (F1.4d): a scripted "human" plays chains of passes between the 3 players of
@@ -374,6 +375,10 @@ export interface SpacePolicy {
   lead: number;
   /** What the human does with the new controlled player: release the stick (auto-receive) or chase the ball. */
   receive: 'release' | 'chase';
+  /** How long PASE is held (s): 0.1 = a tap (automatic power); 0.2 + 0.6 × power for a charged pass. Default 0.1. */
+  hold?: number;
+  /** How far the stick is pushed while aiming (0..1; the stick also moves the passer). Default 1. */
+  aimMag?: number;
 }
 
 export interface SpaceStats {
@@ -401,6 +406,8 @@ export interface SpaceStats {
   early: number;
   /** Mean seconds of running ahead of him at which the ball crosses his path. */
   aheadSec: number;
+  /** Mean ball speed (m/s) when it is closest to the runner (or reaches his stick): the arrival speed. */
+  arrival: number;
 }
 
 /** Ball speed (m/s) a human assumes when he leads a runner. */
@@ -423,6 +430,7 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
   const ratios: number[] = [];
   const aheads: number[] = [];
   const earlies: number[] = [];
+  const arrivals: number[] = [];
   const rollTmp: RollResult = { speed: 0, time: 0 };
   const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
   for (let seed = 1; seed <= n; seed++) {
@@ -453,21 +461,23 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     o.x = o.prevX = Math.max(-19, p.x - 6);
     o.y = o.prevY = p.y;
     o.vx = o.vy = 0;
-    const force = (): void => {
-      r.vx = rvx;
-      r.vy = rvy;
-      r.heading = psi;
-    };
-    force();
+    // He runs on his own (a scripted skater, not the bench's teammate AI) until the pass leaves:
+    // then he is the teammate who receives it (the control switches to him).
+    r.vx = rvx;
+    r.vy = rvy;
+    r.heading = psi;
+    r.bot = false;
+    const runCmd = cmd(Math.cos(psi) * (runSpeed / skatingFor(r, t).maxSpeed), Math.sin(psi) * (runSpeed / skatingFor(r, t).maxSpeed));
     // Where he will be when the ball gets there (human estimate), scaled by policy.lead.
-    const tapTicks = 6;
-    let tau = 0.1 + dist / HUMAN_BALL_SPEED;
+    const hold = policy.hold ?? 0.1;
+    const tapTicks = Math.max(1, Math.round(hold * 60));
+    let tau = hold + dist / HUMAN_BALL_SPEED;
     let ax = 0;
     let ay = 0;
     for (let it = 0; it < 3; it++) {
       ax = r.x + rvx * tau * policy.lead;
       ay = r.y + rvy * tau * policy.lead;
-      tau = 0.1 + Math.hypot(ax - w.ball.x, ay - w.ball.y) / HUMAN_BALL_SPEED;
+      tau = hold + Math.hypot(ax - w.ball.x, ay - w.ball.y) / HUMAN_BALL_SPEED;
     }
     const a = Math.atan2(ay - p.y, ax - p.x) + (rnd() * 2 - 1) * aimError;
     const sx = Math.cos(a);
@@ -482,9 +492,29 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     const aimedTau = tau * policy.lead;
     const startPass = w.lastPassTick;
     let released = -1;
-    for (let k = 0; k < tapTicks + 20 && released < 0; k++) {
-      force();
-      step(cmd(sx, sy, { pass: k === 0, passHeld: k < tapTicks - 1 }));
+    const noise = a - Math.atan2(ay - p.y, ax - p.x);
+    let hx = sx;
+    let hy = sy;
+    for (let k = 0; k < tapTicks + 60 && released < 0; k++) {
+      if (k > 0 && k < tapTicks) {
+        // Charging: he keeps the stick on the space ahead of the runner (the arrow shows where it goes).
+        const left = (tapTicks - k) / 60;
+        let tt = left + Math.hypot(r.x - w.ball.x, r.y - w.ball.y) / HUMAN_BALL_SPEED;
+        let qx = r.x;
+        let qy = r.y;
+        for (let it = 0; it < 3; it++) {
+          qx = r.x + rvx * tt * policy.lead;
+          qy = r.y + rvy * tt * policy.lead;
+          tt = left + Math.hypot(qx - w.ball.x, qy - w.ball.y) / HUMAN_BALL_SPEED;
+        }
+        const ha = Math.atan2(qy - p.y, qx - p.x) + noise;
+        hx = Math.cos(ha);
+        hy = Math.sin(ha);
+      }
+      const mag = policy.aimMag ?? 1;
+      // The pass leaves on the tick PASE is released: from then on he is a teammate who can receive it.
+      if (k >= tapTicks - 1) r.bot = true;
+      stepWorld(w, [cmd(hx * mag, hy * mag, { pass: k === 0, passHeld: k < tapTicks - 1 }), runCmd], t);
       if (w.lastPassTick !== startPass) released = w.tick;
     }
     if (released < 0) continue;
@@ -504,15 +534,23 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
           ratios.push(tauBall / Math.max(0.2, aimedTau));
           aheads.push(tauBall);
           const dist = along * Math.hypot(bvx, bvy);
-          const tb = roll(Math.hypot(bvx, bvy), dist, tuning.ball, rollTmp).time + 0.1;
+          const tb = roll(Math.hypot(bvx, bvy), dist, tuning.ball, rollTmp).time + hold;
           if (Number.isFinite(tb)) earlies.push(tauBall - tb);
         }
       }
     }
     let outcome = -1;
     let minD = Infinity;
+    let arr = Number.NaN;
     let got = -1;
     for (let k = 0; k < 240 && got < 0; k++) {
+      if (w.ball.owner < 0) {
+        const d = Math.hypot(w.ball.x - r.x, w.ball.y - r.y);
+        if (d < minD) {
+          minD = d;
+          arr = Math.hypot(w.ball.vx, w.ball.vy);
+        }
+      }
       let c = cmd();
       if (policy.receive === 'chase' && w.controlled === 1 && k >= 9) {
         // Pure pursuit of the ball's predicted position, sprinting when far.
@@ -527,11 +565,11 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
       }
       step(c);
       trace?.(w, seed, k);
-      minD = Math.min(minD, Math.hypot(w.ball.x - r.x, w.ball.y - r.y));
       if (w.lastReceptionTick >= released && w.lastReceptionPlayer === 1 && outcome < 0) outcome = w.lastReceptionOutcome;
       if (w.ball.owner === 1) got = k;
     }
     if (minD <= 1.2) zone++;
+    if (Number.isFinite(arr)) arrivals.push(arr);
     if (got >= 0) {
       has++;
       times.push((got + 1) / 60);
@@ -553,6 +591,7 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     leadRatio: mean(ratios),
     early: mean(earlies),
     aheadSec: mean(aheads),
+    arrival: mean(arrivals),
   };
 }
 

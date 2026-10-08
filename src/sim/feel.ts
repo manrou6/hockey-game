@@ -35,3 +35,7 @@ export function receiveFor(_p: PlayerState, tuning: Tuning): Tuning['receive'] {
 export function wallFor(_p: PlayerState, tuning: Tuning): Tuning['wall'] {
   return tuning.wall;
 }
+
+export function shotFor(_p: PlayerState, tuning: Tuning): Tuning['shot'] {
+  return tuning.shot;
+}

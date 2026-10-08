@@ -2,15 +2,16 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bufferActions, pickupDistance, provisionalShot, stepDribble } from './dribble';
+import { bufferActions, pickupDistance, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
-import { passFor, receiveFor, skatingFor, wallFor } from './feel';
+import { passFor, receiveFor, shotFor, skatingFor, wallFor } from './feel';
 import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
+import { createShotPlan, createShotResult, goalDistance, performShot, planShot, shotKindFromHeight, shotPower, updateShotButton, SHOT_LOW, type ShotKind, type ShotPlan, type ShotResult } from './shot';
 
 export type { PlayerState } from './player';
 export { createPlayer } from './player';
@@ -74,6 +75,16 @@ export interface WorldState {
   wallBack: number;
   wallX: number;
   wallY: number;
+  /** While the controlled player carries the ball near the goal or holds TIRO: the shot as it
+   * would leave now (F1.5a, src/sim/shot.ts) — drawn as the reticle on the goal. */
+  shotAim: ShotPlan;
+  shotAimActive: boolean;
+  /** The last shot (any player): tick, who, from where, and how it was launched. */
+  lastShotTick: number;
+  lastShotPlayer: number;
+  lastShotX: number;
+  lastShotY: number;
+  lastShot: ShotResult;
   /** The last reception (F1.4c): tick, who, and how it went (src/sim/receive.ts). */
   lastReceptionTick: number;
   lastReceptionPlayer: number;
@@ -124,6 +135,13 @@ export function createWorld(seed: number, mates = 0): WorldState {
     wallBack: -1,
     wallX: Number.NaN,
     wallY: Number.NaN,
+    shotAim: createShotPlan(),
+    shotAimActive: false,
+    lastShotTick: -1000,
+    lastShotPlayer: -1,
+    lastShotX: 0,
+    lastShotY: 0,
+    lastShot: createShotResult(),
     lastReceptionTick: -1000,
     lastReceptionPlayer: -1,
     lastReceptionOutcome: RECEIVE_CLEAN,
@@ -240,6 +258,8 @@ function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.dribble = from.dribble;
   to.passHeld = from.passHeld;
   to.passHeight = from.passHeight;
+  to.shootHeld = from.shootHeld;
+  to.shootHeight = from.shootHeight;
   to.switchPlayer = from.switchPlayer;
 }
 
@@ -322,11 +342,13 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const p = players[i]!;
     const cmd = effective[i]!;
     bufferActions(p, cmd, tuning);
-    if (updatePassButton(p, cmd, tuning, dt) === 'pressed') {
+    // PASE and TIRO: one at a time (charging a shot, PASE is ignored).
+    if (p.shotHold < 0 && updatePassButton(p, cmd, tuning, dt) === 'pressed') {
       // The receiver is chosen when PASE is pressed (the ring then stays on him).
       const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
       lockPassTarget(players, i, aimAngle(p, i === world.controlled ? human : cmd), assistParams(level, tuning, assistTmp));
     }
+    updateShotButton(p, cmd, tuning, dt, ball.owner === i);
     stepPlayer(p, cmd, tuning, dt, ball.owner === i);
     p.holdTime = ball.owner === i ? p.holdTime + dt : 0;
   }
@@ -394,6 +416,18 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const charge = passPower(me!.passHold, passFor(me!, tuning));
     planPass(players, ball, world.controlled, human, world.assist, passKindFromHeight(human.passHeight), charge, me!.passLockTarget, me!.passLockOffset, tuning, world.aimPlan);
   }
+  // The shot reticle: while carrying the ball near the goal, or charging a shot.
+  world.shotAimActive = false;
+  if (me && ball.owner === world.controlled) {
+    const k = shotFor(me, tuning);
+    const charging = me.shotHold >= 0;
+    if (charging || goalDistance(me, ball) <= k.reticleRange) {
+      const kind: ShotKind = charging ? shotKindFromHeight(human.shootHeight) : SHOT_LOW;
+      const quick = !charging || me.shotHold < k.tapTime;
+      planShot(me, ball, human, world.assist, kind, charging ? shotPower(me.shotHold, k) : 0, quick, tuning, world.shotAim);
+      world.shotAimActive = world.shotAim.aimed;
+    }
+  }
   world.tick++;
 }
 
@@ -435,13 +469,20 @@ function nearestTeammate(world: WorldState, x: number, y: number, exclude = -1):
 }
 
 /**
- * The ball carrier shoots (provisional, F1.5) or passes if a press is queued. Teammates pass
+ * The ball carrier shoots (F1.5a) or passes if a press is queued. Teammates pass
  * with full assist; the human with his Settings level. Returns true if the ball left.
  */
 function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: PlayerCommand, tuning: Tuning): boolean {
   const p = world.players[i]!;
-  if (provisionalShot(world.ball, p, tuning)) {
+  if (p.bufShoot > 0) {
+    // TIRO (F1.5a): the human with his Settings assist level, teammates with Fuerte.
+    world.lastShotX = world.ball.x;
+    world.lastShotY = world.ball.y;
+    performShot(p, world.ball, i === world.controlled ? human : cmd, i === world.controlled ? world.assist : 'strong', world.rng, tuning, world.lastShot);
+    world.lastShotTick = world.tick;
+    world.lastShotPlayer = i;
     world.passTo = -1;
+    world.passFrom = -1;
     world.wallFrom = world.wallBack = -1;
     return true;
   }

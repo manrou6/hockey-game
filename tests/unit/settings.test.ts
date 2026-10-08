@@ -33,6 +33,12 @@ describe('settings: pass assist default (v0.1.21: Mitjana)', () => {
     expect(loadSettings().assist).toBe('medium');
   });
 
+  it('the shot reticle (F1.5a) is on by default, and switching it off is remembered', () => {
+    expect(loadSettings().shotReticle).toBe(true);
+    saveSettings({ ...loadSettings(), shotReticle: false });
+    expect(loadSettings().shotReticle).toBe(false);
+  });
+
   it('settings saved before the change (old default Lleugera, no revision) move to Mitjana once', () => {
     stubStorage({ [KEY]: JSON.stringify({ language: 'es', assist: 'light', passArrow: false }) });
     const s = loadSettings();

@@ -103,7 +103,9 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
   ball.prevZ = ball.z;
 
   const speed = Math.hypot(owner.vx, owner.vy);
-  const target = targetSeparation(owner, pressureOn(owner, players, tuning), tuning);
+  // Charging a drag shot (F1.5a): the ball is glued to the blade.
+  const charging = owner.shotHold >= 0;
+  const target = charging ? 0 : targetSeparation(owner, pressureOn(owner, players, tuning), tuning);
   // Separation changes smoothly (no pops), quicker to grow than to settle back.
   const rate = target > ball.separation ? 10 : 5;
   ball.separation += (target - ball.separation) * Math.min(1, rate * dt);
@@ -139,7 +141,7 @@ export function stepDribble(ball: BallState, owner: PlayerState, players: readon
 
   // Too much separation: the ball may get away (deterministic random).
   const excess = ball.separation - d.safeSeparation;
-  if (excess > 0 && nextFloat(rng) < excess * d.lossRate * dt) {
+  if (!charging && excess > 0 && nextFloat(rng) < excess * d.lossRate * dt) {
     releaseBall(ball, owner, tuning);
     // It keeps rolling ahead a bit faster than the skater.
     ball.vx = owner.vx * 1.1 + Math.cos(owner.heading) * 0.5;
@@ -185,30 +187,9 @@ export function bufferActions(p: PlayerState, cmd: PlayerCommand, tuning: Tuning
   const ticks = Math.max(1, Math.round(tuning.input.bufferTime * tuning.sim.tickRate));
   // PASE is queued on release (src/sim/pass.ts updatePassButton), not on the press.
   p.bufPass = Math.max(0, p.bufPass - 1);
-  p.bufShoot = cmd.shoot ? ticks : Math.max(0, p.bufShoot - 1);
+  // TIRO is queued on release too (src/sim/shot.ts updateShotButton), only while carrying the ball.
+  p.bufShoot = Math.max(0, p.bufShoot - 1);
   p.bufDribble = cmd.dribble ? ticks : Math.max(0, p.bufDribble - 1);
   if (p.noPickupTicks > 0) p.noPickupTicks--;
   if (p.firstTouchTicks > 0) p.firstTouchTicks--;
-}
-
-/**
- * PROVISIONAL quick shot (replaced by the full mechanics in F1.5): towards the centre of the
- * attacked goal if roughly facing it, else straight ahead. Returns true if the ball left.
- */
-export function provisionalShot(ball: BallState, p: PlayerState, tuning: Tuning): boolean {
-  if (p.bufShoot <= 0) return false;
-  const d = dribbleFor(p, tuning);
-  const goalX = (p.team === 0 ? 1 : -1) * (RINK.length / 2 - RINK.goalLineFromEnd);
-  const toGoal = Math.atan2(-p.y, goalX - p.x);
-  let diff = toGoal - p.heading;
-  diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-  const a = Math.abs(diff) < 1.3 ? toGoal : p.heading;
-  releaseBall(ball, p, tuning);
-  ball.vx = Math.cos(a) * d.shotSpeed;
-  ball.vy = Math.sin(a) * d.shotSpeed;
-  ball.vz = 1.2;
-  p.bufShoot = 0;
-  p.bufPass = 0;
-  p.passHold = -1;
-  return true;
 }

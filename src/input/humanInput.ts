@@ -11,11 +11,11 @@ import { VirtualJoystick } from './virtualJoystick';
  * Button presses are latched until the simulation consumes them on a tick.
  */
 export class HumanInput implements CommandSource {
-  private readonly edges: ActionEdges = { pass: false, shoot: false, dribble: false, switch: false, passHeight: 0 };
+  private readonly edges: ActionEdges = { pass: false, shoot: false, dribble: false, switch: false, passHeight: 0, shootHeight: 0 };
   readonly joystick = new VirtualJoystick();
   readonly buttons = new ActionButtons(this.edges);
   private readonly keyboard = new KeyboardInput(this.edges);
-  private readonly tmp = { x: 0, y: 0, sprint: false, passHeld: false, passHeight: 0 };
+  private readonly tmp = { x: 0, y: 0, sprint: false, passHeld: false, passHeight: 0, shootHeld: false };
   private _enabled = false;
 
   get enabled(): boolean {
@@ -34,8 +34,8 @@ export class HumanInput implements CommandSource {
     out.moveX = 0;
     out.moveY = 0;
     out.sprint = false;
-    out.pass = out.shoot = out.dribble = out.passHeld = out.switchPlayer = false;
-    out.passHeight = 0;
+    out.pass = out.shoot = out.dribble = out.passHeld = out.shootHeld = out.switchPlayer = false;
+    out.passHeight = out.shootHeight = 0;
     if (!this._enabled) {
       this.consumeEdges();
       return;
@@ -50,6 +50,7 @@ export class HumanInput implements CommandSource {
     readGamepad(t, this.edges);
     const padPass = t.passHeld;
     const padHeight = t.passHeight;
+    const padShoot = t.shootHeld;
     if (this.joystick.active) {
       this.joystick.read(t);
     } else if (kx !== 0 || ky !== 0) {
@@ -67,6 +68,9 @@ export class HumanInput implements CommandSource {
     // While PASE is held: the live height (slide / U / LB); once released: the height it had
     // at that moment.
     out.passHeight = out.passHeld ? Math.max(this.buttons.passHeight(), this.keyboard.passHeight, padHeight) : this.edges.passHeight;
+    // TIRO (F1.5a): held = charging; the height comes from the same gestures as PASE.
+    out.shootHeld = this.buttons.held('shoot') || this.keyboard.shootHeld || padShoot;
+    out.shootHeight = out.shootHeld ? Math.max(this.buttons.shootHeight(), this.keyboard.passHeight, padHeight) : this.edges.shootHeight;
     out.switchPlayer = this.edges.switch;
   }
 

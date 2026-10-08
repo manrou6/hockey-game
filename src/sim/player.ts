@@ -1,7 +1,7 @@
 import type { Tuning } from '../config/tuning';
 import type { PlayerCommand } from './commands';
 import { resolveStatic } from './rink';
-import { cutFor, dribbleFor, skatingFor } from './feel';
+import { cutFor, dribbleFor, shotFor, skatingFor } from './feel';
 
 /** Below this stick magnitude there is no input (the input layer applies the real dead zone). */
 const MOVE_EPSILON = 0.01;
@@ -39,6 +39,15 @@ export interface PlayerState {
    * him the stick was aimed then (rad). */
   passLockTarget: number;
   passLockOffset: number;
+  /** Tir attribute 0-99 (docs/01): smaller shot errors. */
+  shooting: number;
+  /** TIRO held for this long (s) while carrying the ball (a drag-shot charge); −1 = not held.
+   * On release the shot is queued (bufShoot) with its kind (0 low, 1 high, 2 chip;
+   * src/sim/shot.ts), whether it was a quick shot (a tap) and its power 0..1. */
+  shotHold: number;
+  shotKind: number;
+  shotQuick: boolean;
+  shotCharge: number;
   /** Kind of the last pass this player received (teammates give it back the same way). */
   receivedKind: number;
   /** F1.4c: ticks left to pass "first touch" after receiving, and how hard that
@@ -103,7 +112,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, shooting: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,
@@ -308,8 +317,10 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     speed = Math.max(0, speed - (k.glideDecel + k.glideDrag * speed) * dt);
     p.wasSprinting = false;
   } else {
-    // Right after a trencada you can't sprint yet: re-accelerate first.
-    const sprinting = cmd.sprint && p.cutRecovery <= 0;
+    // Right after a trencada you can't sprint yet: re-accelerate first. Charging a drag shot
+    // (F1.5a) you can't sprint either, and skate a bit slower.
+    const charging = hasBall && p.shotHold >= 0;
+    const sprinting = cmd.sprint && p.cutRecovery <= 0 && !charging;
     if (p.cutRecovery > 0) p.wasSprinting = cmd.sprint; // no sprint push when the recovery ends
     // Sprint push: a short burst of extra acceleration when a sprint starts.
     if (sprinting && !p.wasSprinting && p.boostCooldown <= 0) {
@@ -324,7 +335,7 @@ export function stepPlayer(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, d
     const boosting = p.boostTime > 0;
     p.boostTime = Math.max(0, p.boostTime - dt);
 
-    const cap = sprinting ? (hasBall ? dribbleFor(p, tuning).sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed;
+    const cap = sprinting ? (hasBall ? dribbleFor(p, tuning).sprintSpeedWithBall : k.sprintSpeed) : k.maxSpeed * (charging ? shotFor(p, tuning).chargeSpeedFactor : 1);
     const target = sprinting ? cap + (boosting ? k.sprintBoostOvershoot : 0) : cap * mag;
     const diff = wrapAngle(want - dir);
     const pivoting = speed <= k.pivotSpeed;

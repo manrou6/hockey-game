@@ -259,7 +259,7 @@ export function loftFlightTime(v: number, angle: number, k: Tuning['ball']): num
 }
 
 /** Approximately normal deviate (mean 0, sd 1) from four uniforms: deterministic and cheap. */
-function gaussian(rng: RngState): number {
+export function gaussian(rng: RngState): number {
   return (nextFloat(rng) + nextFloat(rng) + nextFloat(rng) + nextFloat(rng) - 2) * Math.sqrt(3);
 }
 
@@ -470,7 +470,16 @@ export function planPass(
         const arrivalSpace = arrival + space * (Math.min(arrival, tuning.assist.spaceArrivalSpeed) - arrival);
         const minSpace = k.groundMinSpeed + space * (Math.min(k.groundMinSpeed, tuning.assist.spaceLaunchMin) - k.groundMinSpeed);
         const auto = groundPassSpeed(dist, arrivalSpace, minSpace, k.groundMaxSpeed, kb);
+        // Charged: a pass to his feet gets faster up to the maximum launch speed; a pass into space
+        // arrives faster, from the tap's arrival up to spaceChargedArrivalSpeed (less margin for the
+        // runner: it asks for timing), in proportion to how much of a pass into space it is. At or above
+        // the maximum launch speed it is the v0.1.23 behaviour (the same charge as a pass to his feet).
         out.speed = auto + (Math.max(auto, k.groundMaxSpeed) - auto) * charge;
+        if (space > 0 && charge > 0 && tuning.assist.spaceChargedArrivalSpeed < k.groundMaxSpeed) {
+          const charged = arrivalSpace + (Math.max(arrivalSpace, tuning.assist.spaceChargedArrivalSpeed) - arrivalSpace) * charge;
+          const spaceSpeed = groundPassSpeed(dist, charged, minSpace, k.groundMaxSpeed, kb);
+          out.speed += space * (spaceSpeed - out.speed);
+        }
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;
       } else {

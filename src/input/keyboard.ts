@@ -6,7 +6,8 @@ const DOUBLE_TAP_MS = 350;
 /**
  * Keyboard (docs/03 §3 PC): WASD / arrows = skate at the normal top speed (keys are not
  * analog), Shift = sprint; J = PASE (hold = more power), U held = driven lofted pass, U twice
- * (held) or Shift+U = lob; K or Space = TIRO, L = REGATE, Q = CANVI (switch player).
+ * (held) or Shift+U = lob; K or Space = TIRO (hold = charge; U / Shift+U = high / chip), L = REGATE,
+ * Q = CANVI (switch player).
  */
 export class KeyboardInput {
   private readonly down = new Set<string>();
@@ -21,7 +22,10 @@ export class KeyboardInput {
         edges.pass = true;
         edges.passHeight = 0;
       }
-      if (e.code === 'KeyK' || e.code === 'Space') edges.shoot = true;
+      if (e.code === 'KeyK' || e.code === 'Space') {
+        edges.shoot = true;
+        edges.shootHeight = 0;
+      }
       if (e.code === 'KeyL') edges.dribble = true;
       if (e.code === 'KeyQ') edges.switch = true;
       if (e.code === 'KeyU') {
@@ -32,6 +36,7 @@ export class KeyboardInput {
     target.addEventListener('keyup', (e) => {
       // The pass height is taken at the moment J is released (U may be let go right after).
       if (e.code === 'KeyJ') edges.passHeight = this.passHeight;
+      if ((e.code === 'KeyK' || e.code === 'Space') && !(this.down.has('KeyK') && this.down.has('Space'))) edges.shootHeight = this.passHeight;
       this.down.delete(e.code);
     });
     target.addEventListener('blur', () => this.down.clear());
@@ -41,6 +46,11 @@ export class KeyboardInput {
   get passHeight(): number {
     if (!this.down.has('KeyU')) return 0;
     return this.uDouble || this.any('ShiftLeft', 'ShiftRight') ? 2 : 1;
+  }
+
+  /** K or Space (TIRO) held down (F1.5a: the shot leaves on release; U / Shift+U pick the height as for PASE). */
+  get shootHeld(): boolean {
+    return this.any('KeyK', 'Space');
   }
 
   /** J (PASE) held down. */

@@ -21,10 +21,14 @@ export interface PlayerCommand {
   /** Height chosen for the pass (docs/03 §3, v0.1.17): 0 = low (ground), 1 = driven lofted
    * ("alt fort"), 2 = lob. Touch: slide the finger up on PASE; keyboard U; gamepad LB(+RB). */
   passHeight: number;
+  /** TIRO is being held down (F1.5a): holding charges a drag shot; the shot leaves on release. */
+  shootHeld: boolean;
+  /** Height chosen for the shot with the same diagonal drag as PASE: 0 = low, 1 = high, 2 = chip. */
+  shootHeight: number;
   /** CANVI pressed this tick: switch to the teammate nearest the ball. */
   switchPlayer: boolean;
 }
 
 export function emptyCommand(): PlayerCommand {
-  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false };
+  return { moveX: 0, moveY: 0, sprint: false, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, shootHeld: false, shootHeight: 0, switchPlayer: false };
 }

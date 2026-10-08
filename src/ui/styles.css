@@ -105,18 +105,18 @@
 }
 .touch-btn.pressed { background: rgba(244, 178, 60, 0.55); border-color: var(--ui-accent); }
 .action-btn { font-size: 15px !important; }
-/* PASE charge arc: fills while held. White = ground pass (tap), orange = driven lofted pass,
-   purple = lob. */
-.action-pass::after {
+/* PASE / TIRO charge arc: fills while held. White = ground pass / low shot (tap), orange = driven
+   lofted pass / high shot, purple = lob / chip. */
+.action-pass::after, .action-shoot::after {
   content: ''; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
   background: conic-gradient(var(--arc-color, rgba(255, 255, 255, 0.85)) calc(var(--charge, 0) * 360deg), transparent 0);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
   opacity: 0; transition: opacity 80ms;
 }
-.action-pass.charging::after { opacity: 1; }
-.action-pass.drive { --arc-color: var(--ui-accent); }
-.action-pass.lob { --arc-color: #b16cff; }
+.action-pass.charging::after, .action-shoot.charging::after { opacity: 1; }
+.action-pass.drive, .action-shoot.drive { --arc-color: var(--ui-accent); }
+.action-pass.lob, .action-shoot.lob { --arc-color: #b16cff; }
 .action-shoot { font-size: 17px !important; background: rgba(230, 57, 70, 0.22); border-color: rgba(255, 140, 140, 0.7); }
 .action-dribble { font-size: 14px !important; }
 /* CANVI (switch player): smaller and quieter than the main actions. */

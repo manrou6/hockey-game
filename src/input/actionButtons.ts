@@ -14,12 +14,14 @@ export interface ActionEdges {
   /** Height the pass had at the moment PASE was released (any device); kept until the next
    * press, so a quick release between two frames is never lost. */
   passHeight: number;
+  /** The same for TIRO (F1.5a: the shot height uses the same diagonal drag). */
+  shootHeight: number;
 }
 
 /**
  * Right-thumb buttons (docs/03 §3A): PASE, TIRO, REGATE. Presses register on touch-down
- * (fastest response); PASE also reports when it is held (the pass leaves on release; a diagonal
- * drag picks the height). Sprint is not on a button any more: it's the outer zone of the joystick.
+ * (fastest response); PASE and TIRO also report when they are held (the pass / shot leaves on
+ * release; a diagonal drag picks the height). Sprint is not on a button any more: it's the outer zone of the joystick.
  * Position and size come from TUNING.buttons (editable live in the tuning panel).
  */
 export class ActionButtons {
@@ -31,6 +33,10 @@ export class ActionButtons {
   private readonly passStart = { x: 0, y: 0 };
   private passDx = 0;
   private passDy = 0;
+  /** The same for TIRO (F1.5a). */
+  private readonly shootStart = { x: 0, y: 0 };
+  private shootDx = 0;
+  private shootDy = 0;
   private readonly pt = { x: 0, y: 0 };
 
   constructor(private readonly edges: ActionEdges) {
@@ -53,6 +59,13 @@ export class ActionButtons {
       toLayout(e.clientX, e.clientY, this.pt);
       this.passDx = this.pt.x - this.passStart.x;
       this.passDy = this.passStart.y - this.pt.y;
+    });
+    const shoot = this.buttons.shoot;
+    shoot.addEventListener('pointermove', (e) => {
+      if (!this.pointers.shoot.has(e.pointerId)) return;
+      toLayout(e.clientX, e.clientY, this.pt);
+      this.shootDx = this.pt.x - this.shootStart.x;
+      this.shootDy = this.shootStart.y - this.pt.y;
     });
     this.applyLayout();
   }
@@ -83,10 +96,16 @@ export class ActionButtons {
         toLayout(e.clientX, e.clientY, this.passStart);
         this.passDx = this.passDy = 0;
       }
+      if (id === 'shoot') {
+        this.edges.shootHeight = 0;
+        toLayout(e.clientX, e.clientY, this.shootStart);
+        this.shootDx = this.shootDy = 0;
+      }
       b.classList.add('pressed');
     });
     const up = (e: PointerEvent): void => {
       if (id === 'pass' && set.has(e.pointerId) && set.size === 1) this.edges.passHeight = this.liveHeight();
+      if (id === 'shoot' && set.has(e.pointerId) && set.size === 1) this.edges.shootHeight = this.liveShootHeight();
       if (!set.delete(e.pointerId)) return;
       if (set.size === 0) b.classList.remove('pressed');
     };
@@ -103,6 +122,16 @@ export class ActionButtons {
   private liveHeight(): number {
     const i = TUNING.input;
     return dragHeight(this.passDx, this.passDy, i.passDragDistance, i.passDragAngle);
+  }
+
+  /** TIRO height from the same diagonal drag (F1.5a): 0 low, 1 high (up-right), 2 chip (up-left). */
+  shootHeight(): number {
+    return this.held('shoot') ? this.liveShootHeight() : 0;
+  }
+
+  private liveShootHeight(): number {
+    const i = TUNING.input;
+    return dragHeight(this.shootDx, this.shootDy, i.passDragDistance, i.passDragAngle);
   }
 
   /** Is this button being held down right now? */
