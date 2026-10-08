@@ -16,6 +16,7 @@ Aceptación: el enlace abre en el Pixel, se instala como app, 60 fps estables, e
 - Física completa de patinaje y bola (docs/03 §1-2), conducción, pase, tiro con carga, rebote en valla.
 - Ambos esquemas de control + editor de posición de botones + vibración.
 - Regates de docs/03 §4 (al menos 5) con placeholder de animación.
+- Remate en el aire / volea (**F1.5d**, justo después de F1.5c) y **aixecar** + combo **aixecar + picar** (**F1.6**, con los regates): decisiones de Guillem del 2026-10-08 en docs/03 §3-§4 y DECISIONS.md. Ningún botón nuevo (aixecar dentro de REGATE, picar dentro de Xut); una sola regla de remate en el aire (mismo Xut, misma ventana); altura máxima provisional 1,05 m (la regla real de bola alta está marcada [VERIFICAR] en docs/02; las faltas son de F3).
 - Modo Entrenamiento: pista libre + 3 retos (conos, tiro a zonas, regatear a un defensa estático).
 - Portero IA básico.
 Aceptación: Guillem dice que conducir y regatear "se siente bien" tras una ronda de ajustes; marcar gol al portero básico es posible pero no trivial.

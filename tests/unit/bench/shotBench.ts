@@ -4,6 +4,7 @@ import { emptyCommand, type PlayerCommand } from '../../../src/sim/commands';
 import { pickUp } from '../../../src/sim/dribble';
 import { dribbleFor, shotFor } from '../../../src/sim/feel';
 import type { AssistLevel } from '../../../src/sim/pass';
+import { isCutting, isSkidding } from '../../../src/sim/player';
 import { createWorld, stepWorld } from '../../../src/sim/world';
 
 // Shooting test bench (F1.5a): a scripted "human" shoots at the empty +x goal from a given
@@ -17,7 +18,10 @@ const TICK = 1 / 60;
 const GX = goalLineX(1);
 const R = RINK.ballRadius;
 
-export type ShotState = 'stand' | 'skate' | 'sprint';
+/** stand / skate (6 m/s) / sprint (9 m/s) towards the goal; cut = a trencada towards the goal
+ * from skating across at 7 m/s (the shot leaves during it); skid = a four-wheel skid stop from
+ * 7 m/s towards the goal, stick released (so the shot goes to the far post). */
+export type ShotState = 'stand' | 'skate' | 'sprint' | 'cut' | 'skid';
 export type ShotType = 'quick' | 'half' | 'sweet' | 'full';
 
 export interface ShotCase {
@@ -47,14 +51,16 @@ export interface ShotStats {
   flight: number;
   /** Is the case possible (the shooter inside the rink)? */
   valid: boolean;
+  /** % of the shots that left during a skid or a trencada (off balance). */
+  offBalance: number;
 }
 
 /** Human thumb error on the stick angle (±rad, uniform): the same as the passing bench. */
 export const THUMB_ERROR = 0.12;
 /** Human touch: a tap lasts this long (s); a half and a full charge are held for these. */
 const HOLD: Record<ShotType, number> = { quick: 0.1, half: 0.5, sweet: 0.71, full: 0.85 };
-const START_SPEED: Record<ShotState, number> = { stand: 0, skate: 6, sprint: 9 };
-const STICK: Record<ShotState, number> = { stand: 0.2, skate: 1, sprint: 1 };
+const START_SPEED: Record<ShotState, number> = { stand: 0, skate: 6, sprint: 9, cut: 7, skid: 7 };
+const STICK: Record<ShotState, number> = { stand: 0.2, skate: 1, sprint: 1, cut: 1, skid: 0 };
 
 function lcg(seed: number): () => number {
   let s = seed >>> 0;
@@ -81,14 +87,15 @@ export interface ReleaseContext {
 }
 
 export interface ShotOptions {
-  /** The shooter's Tir attribute (default 75). */
-  shooting?: number;
+  /** The shooter's shot attributes (default 75). */
+  shotAccuracy?: number;
+  shotPower?: number;
   /** Called just before the release tick with a private copy of the tuning: may change its numbers (error models). */
   beforeRelease?: (t: Tuning, base: Tuning, ctx: ReleaseContext) => void;
 }
 
 export function runShots(tuning: Tuning, level: AssistLevel, c: ShotCase, n = 300, opts: ShotOptions = {}): ShotStats {
-  const out: ShotStats = { n, onTarget: 0, inZone: 0, woodwork: 0, wide: 0, over: 0, release: Number.NaN, speedAtGoal: Number.NaN, flight: Number.NaN, valid: caseValid(c) };
+  const out: ShotStats = { n, onTarget: 0, inZone: 0, woodwork: 0, wide: 0, over: 0, release: Number.NaN, speedAtGoal: Number.NaN, flight: Number.NaN, valid: caseValid(c), offBalance: 0 };
   if (!out.valid) return out;
   const k = shotFor({} as never, tuning);
   const half = RINK.goalWidth / 2 - k.postMargin;
@@ -98,6 +105,7 @@ export function runShots(tuning: Tuning, level: AssistLevel, c: ShotCase, n = 30
   let wood = 0;
   let wide = 0;
   let over = 0;
+  let off = 0;
   const own = opts.beforeRelease ? structuredClone(tuning) : tuning;
   const releases: number[] = [];
   const speeds: number[] = [];
@@ -108,23 +116,32 @@ export function runShots(tuning: Tuning, level: AssistLevel, c: ShotCase, n = 30
     const w = createWorld(seed, 0);
     w.assist = level;
     const p = w.players[0]!;
-    if (opts.shooting !== undefined) p.shooting = opts.shooting;
+    if (opts.shotAccuracy !== undefined) p.shotAccuracy = opts.shotAccuracy;
+    if (opts.shotPower !== undefined) p.shotPower = opts.shotPower;
     const sideY = seed % 2 ? 1 : -1;
     const th = ((c.angle * Math.PI) / 180) * sideY;
     const bx = GX - c.dist * Math.cos(th);
     const by = c.dist * Math.sin(th);
-    const h = Math.atan2(-by, GX - bx);
+    const toGoal = Math.atan2(-by, GX - bx);
+    // A trencada starts from skating across (towards the middle); the rest face the goal.
+    const h = c.state === 'cut' ? toGoal - sideY * (Math.PI / 2) : toGoal;
     const d = dribbleFor(p, t);
     p.heading = p.prevHeading = h;
     p.x = p.prevX = bx - Math.cos(h) * d.stickForward - Math.sin(h) * d.stickSide;
     p.y = p.prevY = by - Math.sin(h) * d.stickForward + Math.cos(h) * d.stickSide;
     p.vx = Math.cos(h) * START_SPEED[c.state];
     p.vy = Math.sin(h) * START_SPEED[c.state];
+    // The stick was pushed along the way he skates (a trencada needs a flick; a skid stop needs
+    // the stick released abruptly after pushing it).
+    p.stickHist.fill(h);
+    p.stickPeak = 1;
     w.ball.x = w.ball.prevX = bx;
     w.ball.y = w.ball.prevY = by;
     pickUp(w.ball, 0, p);
     // The zone he wants: a third of the width (centre of it) and the low or high half.
-    const u = Math.floor(rnd() * 3) - 1;
+    const pick = Math.floor(rnd() * 3) - 1;
+    // Stick released (skid): the far post.
+    const u = c.state === 'skid' ? (by >= 0 ? -1 : 1) : pick;
     const wantY = u * (RINK.goalWidth / 3);
     const wantHigh = c.height > 0;
     const noise = (rnd() * 2 - 1) * THUMB_ERROR;
@@ -157,6 +174,7 @@ export function runShots(tuning: Tuning, level: AssistLevel, c: ShotCase, n = 30
       if (w.lastShotTick !== startShot) left = w.tick;
     }
     if (left < 0) continue;
+    if (isCutting(p) || isSkidding(p)) off++;
     releases.push((left - press) * TICK);
     // Fly to the goal line (or not).
     let crossed = false;
@@ -194,6 +212,7 @@ export function runShots(tuning: Tuning, level: AssistLevel, c: ShotCase, n = 30
   out.woodwork = (100 * wood) / n;
   out.wide = (100 * wide) / n;
   out.over = (100 * over) / n;
+  out.offBalance = (100 * off) / n;
   out.release = mean(releases);
   out.speedAtGoal = mean(speeds);
   out.flight = mean(flights);
@@ -206,6 +225,13 @@ export function fmtShots(s: ShotStats): string {
 }
 
 export const BASE_TUNING = (): Tuning => structuredClone(TUNING);
+
+/** The v0.1.25 shot error model: every context weight of F1.5c at 0 (and no sweet spot). */
+export function V0125_TUNING(): Tuning {
+  const t = BASE_TUNING();
+  Object.assign(t.shot, { ctxSprint: 0, ctxOffBalance: 0, ctxAngle: 0, ctxDistance: 0, ctxPressure: 0, ctxAssist: 0, sweetSpot: 0 });
+  return t;
+}
 
 // --- First-touch shot and turn shot (F1.5b) ---------------------------------------------
 

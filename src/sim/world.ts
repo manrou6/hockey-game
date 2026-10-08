@@ -2,7 +2,7 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bufferActions, pickupDistance, stepDribble } from './dribble';
+import { bufferActions, pickupDistance, pressureOn, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
@@ -11,7 +11,7 @@ import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from '
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
-import { createShotPlan, createShotResult, goalDistance, needsTurn, performShot, planShot, shotKindFromHeight, shotPower, startTurn, stepTurn, updateShotButton, SHOT_LOW, type ShotKind, type ShotPlan, type ShotResult } from './shot';
+import { createShotPlan, createShotResult, goalDistance, holdForTurn, needsTurn, performShot, planShot, shotKindFromHeight, shotPower, startTurn, stepTurn, updateShotButton, SHOT_LOW, type ShotKind, type ShotPlan, type ShotResult } from './shot';
 
 export type { PlayerState } from './player';
 export { createPlayer } from './player';
@@ -340,11 +340,12 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     if (i === world.controlled) humanCommand(world, human, receiver, tuning, out);
     else if (players[i]!.bot) botCommand(botCtx, i, tuning, out);
     else copyCommand(commands[i] ?? IDLE, out);
-    // Turning to shoot (media vuelta): he just glides round; buttons wait.
+    // Turning to shoot (media vuelta): he just glides round; buttons wait. Tapping TIRO with the
+    // goal behind, the stick does not turn him first (the media vuelta will).
     if (players[i]!.shotTurn > 0) {
       out.moveX = out.moveY = 0;
       out.sprint = out.pass = out.shoot = out.passHeld = out.shootHeld = false;
-    }
+    } else holdForTurn(players[i]!, ball, out, ball.owner === i, tuning);
   }
 
   for (let i = 0; i < players.length; i++) {
@@ -497,7 +498,7 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
     }
     world.lastShotX = world.ball.x;
     world.lastShotY = world.ball.y;
-    performShot(p, world.ball, shotCmd, level, world.rng, tuning, world.lastShot);
+    performShot(p, world.ball, shotCmd, level, world.rng, tuning, world.lastShot, pressureOn(p, world.players, tuning));
     world.lastShotTick = world.tick;
     world.lastShotPlayer = i;
     world.passTo = -1;

@@ -3,7 +3,7 @@ import type { Tuning } from '../config/tuning';
 import { GRAVITY, type BallState } from './ball';
 import type { PlayerCommand } from './commands';
 import { releaseBall } from './dribble';
-import { shotFor, skatingFor } from './feel';
+import { dribbleFor, shotFor, skatingFor } from './feel';
 import { gaussian, loftPassSpeed, type AssistLevel } from './pass';
 import { isCutting, isSkidding, wrapAngle, type PlayerState } from './player';
 import type { RngState } from './rng';
@@ -55,6 +55,7 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
   if (cmd.shoot && p.shotHold < 0 && p.passHold < 0 && p.shotTurn <= 0) {
     p.shotHold = 0;
     p.shotWithBall = hasBall;
+    p.shotPressHeading = hasBall ? p.heading : Number.NaN;
   } else if (p.shotHold >= 0) p.shotHold += dt;
   if (p.shotHold < 0) return;
   if (hasBall) p.shotWithBall = true;
@@ -71,21 +72,53 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
   }
 }
 
+/** Is the goal he attacks near (turnRange) and more than turnMinAngle away from `facing`? */
+function goalBehind(p: PlayerState, ball: BallState, facing: number, k: Tuning['shot']): boolean {
+  const gx = goalLineX(attackedSide(p));
+  return Math.hypot(gx - ball.x, ball.y) <= k.turnRange && Math.abs(wrapAngle(Math.atan2(-ball.y, gx - ball.x) - facing)) > k.turnMinAngle;
+}
+
 /**
  * Should the queued shot be a turn shot (media vuelta, F1.5b)? Near the goal, aimed at it, and
- * more than turnMinAngle away from where he faces.
+ * more than turnMinAngle away from where he faces; or a quick shot pressed with the goal behind
+ * him (F1.5c: the same media vuelta whether the stick is released or aimed at the goal).
  */
 export function needsTurn(p: PlayerState, ball: BallState, plan: ShotPlan, tuning: Tuning): boolean {
   const k = shotFor(p, tuning);
-  return !p.shotTurned && plan.aimed && goalDistance(p, ball) <= k.turnRange && Math.abs(wrapAngle(plan.angle - p.heading)) > k.turnMinAngle;
+  if (p.shotTurned || !plan.aimed || goalDistance(p, ball) > k.turnRange) return false;
+  if (Math.abs(wrapAngle(plan.angle - p.heading)) > k.turnMinAngle) return true;
+  return p.shotQuick && !Number.isNaN(p.shotPressHeading) && goalBehind(p, ball, p.shotPressHeading, k);
 }
 
-/** Start the quick turn towards the shot (the ball stays on the stick; the shot leaves at the end). */
+/**
+ * TIRO being tapped (pressed now, or held less than tapTime) carrying the ball with the goal
+ * near and behind him: the stick must not turn him meanwhile (the media vuelta will), so he
+ * keeps skating the way he goes (or stays put when slow). Changes `cmd`; true if it did (F1.5c).
+ */
+export function holdForTurn(p: PlayerState, ball: BallState, cmd: PlayerCommand, hasBall: boolean, tuning: Tuning): boolean {
+  if (!hasBall || p.shotTurn > 0) return false;
+  const k = shotFor(p, tuning);
+  const pressing = p.shotHold < 0 ? cmd.shoot && p.passHold < 0 : p.shotHold < k.tapTime;
+  const facing = p.shotHold < 0 ? p.heading : p.shotPressHeading;
+  if (!pressing || Number.isNaN(facing) || !goalBehind(p, ball, facing, k)) return false;
+  const v = Math.hypot(p.vx, p.vy);
+  const keep = v > skatingFor(p, tuning).pivotSpeed ? Math.min(1, Math.hypot(cmd.moveX, cmd.moveY)) / v : 0;
+  cmd.moveX = p.vx * keep;
+  cmd.moveY = p.vy * keep;
+  return true;
+}
+
+/**
+ * Start the quick turn towards the shot (the ball stays on the stick; the shot leaves at the
+ * end). He glides round: letting go of the stick for it is not a skid stop.
+ */
 export function startTurn(p: PlayerState, plan: ShotPlan, tuning: Tuning): void {
   p.shotTurn = Math.max(1e-3, shotFor(p, tuning).turnTime);
   p.shotTurnFrom = p.heading;
   p.shotTurnTo = plan.angle;
   p.bufShoot = 0;
+  p.stickPeak = 0;
+  p.skidTime = 0;
 }
 
 /**
@@ -121,10 +154,13 @@ export interface ShotPlan {
   angle: number;
   elevation: number;
   speed: number;
+  /** Where the ball was (sim x, y): the distance and angle of the error model (F1.5c). */
+  fromX: number;
+  fromY: number;
 }
 
 export function createShotPlan(): ShotPlan {
-  return { kind: SHOT_LOW, aimed: false, targetX: 0, targetY: 0, targetZ: 0, angle: 0, elevation: 0, speed: 0 };
+  return { kind: SHOT_LOW, aimed: false, targetX: 0, targetY: 0, targetZ: 0, angle: 0, elevation: 0, speed: 0, fromX: 0, fromY: 0 };
 }
 
 /** Below this stick magnitude the stick is "released". */
@@ -164,6 +200,12 @@ export function shotErrorFactor(level: AssistLevel, k: Tuning['shot']): number {
   return level === 'strong' ? k.strongErrorFactor : level === 'medium' ? k.mediumErrorFactor : 1;
 }
 
+/** Speed factor of the shotPower attribute: powerGain faster at 90 than at 40, 1 at 75 (F1.5c). */
+export function shotPowerFactor(p: PlayerState, k: Tuning['shot']): number {
+  const at = (power: number): number => 1 + k.powerGain * ((power - 40) / 50);
+  return at(Math.min(99, Math.max(0, p.shotPower))) / at(75);
+}
+
 /**
  * Work out the shot of player `p` (carrying `ball`) with the stick in `cmd`: where it goes, and
  * the launch for its kind, power (`charge` 0..1) or quick shot. No human error: used for the
@@ -180,6 +222,8 @@ export function planShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, le
   const half = RINK.goalWidth / 2 - k.postMargin;
   out.kind = kind;
   out.targetX = gx;
+  out.fromX = ball.x;
+  out.fromY = ball.y;
   out.aimed = false;
   // Option A: the stick's angle from the centre of the goal, magnified (a post at aimRange).
   const pointing = Number.isNaN(stick) ? p.heading : stick;
@@ -206,7 +250,7 @@ export function planShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, le
     out.targetZ = Math.max(RINK.ballRadius, heightAt(out.speed, out.elevation, dist, kb));
     return out;
   }
-  out.speed = quick ? k.quickSpeed : k.minSpeed + (Math.max(k.minSpeed, k.maxSpeed) - k.minSpeed) * charge;
+  out.speed = (quick ? k.quickSpeed : k.minSpeed + (Math.max(k.minSpeed, k.maxSpeed) - k.minSpeed) * charge) * shotPowerFactor(p, k);
   if (kind === SHOT_LOW) {
     out.elevation = 0;
     out.targetZ = RINK.ballRadius;
@@ -229,21 +273,48 @@ export function planShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, le
   return out;
 }
 
-/** Direction error (rad, one standard deviation) of this player's shot right now. */
-export function shotErrorSd(p: PlayerState, plan: ShotPlan, quick: boolean, charge: number, level: AssistLevel, tuning: Tuning): number {
+const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
+
+/**
+ * Direction error (rad, one standard deviation) of this player's shot right now. `pressure` is
+ * the nearest rival's (0..1; F1.6/F2). Context (F1.5c, option 2): distance, a closed angle,
+ * a real sprint with the ball, off balance and pressure raise it, each by its weight; all the
+ * weights at 0 give the v0.1.25 error exactly.
+ */
+export function shotErrorSd(p: PlayerState, plan: ShotPlan, quick: boolean, charge: number, level: AssistLevel, tuning: Tuning, pressure = 0): number {
   const k = shotFor(p, tuning);
   const sk = skatingFor(p, tuning);
-  const speed = Math.hypot(p.vx, p.vy);
-  const sprint = Math.min(1, Math.max(0, (speed - sk.maxSpeed) / Math.max(0.1, sk.sprintSpeed - sk.maxSpeed)));
+  const above = Math.hypot(p.vx, p.vy) - sk.maxSpeed;
+  // v0.1.25 measured the sprint against the sprint without the ball, which a player carrying it
+  // never reaches (≤ ~0.6°); ctxSprint moves it to the real top speed with the ball.
+  const sprintOld = clamp01(above / Math.max(0.1, sk.sprintSpeed - sk.maxSpeed));
+  const sprintReal = clamp01(above / Math.max(0.1, dribbleFor(p, tuning).sprintSpeedWithBall - sk.maxSpeed));
+  const sprint = sprintOld + clamp01(k.ctxSprint) * (sprintReal - sprintOld);
   const offBalance = isSkidding(p) || isCutting(p) ? 1 : 0;
   const turn = Math.max(0, Math.abs(wrapAngle(plan.angle - p.heading)) - k.turnFree);
-  const base = k.errorBase * (quick ? 1 : 1 - k.chargePrecision * charge);
-  const skill = Math.min(1, Math.max(0, p.shooting / 99));
+  // Option 3 (off by default): past the sweet spot of the charge the base error grows again.
+  const sweet = !quick && k.sweetSpot >= 0.5 ? 1 + k.sweetSpotError * clamp01((charge - k.sweetSpotStart) / Math.max(0.01, 1 - k.sweetSpotStart)) : 1;
+  const base = k.errorBase * (quick ? 1 : 1 - k.chargePrecision * charge) * sweet;
+  const skill = clamp01(p.shotAccuracy / 99);
   // First touch (F1.5b): harder after a hard reception and the more it turns the ball's path.
   const firstTouch = p.firstTouchTicks > 0;
   const redirect = firstTouch && !Number.isNaN(p.receivedBallAngle) ? Math.max(0, Math.abs(wrapAngle(plan.angle - p.receivedBallAngle)) - k.redirectFree) : 0;
   const situation = (firstTouch ? k.firstTouchError * (1 + Math.max(0, p.receiveDifficulty)) : 1) * (p.shotTurned ? k.turnError : 1);
-  return (base + k.errorSprint * sprint + k.errorOffBalance * offBalance + k.errorTurn * turn + k.errorRedirect * redirect) * situation * shotErrorFactor(level, k) * (1 - k.attributeAdvantage * skill);
+  // Distance and angle from the centre of the goal (behind the goal line = the full angle).
+  const ahead = attackedSide(p) * (plan.targetX - plan.fromX);
+  const dist = Math.hypot(ahead, plan.fromY);
+  const angle = Math.atan2(Math.abs(plan.fromY), ahead);
+  const context =
+    (1 + k.ctxDistance * Math.max(0, dist - k.ctxDistanceFree)) *
+    (1 + k.ctxAngle * Math.min(1, angle / Math.max(0.01, k.ctxAngleFull))) *
+    (1 + k.ctxPressure * clamp01(pressure));
+  const common = k.errorTurn * turn + k.errorRedirect * redirect;
+  const v0125 = base + k.errorSprint * sprintOld + k.errorOffBalance * offBalance + common;
+  const now = base * context + k.errorSprint * sprint + k.errorOffBalance * (1 + k.ctxOffBalance) * offBalance + common;
+  // The assist takes away part of the context's extra (Mitjana half of ctxAssist, Forta all).
+  const share = level === 'strong' ? 1 : level === 'medium' ? 0.5 : 0;
+  const raw = v0125 + (now - v0125) * (1 - clamp01(k.ctxAssist * share));
+  return raw * situation * shotErrorFactor(level, k) * (1 - k.attributeAdvantage * skill);
 }
 
 export interface ShotResult {
@@ -270,10 +341,10 @@ const planTmp = createShotPlan();
  * Player `p` shoots the ball he is carrying with the kind / power queued by TIRO and the stick
  * in `cmd`: a small deterministic error (direction, height, strength), then plain physics.
  */
-export function performShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, level: AssistLevel, rng: RngState, tuning: Tuning, out: ShotResult): ShotResult {
+export function performShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, level: AssistLevel, rng: RngState, tuning: Tuning, out: ShotResult, pressure = 0): ShotResult {
   const k = shotFor(p, tuning);
   const plan = planShot(p, ball, cmd, level, p.shotKind as ShotKind, p.shotCharge, p.shotQuick, tuning, planTmp);
-  const sd = shotErrorSd(p, plan, p.shotQuick, p.shotCharge, level, tuning);
+  const sd = shotErrorSd(p, plan, p.shotQuick, p.shotCharge, level, tuning, pressure);
   const angle = plan.angle + gaussian(rng) * sd;
   const elevation = plan.kind === SHOT_LOW ? 0 : Math.max(0, plan.elevation + gaussian(rng) * sd * k.errorHeight);
   const speed = plan.speed * Math.max(0.5, 1 + gaussian(rng) * k.errorPower);

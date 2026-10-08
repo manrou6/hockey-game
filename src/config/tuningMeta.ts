@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -198,6 +198,7 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'shot.mediumErrorFactor', min: 0.2, max: 1.5, step: 0.05, unit: '×' },
       { path: 'shot.strongErrorFactor', min: 0.2, max: 1.5, step: 0.05, unit: '×' },
       { path: 'shot.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'shot.powerGain', min: 0, max: 30, step: 1, unit: '%', scale: 100 },
       { path: 'shot.reticleRange', min: 0, max: 40, step: 1, unit: 'm' },
       { path: 'shot.firstTouchError', min: 1, max: 3, step: 0.05, unit: '×' },
       { path: 'shot.redirectFree', min: 0, max: 180, step: 5, unit: '°', scale: DEG },
@@ -206,6 +207,22 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'shot.turnMinAngle', min: 60, max: 180, step: 5, unit: '°', scale: DEG },
       { path: 'shot.turnTime', min: 0.05, max: 0.8, step: 0.01, unit: 's' },
       { path: 'shot.turnError', min: 1, max: 3, step: 0.05, unit: '×' },
+    ],
+  },
+  {
+    id: 'shotError',
+    params: [
+      { path: 'shot.ctxSprint', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.ctxOffBalance', min: 0, max: 200, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.ctxAngle', min: 0, max: 200, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.ctxAngleFull', min: 15, max: 90, step: 5, unit: '°', scale: DEG },
+      { path: 'shot.ctxDistance', min: 0, max: 20, step: 0.5, unit: '%/m', scale: 100 },
+      { path: 'shot.ctxDistanceFree', min: 0, max: 20, step: 0.5, unit: 'm' },
+      { path: 'shot.ctxPressure', min: 0, max: 300, step: 10, unit: '%', scale: 100 },
+      { path: 'shot.ctxAssist', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.sweetSpot', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'shot.sweetSpotStart', min: 50, max: 100, step: 1, unit: '%', scale: 100 },
+      { path: 'shot.sweetSpotError', min: 0, max: 300, step: 10, unit: '%', scale: 100 },
     ],
   },
   {
@@ -338,6 +355,12 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'ball.netDamping', min: 1, max: 20, step: 0.5, unit: '/s' },
       { path: 'ball.playerRestitution', min: 0, max: 1, step: 0.05, unit: '' },
       { path: 'ball.airDrag', min: 0, max: 0.03, step: 0.0005, unit: '/m' },
+      { path: 'ball.heavy', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'ball.heavyBoardRestitution', min: 0.2, max: 1, step: 0.05, unit: '' },
+      { path: 'ball.heavyBoardFriction', min: 0, max: 0.6, step: 0.01, unit: '' },
+      { path: 'ball.heavyBoardJitter', min: 0, max: 15, step: 0.5, unit: '°', scale: DEG },
+      { path: 'ball.heavyFloorRestitution', min: 0, max: 0.9, step: 0.05, unit: '' },
+      { path: 'ball.heavyPostRestitution', min: 0.1, max: 1, step: 0.05, unit: '' },
       { path: 'ball.visualScale', min: 1, max: 3, step: 0.1, unit: '×' },
       { path: 'ball.visualRefDistance', min: 8, max: 40, step: 0.5, unit: 'm' },
       { path: 'ball.markerRadius', min: 0, max: 0.6, step: 0.02, unit: 'm' },

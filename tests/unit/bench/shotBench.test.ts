@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import type { Tuning } from '../../../src/config/tuning';
-import { BASE_TUNING, fmtShots, runFirstTouch, runShots, runTurn, type ReleaseContext, type ShotState, type ShotType } from './shotBench';
+import { BASE_TUNING, fmtShots, runFirstTouch, runShots, runTurn, V0125_TUNING, type ReleaseContext, type ShotStats, type ShotState, type ShotType } from './shotBench';
 
 // Benchmarks (not assertions): PATINS_BENCH=1 npx vitest run tests/unit/bench
 const run = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.PATINS_BENCH ? describe : describe.skip;
@@ -128,9 +128,9 @@ function option3(t: Tuning, base: Tuning, c: ReleaseContext): void {
   t.shot.errorBase = base.shot.errorBase * (1 + extra);
 }
 
-run('shot error model options (F1.5c review, not applied)', () => {
+run('shot error model options (v0.1.25 review)', () => {
   it('options 1 / 2 / 3: on target % / in the zone %, Mitjana, low shots, 300 per case', { timeout: 3600000 }, () => {
-    const t = BASE_TUNING();
+    const t = V0125_TUNING();
     const options: [string, ((t: Tuning, b: Tuning, c: ReleaseContext) => void) | undefined][] = [
       ['opt1', undefined],
       ['opt2', option2(75)],
@@ -152,11 +152,11 @@ run('shot error model options (F1.5c review, not applied)', () => {
   });
 
   it('the Tir attribute: 40 vs 90 (today: one attribute, error only) and option 2 (shotAccuracy)', { timeout: 3600000 }, () => {
-    const t = BASE_TUNING();
+    const t = V0125_TUNING();
     for (const acc of [40, 75, 90]) {
       for (const [dist, type] of [[7, 'quick'], [14, 'quick'], [14, 'full'], [18, 'full']] as const) {
         const cols = (['stand', 'skate'] as ShotState[]).map((state) => {
-          const now = runShots(t, 'medium', { dist, angle: 0, state, type, height: 0 }, 300, { shooting: acc });
+          const now = runShots(t, 'medium', { dist, angle: 0, state, type, height: 0 }, 300, { shotAccuracy: acc });
           const o2 = runShots(t, 'medium', { dist, angle: 0, state, type, height: 0 }, 300, { beforeRelease: option2(acc) });
           return `${state.padEnd(5)} today ${now.onTarget.toFixed(0)}%/z${now.inZone.toFixed(0)}% opt2 ${o2.onTarget.toFixed(0)}%/z${o2.inZone.toFixed(0)}%`;
         });
@@ -166,3 +166,66 @@ run('shot error model options (F1.5c review, not applied)', () => {
   });
 });
 
+
+// --- F1.5c: the error model chosen by Guillem (option 2 with weights) -------------------------
+
+const z = (st: ShotStats): string => (st.valid ? `${st.onTarget.toFixed(0).padStart(3)}/${st.inZone.toFixed(0).padStart(3)}/${st.wide.toFixed(0).padStart(2)}` : '   (fuera)  ');
+
+run('F1.5c shot error model', () => {
+  it('v0.1.25 / option-2 ceiling / now: on target % / in the zone % / wide %, Mitjana, low, 300 per case', { timeout: 3600000 }, () => {
+    const old = V0125_TUNING();
+    const now = BASE_TUNING();
+    const cases: [ShotType, ShotState[]][] = [
+      ['quick', ['stand', 'skate', 'sprint', 'cut', 'skid']],
+      ['full', ['stand', 'skate', 'sprint']],
+    ];
+    for (const [type, states] of cases) {
+      for (const dist of [7, 14, 18]) {
+        for (const angle of [0, 30, 55]) {
+          const cols = states.map((state) => {
+            const c = { dist, angle, state, type, height: 0 };
+            const a = runShots(old, 'medium', c);
+            if (!a.valid) return `${state} (fuera de la pista)`;
+            const b = runShots(old, 'medium', c, 300, { beforeRelease: option2(75) });
+            const n = runShots(now, 'medium', c);
+            const offb = state === 'cut' || state === 'skid' ? ` off${n.offBalance.toFixed(0)}%` : '';
+            return `${state.padEnd(6)} ${z(a)} > ${z(b)} > ${z(n)}${offb}`;
+          });
+          console.log(`ERRC ${type.padEnd(5)} ${String(dist).padStart(2)} m ${String(angle).padStart(2)}° | ${cols.join(' | ')}`);
+        }
+      }
+    }
+  });
+});
+
+run('F1.5c attributes', () => {
+  it('shotAccuracy and shotPower 40 / 75 / 90 (Mitjana, low, 0°, standing / skating)', { timeout: 3600000 }, () => {
+    const t = BASE_TUNING();
+    for (const v of [40, 75, 90]) {
+      for (const [dist, type] of [[7, 'quick'], [14, 'quick'], [14, 'full'], [18, 'full']] as const) {
+        const cols = (['stand', 'skate'] as ShotState[]).map((state) => {
+          const c = { dist, angle: 0, state, type, height: 0 };
+          const acc = runShots(t, 'medium', c, 300, { shotAccuracy: v });
+          const pow = runShots(t, 'medium', c, 300, { shotPower: v });
+          return `${state.padEnd(5)} accuracy ${acc.onTarget.toFixed(0)}%/z${acc.inZone.toFixed(0)}% | power ${pow.onTarget.toFixed(0)}% ${pow.speedAtGoal.toFixed(1)} m/s ${pow.flight.toFixed(3)} s`;
+        });
+        console.log(`ATTRC ${String(v).padStart(2)} ${type.padEnd(5)} ${dist} m 0° | ${cols.join(' | ')}`);
+      }
+    }
+  });
+});
+
+run('F1.5c sweeps', () => {
+  it('errorSprint with the real sprint (ctxSprint 100 %): the sprint column vs the option-2 ceiling', { timeout: 3600000 }, () => {
+    for (const deg of [1, 1.5, 2, 2.5, 3]) {
+      const t = BASE_TUNING();
+      t.shot.errorSprint = (deg * Math.PI) / 180;
+      const cols: string[] = [];
+      for (const [dist, angle] of [[7, 0], [7, 30], [7, 55], [14, 0], [14, 30], [18, 0]] as const) {
+        const s = runShots(t, 'medium', { dist, angle, state: 'sprint', type: 'quick', height: 0 });
+        cols.push(`${dist}m${angle}° ${z(s)}`);
+      }
+      console.log(`SPRSWEEP ${deg}° | ${cols.join(' | ')}`);
+    }
+  });
+});

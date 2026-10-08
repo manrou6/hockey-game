@@ -1,6 +1,6 @@
 import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
-import type { BallState } from './ball';
+import { ballParams, type BallState } from './ball';
 import { dribbleFor, skatingFor, wallFor } from './feel';
 import type { PlayerState } from './player';
 import { wrapAngle } from './player';
@@ -61,7 +61,7 @@ export function planWallPass(
   out: WallPlan,
 ): boolean {
   const w = wallFor(p, tuning);
-  const k = tuning.ball;
+  const k = ballParams(tuning);
   if (w.assist < 0.5 || cone <= 0) return false;
   // The side board the stick points at (the long boards only; the ends have goals and corners).
   const sy = Math.sin(aim) >= 0 ? 1 : -1;
