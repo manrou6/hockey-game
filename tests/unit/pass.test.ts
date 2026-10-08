@@ -127,7 +127,7 @@ describe('who the pass goes to (assist cone)', () => {
   });
 
   it('levels: off has no cone, strong has a wider cone and full correction', () => {
-    const a: AssistParams = { cone: 0, correction: 0 };
+    const a: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
     expect(assistParams('off', TUNING, a).cone).toBe(0);
     expect(assistParams('light', TUNING, a).correction).toBeCloseTo(0.7);
     expect(assistParams('strong', TUNING, a).cone).toBeGreaterThan(TUNING.assist.lightCone);
@@ -136,9 +136,9 @@ describe('who the pass goes to (assist cone)', () => {
 
   it('there are 4 levels in this order, and Mitjana (the default) sits between Lleugera and Forta', () => {
     expect([...ASSIST_LEVELS]).toEqual(['off', 'light', 'medium', 'strong']);
-    const light = assistParams('light', TUNING, { cone: 0, correction: 0 });
-    const medium = assistParams('medium', TUNING, { cone: 0, correction: 0 });
-    const strong = assistParams('strong', TUNING, { cone: 0, correction: 0 });
+    const light = assistParams('light', TUNING, { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 });
+    const medium = assistParams('medium', TUNING, { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 });
+    const strong = assistParams('strong', TUNING, { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 });
     expect(medium.cone).toBeGreaterThan(light.cone);
     expect(medium.cone).toBeLessThan(strong.cone);
     expect(medium.correction).toBeGreaterThan(light.correction);

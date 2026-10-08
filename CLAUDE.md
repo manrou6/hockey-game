@@ -1,6 +1,6 @@
 # CLAUDE.md — PATINS (nombre provisional)
 
-Juego de hockey sobre patines (rink hockey) para móvil, 3D semi-realista, cámara de retransmisión TV, reglamento World Skate 2026. Este archivo manda sobre cualquier otra preferencia de estilo de código.
+Juego de hockey sobre patines (rink hockey) para móvil, 3D low-poly heroico facetado (decisión de arte de Guillem, 2026-10-07; ver docs/04), cámara de retransmisión TV, reglamento World Skate 2026. Este archivo manda sobre cualquier otra preferencia de estilo de código.
 
 ## Quién es el usuario
 - Guillem. NO programa (implicación en código = 0). Prueba el juego en un Google Pixel 8a (Android, Chrome) y en PC.

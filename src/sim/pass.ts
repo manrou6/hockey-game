@@ -48,13 +48,53 @@ export interface AssistParams {
   cone: number;
   /** How much the direction is corrected towards the receiver (0..1). */
   correction: number;
+  /** Pass into space (P7): 0 = off. How much of the aim ahead of a running teammate is respected. */
+  spaceRespect: number;
+  /** Extra range (rad) ahead of a running teammate where he can still be chosen as the receiver. */
+  spaceCone: number;
+  /** Aim ahead (rad) from which the aim is respected, and the ramp (rad) up to fully respected. */
+  spaceDeadzone: number;
+  spaceRamp: number;
+  /** A teammate runs when his speed across the line of sight is at least this (m/s). */
+  spaceMinSpeed: number;
 }
 
 export function assistParams(level: AssistLevel, tuning: Tuning, out: AssistParams): AssistParams {
   const a = tuning.assist;
   out.cone = level === 'strong' ? a.strongCone : level === 'medium' ? a.mediumCone : level === 'light' ? a.lightCone : 0;
   out.correction = level === 'strong' ? a.strongCorrection : level === 'medium' ? a.mediumCorrection : level === 'light' ? a.lightCorrection : 0;
+  // Pass into space (P7) works with the assist on only (with it off the ball goes exactly where aimed).
+  const respect = level === 'strong' ? a.strongSpaceRespect : level === 'medium' ? a.mediumSpaceRespect : level === 'light' ? a.lightSpaceRespect : 0;
+  out.spaceRespect = respect;
+  out.spaceCone = out.cone > 0 ? a.spaceCone : 0;
+  out.spaceDeadzone = a.spaceDeadzone;
+  out.spaceRamp = a.spaceRamp;
+  out.spaceMinSpeed = a.spaceMinSpeed;
   return out;
+}
+
+/**
+ * How far (rad) the aim is rotated from the direction to teammate `r` TOWARDS WHERE HE IS RUNNING
+ * (positive = aiming ahead of him, negative = behind him), or −Infinity if he is not running
+ * across the passer's line of sight (his speed across it is below `minSpeed`).
+ */
+export function aimAhead(from: PlayerState, r: PlayerState, aim: number, minSpeed: number): number {
+  const dx = r.x - from.x;
+  const dy = r.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.5) return Number.NEGATIVE_INFINITY;
+  // Speed across the line of sight, + = counter-clockwise.
+  const across = (-dy * r.vx + dx * r.vy) / dist;
+  if (Math.abs(across) < minSpeed) return Number.NEGATIVE_INFINITY;
+  return wrapAngle(aim - Math.atan2(dy, dx)) * (across > 0 ? 1 : -1);
+}
+
+/** 0..1: how much a pass aimed at `aim` towards teammate `r` is a pass into space (P7). */
+export function spaceWeight(from: PlayerState, r: PlayerState, aim: number, a: AssistParams): number {
+  if (a.spaceRespect <= 0) return 0;
+  const ahead = aimAhead(from, r, aim, a.spaceMinSpeed);
+  if (ahead <= a.spaceDeadzone) return 0;
+  return a.spaceRespect * Math.min(1, (ahead - a.spaceDeadzone) / Math.max(1e-3, a.spaceRamp));
 }
 
 /** Below this stick magnitude the pass goes the way the player faces. */
@@ -91,9 +131,9 @@ export function updatePassButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
  * Lock the receiver when PASE is pressed (what the ring shows is what you get, even if the
  * stick moves while charging a lofted pass), and how far off him the stick was aimed.
  */
-export function lockPassTarget(players: readonly PlayerState[], from: number, aim: number, cone: number): void {
+export function lockPassTarget(players: readonly PlayerState[], from: number, aim: number, assist: AssistParams): void {
   const p = players[from]!;
-  const target = choosePassTarget(players, from, aim, cone);
+  const target = choosePassTarget(players, from, aim, assist.cone, assist.spaceCone, assist.spaceMinSpeed);
   p.passLockTarget = target;
   if (target >= 0) {
     const r = players[target]!;
@@ -101,14 +141,21 @@ export function lockPassTarget(players: readonly PlayerState[], from: number, ai
   } else p.passLockOffset = 0;
 }
 
+/** A runner's predicted position is kept this far inside the boards (m) for a pass into space. */
+const SPACE_MARGIN = 1;
+/** Below this sine of the angle between the aimed line and his path, they are "parallel": no crossing. */
+const SPACE_MIN_CROSS = 0.15;
+
 /** Score cost per metre of distance when choosing between teammates (rad/m): at equal angle, the nearer one. */
 const DISTANCE_COST = 0.01;
 
 /**
  * The teammate a pass aimed at `aim` goes to: the one closest to that direction inside the
- * cone (slightly preferring nearer ones), or −1.
+ * cone (slightly preferring nearer ones), or −1. A teammate who is running across the line of
+ * sight (at least `spaceMinSpeed` m/s) can be chosen up to `spaceCone` rad beyond the cone on
+ * the side he is running to: aiming at the space ahead of him (P7).
  */
-export function choosePassTarget(players: readonly PlayerState[], from: number, aim: number, cone: number): number {
+export function choosePassTarget(players: readonly PlayerState[], from: number, aim: number, cone: number, spaceCone = 0, spaceMinSpeed = 0): number {
   if (cone <= 0) return -1;
   const p = players[from]!;
   let best = -1;
@@ -121,7 +168,11 @@ export function choosePassTarget(players: readonly PlayerState[], from: number, 
     const dist = Math.hypot(dx, dy);
     if (dist < 0.5) continue;
     const off = Math.abs(wrapAngle(Math.atan2(dy, dx) - aim));
-    if (off > cone) continue;
+    if (off > cone) {
+      // Outside the cone: still the receiver if he is running and the aim is ahead of him (space).
+      const ahead = spaceCone > 0 ? aimAhead(p, o, aim, spaceMinSpeed) : Number.NEGATIVE_INFINITY;
+      if (ahead <= 0 || ahead > cone + spaceCone) continue;
+    }
     const score = off + dist * DISTANCE_COST;
     if (score < bestScore) {
       best = j;
@@ -256,7 +307,37 @@ export function createPassPlan(): PassPlan {
   return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, wall: false, wallX: Number.NaN, wallY: Number.NaN, angle: 0, speed: 0, elevation: 0 };
 }
 
-const assistTmp: AssistParams = { cone: 0, correction: 0 };
+/**
+ * Pass into space (P7): where on the path of teammate `r` (he keeps his velocity, inside the
+ * boards) the aimed line from the ball crosses it, limited to `spaceMinTime`..`spaceMaxTime`
+ * seconds ahead. If the line never crosses it ahead of him (aimed past the direction he is
+ * running), it is the farthest point. Returns `out` (the point's x, y).
+ */
+export function spaceMeet(ball: BallState, aim: number, r: PlayerState, tuning: Tuning, out: { x: number; y: number }): { x: number; y: number } {
+  const a = tuning.assist;
+  const ux = Math.cos(aim);
+  const uy = Math.sin(aim);
+  const dx = r.x - ball.x;
+  const dy = r.y - ball.y;
+  const cross = ux * r.vy - uy * r.vx; // u × v
+  const speed = Math.hypot(r.vx, r.vy);
+  let tau = a.spaceMaxTime;
+  if (Math.abs(cross) > SPACE_MIN_CROSS * speed) {
+    const along = (dx * uy - dy * ux) / cross; // τ = (d × u) / (u × v)
+    const reach = (dx * r.vy - dy * r.vx) / cross; // s = (d × v) / (u × v)
+    if (reach > 0.5 && along > 0) tau = along;
+  }
+  tau = Math.max(a.spaceMinTime, Math.min(a.spaceMaxTime, tau));
+  const maxX = RINK.length / 2 - SPACE_MARGIN;
+  const maxY = RINK.width / 2 - SPACE_MARGIN;
+  out.x = Math.max(-maxX, Math.min(maxX, r.x + r.vx * tau));
+  out.y = Math.max(-maxY, Math.min(maxY, r.y + r.vy * tau));
+  return out;
+}
+
+const spaceTmp = { x: 0, y: 0 };
+
+const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
 
 /**
  * Launch of a driven lofted pass landing `dist` m away: the elevation that peaks at about
@@ -339,7 +420,7 @@ export function planPass(
     aimOffset = lockOffset;
   } else {
     const aim0 = aimAngle(p, cmd);
-    target = choosePassTarget(players, from, aim0, assist.cone);
+    target = choosePassTarget(players, from, aim0, assist.cone, assist.spaceCone, assist.spaceMinSpeed);
     const r0 = players[target];
     aimOffset = r0 ? wrapAngle(aim0 - Math.atan2(r0.y - p.y, r0.x - p.x)) : 0;
   }
@@ -355,6 +436,11 @@ export function planPass(
   if (target >= 0) {
     const r = players[target]!;
     const d = dribbleFor(r, tuning);
+    // Pass into space (P7): aiming ahead of a running teammate, the ball goes to the point of
+    // his path (keeping his speed and direction) that the aim points at, however far ahead
+    // that is: you choose how far ahead, the assist keeps the ball on his path.
+    const space = spaceWeight(p, r, aim, assist);
+    const ahead = space > 0 ? spaceMeet(ball, aim, r, tuning, spaceTmp) : null;
     // Aim where his blade will be once he faces the ball (to the right of his body), leading
     // his movement by the travel time (a few refinements are plenty).
     let t = 0;
@@ -363,8 +449,15 @@ export function planPass(
       const fx = r.x + r.vx * t * k.lead;
       const fy = r.y + r.vy * t * k.lead;
       const face = Math.atan2(ball.y - fy, ball.x - fx);
-      const tx = fx + Math.sin(face) * d.stickSide + Math.cos(face) * d.stickForward;
-      const ty = fy - Math.cos(face) * d.stickSide + Math.sin(face) * d.stickForward;
+      let tx = fx + Math.sin(face) * d.stickSide + Math.cos(face) * d.stickForward;
+      let ty = fy - Math.cos(face) * d.stickSide + Math.sin(face) * d.stickForward;
+      if (ahead) {
+        const sFace = Math.atan2(ball.y - ahead.y, ball.x - ahead.x);
+        const sx = ahead.x + Math.sin(sFace) * d.stickSide + Math.cos(sFace) * d.stickForward;
+        const sy = ahead.y - Math.cos(sFace) * d.stickSide + Math.sin(sFace) * d.stickForward;
+        tx += space * (sx - tx);
+        ty += space * (sy - ty);
+      }
       out.meetX = tx;
       out.meetY = ty;
       const dist = Math.max(0.5, Math.hypot(tx - ball.x, ty - ball.y));
@@ -393,7 +486,7 @@ export function planPass(
     // The player aims at where he SEES the teammate; leading him is the assist's job. So the
     // aiming error is measured against the teammate's direction and only (1 − correction) of
     // it is kept, on top of the led direction.
-    out.angle = to + (1 - assist.correction) * aimOffset;
+    out.angle = to + (1 - space) * (1 - assist.correction) * aimOffset;
   } else if (kind === PASS_LOB) {
     out.elevation = k.loftAngle;
     out.speed = loftPassSpeed(k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * charge, k.loftAngle, k.loftMaxSpeed, kb);

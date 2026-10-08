@@ -2,7 +2,10 @@
 
 Documento para Guillem (no necesitas tocar código). Aquí tienes **cinco fichas**. Cada una tiene un texto marcado **«COPIA DESDE AQUÍ → HASTA AQUÍ»** que puedes pegar tal cual en ChatGPT. Lo que ChatGPT te devuelva me lo pasas a mí (Claude Code) y yo lo reviso, lo optimizo, lo integro y lo registro.
 
-Estado: propuesta (2026-10-07). Todo lo de aquí respeta docs/01 (equipos y atributos), docs/04 (dirección de arte, presupuestos y licencias) y CLAUDE.md. Si algo de aquí choca con un documento, manda el documento y te lo digo antes de cambiarlo.
+Estado: actualizado el 2026-10-07 al **nuevo estilo: 3D low-poly heroico facetado** (decidido por Guillem; sustituye al «semi-realista»; ver `docs/04`). Todo lo de aquí respeta docs/01 (equipos y atributos), docs/04 (dirección de arte, presupuestos y licencias) y CLAUDE.md. Si algo de aquí choca con un documento, manda el documento y te lo digo antes de cambiarlo.
+
+**Referencias de estilo ya generadas** (guardadas en `docs/concept/style/`): la misma escena en low-poly con suelo **azul**, **parquet** y **crema** (`style_lowpoly_suelo-azul.jpg`, `style_lowpoly_suelo-parquet.jpg`, `style_lowpoly_suelo-crema.jpg`) y **la primera versión del modo neón** (`style_lowpoly_neon.jpg`, que es la imagen **01N** de la Ficha 1 ya existente como referencia; si eliges otra variante más adelante, la sustituirá). Los prompts con los que se generaron están en `docs/prompts/` (`concept_01_suelos.txt` y `concept_01n_neon.txt`). Son la referencia principal del estilo, de los tres suelos y del neón: **adjúntalas a la conversación de ChatGPT** (con el clip) cuando generes la Ficha 1 y di «mismo estilo que estas imágenes».
+
 
 ## Antes de empezar (léelo una vez)
 
@@ -15,17 +18,24 @@ Estado: propuesta (2026-10-07). Todo lo de aquí respeta docs/01 (equipos y atri
    - **Tamaños exactos:** no siempre los respeta. Pide el tamaño, y si sale otro, me lo pasas igual; yo lo escalo. Lo importante es la **proporción** y que sea **nítida**.
    - **Marcas reales:** a veces «se le cuelan» logos parecidos a los reales. Revisa cada imagen con la lista de la Ficha 5.
 5. **Cómo me pasas los archivos (sin tocar nada técnico):** arrastra los archivos al chat conmigo (o adjúntalos con el clip). Con cada archivo, dime en una frase **qué es** y pega **el texto que le diste a ChatGPT (el prompt)**. Si algún día el chat no admite el archivo (por tamaño, por ejemplo), te daré los pasos exactos, clic a clic, para subirlo a GitHub.
-6. **Nombres de archivo** (sin espacios, en minúsculas): `concept_01_pista-tv.jpg`, `crest_serra-blava.svg` (o `.png`), `kit_serra-blava.png`, `tex_floor_base.png`, `tex_boards_atlas.png`, `tex_floor_logo-center.png`, `teams.json`.
+6. **Nombres de archivo** (sin espacios, en minúsculas): `concept_01_pista-tv-azul.jpg`, `concept_01n_pista-tv-neon.jpg`, `crest_serra-blava.svg` (o `.png`), `kit_serra-blava.png`, `tex_boards_atlas.svg` (o `.png`), `logo_center.svg`, `teams.json`.
 
 ### BLOQUE DE ESTILO (pégalo al empezar CADA conversación)
 
 COPIA DESDE AQUÍ ↓
 
 ````
-Vamos a crear arte para un videojuego móvil de HOCKEY SOBRE PATINES (rink hockey, patines de 4 ruedas "quad" sobre pista dura; NO es hockey sobre hielo ni hockey línea). Estilo: SEMI-REALISTA de retransmisión deportiva de TV, iluminación cálida de pabellón cubierto, proporciones humanas reales, colores de equipación saturados que se lean bien desde lejos. NADA de estética cartoon, anime ni pixel art.
+Vamos a crear arte para un videojuego móvil de HOCKEY SOBRE PATINES (rink hockey, patines de 4 ruedas "quad" sobre pista dura; NO es hockey sobre hielo ni hockey línea).
+
+ESTILO: 3D LOW-POLY HEROICO FACETADO. Render 3D con caras planas visibles y aristas nítidas. No es fotorrealista, ni cartoon redondeado, ni pixel art, ni anime.
+- Jugadores: proporciones atléticas ligeramente exageradas (hombros anchos, piernas largas), formas simplificadas con caras planas suaves, colores LISOS y saturados SIN texturas, rostros sencillos (pocos rasgos). Siempre con el stick cogido a DOS manos.
+- Pabellón y público: claramente facetados (caras planas visibles, aristas nítidas). El público, de muy pocos polígonos: figuras simples de colores.
+- Materiales MATES (nada de reflejos duros ni brillos). Luz limpia de pabellón cubierto, con contraluz suave y sombras suaves.
+- Suelo SELECCIONABLE: azul mate liso, parquet claro (listones sutiles) o crema liso. Te diré cuál usar en cada imagen. Líneas blancas finas.
+- Colores de equipación saturados y lisos, que se lean bien desde lejos.
 
 Datos del deporte para que salga correcto:
-- Pista de 40 x 20 m con esquinas redondeadas, rodeada de una valla blanca de 1 m de alto (con publicidad). Suelo pintado de azul/gris mate o parquet claro, con líneas blancas finas. Dos porterías de 1,70 x 1,05 m con red.
+- Pista de 40 x 20 m con esquinas redondeadas, rodeada de una valla blanca de 1 m de alto con paneles publicitarios planos (formas geométricas de colores). Dos porterías de 1,70 x 1,05 m con red.
 - Cinco jugadores por equipo en pista (4 jugadores + portero). Jugadores: camiseta, pantalón corto, medias largas, rodilleras, espinilleras, guantes, patines de 4 ruedas, un stick corto de pala recta y plana, SIN casco. Portero: casco con rejilla, peto, protecciones de piernas grandes, guantes y stick.
 - La bola es pequeña, redonda y naranja (23 cm de circunferencia).
 
@@ -34,6 +44,7 @@ REGLAS OBLIGATORIAS:
 - SIN texto legible dentro de las imágenes (como mucho palabras inventadas muy cortas en la publicidad). Sin números de camiseta salvo que te lo pida.
 - Sin marcas de agua, sin firmas, sin logos de ChatGPT/OpenAI.
 - Apto para todos los públicos (sin sangre, sin peleas).
+- Si te adjunto imágenes de referencia de estilo, mantén exactamente ese estilo.
 ````
 
 HASTA AQUÍ ↑
@@ -42,42 +53,46 @@ HASTA AQUÍ ↑
 
 ## Ficha 1 — Arte conceptual (referencia visual para F4)
 
-**Para qué sirve:** es solo **referencia** para decidir cómo se verá el juego en F4 (presentación TV y arte). **No entra en el juego** ni pesa en la descarga: lo guardo en `docs/concept/`.
+**Para qué sirve:** es solo **referencia** para decidir cómo se verá el juego en F4 (presentación TV y arte). **No entra en el juego** ni pesa en la descarga: lo guardo en `docs/concept/`. Es la continuación de las 3 imágenes de estilo que ya tienes.
 
-**Qué quiero (9 imágenes):**
+**Qué quiero (10 imágenes: 01, 01N y 02-09):**
 
 | Nº | Imagen | Para qué lo uso |
 |---|---|---|
-| 01 | **Plano general de TV**: la pista completa vista desde la grada central, cámara elevada, jugadores pequeños en acción, público al fondo | Cámara TV por defecto (docs/03 §6) |
-| 02 | **Plano TV cercano**: un jugador conduciendo la bola, la valla con publicidad inventada detrás, desenfoque suave del fondo | Cámara cercana |
+| 01 | **Plano general de TV comparando los tres suelos**: la misma escena (pista completa vista desde la grada central, cámara elevada, jugadores pequeños en acción, público al fondo) en **tres versiones idénticas que solo cambian el suelo: azul mate, parquet claro y crema liso** | Cámara TV por defecto; **con esta imagen decides el suelo por defecto** |
+| 01N | **Modo NEÓN** (opción desbloqueable; **ya existe una primera versión** como referencia, `docs/concept/style/style_lowpoly_neon.jpg`: se sustituye solo si eliges otra variante): la misma escena que la 01 (suelo oscuro), pabellón oscuro, **líneas de pista y vallas en cian y magenta luminosos**, **estela luminosa de la bola**, bordes de luz en los jugadores, público en silueta con algunas luces | Tema neón (colores, materiales y luz; mismos modelos) |
+| 02 | **Plano TV cercano**: un jugador conduciendo la bola, la valla con paneles geométricos detrás, fondo ligeramente desenfocado | Cámara cercana |
 | 03 | **Vista alta / táctica**: pista vista desde arriba en diagonal, se leen las posiciones y las líneas | Cámara táctica |
-| 04 | **Detalle de materiales**: valla blanca, suelo con reflejos, rueda de patín, pala del stick y la bola naranja | Materiales PBR |
-| 05 | **Pabellón modesto**: pabellón pequeño de pueblo, grada de un lado, techo bajo | Estadio 1 de 3 |
+| 04 | **Detalle de estilo y materiales**: jugador de cerca con la cara y el equipo facetados, valla, rueda de patín, pala del stick y bola naranja (todo mate, caras planas visibles) | Modelos y materiales |
+| 05 | **Pabellón modesto**: pabellón pequeño de pueblo, grada de un lado, techo bajo, facetado | Estadio 1 de 3 |
 | 06 | **Pabellón mediano**: grada a tres lados, focos, marcador electrónico | Estadio 2 de 3 |
 | 07 | **Gran pabellón de final de copa**: grada llena a cuatro lados, focos potentes, ambiente de gala | Estadio 3 de 3 |
 | 08 | **Banquillos y mesa de anotadores** con marcador electrónico | Pabellón modular |
-| 09 | **Ambiente**: celebración de un gol, público en pie, luces y ambiente cálido | Ambiente / repetición |
+| 09 | **Ambiente**: celebración de un gol, público (figuras de pocos polígonos) en pie, luces cálidas | Ambiente / repetición |
 
-**Formato:** apaisado **16:9** (o lo más parecido que te deje ChatGPT, p. ej. 1792×1024 o 1536×1024), **JPG o PNG**, lado largo entre 1536 y 2048 px. Pide **3-4 variantes** de cada una. En la 01, la 02 y la 03 pide que **no haya marcador ni interfaz** dibujados.
+**Formato:** apaisado **16:9** (o lo más parecido que te deje ChatGPT, p. ej. 1792×1024 o 1536×1024), **JPG o PNG**, lado largo entre 1536 y 2048 px. Pide **3-4 variantes** de cada una (en la 01, **3-4 variantes de la composición y los tres suelos en cada una**). En la 01, la 01N, la 02 y la 03 pide que **no haya marcador ni interfaz** dibujados. **Adjunta siempre las 3 imágenes de estilo.**
 
-**Colores y variantes:** haz las imágenes 01-03 con **dos equipos inventados** de colores muy distintos (por ejemplo, azul y amarillo contra rojo y blanco). Para el suelo, haz una versión **azul/gris pintado** y otra de **parquet claro** en la 01, y dime cuál prefieres.
+**Colores de equipo:** haz las imágenes 01-03 con **dos equipos inventados** de colores muy distintos (como en las de referencia: azul y amarillo contra rojo y blanco).
 
 COPIA DESDE AQUÍ ↓
 
 ````
-(Pega primero el BLOQUE DE ESTILO.)
+(Pega primero el BLOQUE DE ESTILO y adjunta las 3 imágenes de referencia de estilo.)
 
-Genera la imagen conceptual nº [NÚMERO] de la lista siguiente. Formato apaisado 16:9, calidad de fotografía deportiva de televisión, sin texto legible, sin interfaz ni marcadores dibujados, todo inventado.
+Genera la imagen conceptual nº [NÚMERO] de la lista siguiente. Formato apaisado 16:9, mismo estilo 3D low-poly heroico facetado que las imágenes de referencia, sin texto legible, sin interfaz ni marcadores dibujados, todo inventado.
 
 [PEGA AQUÍ UNA SOLA FILA, por ejemplo:]
-01 — Plano general de TV: la pista completa vista desde la grada central, cámara elevada a unos 10 m de altura mirando hacia el centro, jugadores pequeños en plena jugada, público al fondo, iluminación cálida de pabellón, vallas blancas con publicidad inventada, suelo azul mate con reflejos suaves. Equipos: uno de azul y amarillo, otro de rojo y blanco.
+01 — Plano general de TV: la pista completa vista desde la grada central, cámara elevada a unos 10 m de altura mirando hacia el centro, jugadores pequeños en plena jugada (azul y amarillo contra rojo y blanco), público de pocos polígonos al fondo, luz limpia de pabellón con contraluz suave. Dame TRES versiones con exactamente la misma composición que solo cambian el suelo: (a) azul mate liso, (b) parquet claro de listones sutiles, (c) crema liso.
+
+[o, para la 01N:]
+01N — La misma escena que la 01 en MODO NEÓN: pabellón oscuro, suelo oscuro, líneas de pista y paneles de valla en cian y magenta luminosos, estela luminosa de la bola, bordes de luz en los jugadores, público en silueta con algunas luces. Mismos modelos, solo cambian colores, materiales y luz.
 
 Dame 4 variantes. Después de cada una, dime en una línea qué has cambiado respecto a la anterior.
 ````
 
 HASTA AQUÍ ↑
 
-**Cómo me lo pasas:** los 9 archivos con su número (`concept_01_pista-tv.jpg`, …) y, en un mensaje, **cuál variante te gusta más de cada una** y qué cambiarías. Con eso redacto la guía de arte de F4 (docs/04) y te la enseño antes de aplicarla.
+**Cómo me lo pasas:** los 10 archivos con su número (`concept_01_pista-tv-azul.jpg`, `concept_01_pista-tv-parquet.jpg`, `concept_01_pista-tv-crema.jpg`, `concept_01n_pista-tv-neon.jpg`, `concept_02_…`) y, en un mensaje, **qué suelo prefieres como defecto** y cuál variante te gusta más de cada imagen. Con eso actualizo la guía de arte de F4 (docs/04) y te la enseño antes de aplicarla.
 
 ---
 
@@ -105,7 +120,7 @@ Hay **12 equipos de la liga base** (Vic, Reus, Igualada, Lloret, Calafell, Sant 
 COPIA DESDE AQUÍ ↓
 
 ````
-(Pega primero el BLOQUE DE ESTILO, pero IGNORA lo de "semi-realista": aquí quiero un diseño PLANO y vectorial.)
+(Pega primero el BLOQUE DE ESTILO, pero IGNORA lo del 3D facetado: aquí quiero un diseño PLANO, vectorial y en 2D.)
 
 Diseña el ESCUDO de un club inventado de hockey sobre patines.
 - Ciudad (solo como inspiración, el escudo no lleva su nombre): [CIUDAD]
@@ -123,7 +138,7 @@ HASTA AQUÍ ↑
 
 ### 2B. Equipaciones (diseño de referencia)
 
-Las camisetas del juego se construyen **por código** con 2 colores del equipo, un dibujo sencillo y el dorsal y el nombre generados como textura (docs/04). Por eso lo que necesito de ChatGPT es **la hoja de diseño**, no una textura lista.
+Las camisetas del juego se construyen **por código** con 2 colores del equipo **lisos** (sin texturas), un dibujo sencillo y el dorsal y el nombre generados como un atlas pequeño por código (docs/04). Por eso lo que necesito de ChatGPT es **la hoja de diseño**, no una textura lista.
 
 **Qué quiero por equipo (una imagen):** vistas **frontal y trasera** de camiseta, pantalón y medias, **equipación titular** y **equipación suplente**, más la **del portero**. PNG **1536 × 1024**, fondo liso gris claro `#EEEEEE`, **sin texto ni números**.
 
@@ -151,41 +166,60 @@ HASTA AQUÍ ↑
 
 ---
 
-## Ficha 3 — Texturas planas: suelo de pista y vallas con patrocinadores inventados
+## Ficha 3 — Texturas y arte plano: suelos, vallas con patrocinadores inventados, logo central
 
-**Presupuestos (docs/04 «Presupuestos de rendimiento»; docs/05 los remite):** descarga inicial ≤ 25 MB en total, 1 sola luz con sombras, ≤ 120 *draw calls*, **texturas comprimidas (KTX2) con atlas cuando sea posible**, máximo **1024 px en jugadores**. Para esta ficha propongo **máximo 2048 px de lado** en suelo y vallas y **≈ 4-6 MB en total** tras comprimir; lo confirmo con las pruebas de rendimiento en el Pixel 8a cuando llegue F4 (si hace falta, reduzco). **No te preocupes por comprimir: eso lo hago yo.** Tú pasa los PNG a tamaño completo.
+**Con el low-poly casi no hay texturas.** Nada de texturas fotográficas grandes. Lo que sí hace falta de ChatGPT son tres cosas pequeñas y planas: **el atlas de paneles de las vallas**, **el logo del círculo central** y los **escudos** (Ficha 2, SVG). El suelo y el modo neón **no necesitan archivos**.
 
-**Importante:** de ChatGPT solo quiero **el color base (albedo)**, plano y sin sombras ni reflejos pintados. El brillo, la rugosidad y las líneas de la pista los pongo yo por código.
+### 3A. Suelos y modo neón: sin archivos (solo decisiones)
 
-### 3A. Suelo de pista (3 archivos)
+Los tres suelos son **intercambiables** en Configuració y el **modo neón** (desbloqueable más adelante) también: **solo cambian colores, materiales y luz; nunca modelos distintos** (docs/04). Por eso aquí **no se genera ninguna textura de suelo**:
 
-| Archivo | Tamaño | Qué es |
+| Suelo | Cómo se hace | Color orientativo (sacado de tus imágenes de referencia; lo confirmas tú) |
 |---|---|---|
-| `tex_floor_base.png` | **1024 × 1024**, **sin costuras** (se repite en mosaico) | Superficie de pista **sin líneas**: azul/gris pintado mate con pequeñas variaciones, o parquet claro. Iluminación uniforme, sin sombras, sin reflejos, sin objetos |
-| `tex_floor_base_parquet.png` | 1024 × 1024, sin costuras | (Opcional) la misma idea en parquet claro, para comparar |
-| `tex_floor_logo-center.png` | **1024 × 1024**, **PNG transparente** | Logo **inventado** de la competición para el círculo central: simple, 2-3 colores, circular, sin texto legible |
+| **Azul mate** | Color liso | `#4A88C4` |
+| **Parquet claro** | Color base + **patrón sutil de listones generado por código** (listones largos de 2-3 tonos de madera clara muy próximos, sin veta; se crea al arrancar, **0 bytes de descarga**) | `#DDBF98` |
+| **Crema liso** | Color liso | `#EBDDBF` |
+| **Neón (desbloqueable)** | Pabellón casi a oscuras (azul marino `#14114E`), suelo azul intenso **brillante con reflejos** `#0A78C6`, líneas de pista y borde de la valla **emisivos en cian `#00E5FF` y magenta `#FF2BD6`**, estela luminosa **naranja** de la bola, equipaciones con detalles reflectantes, público en penumbra | **Ya hay primera referencia:** `docs/concept/style/style_lowpoly_neon.jpg` (colores muestreados de la imagen; provisionales) |
 
-### 3B. Vallas con patrocinadores inventados (1 atlas)
+**Los hex de los suelos son provisionales** (Guillem, 2026-10-07). El suelo brillante con reflejos del neón es una excepción a «materiales mates»: se haría con un reflejo barato (specular alto y/o una textura de reflejo borrosa), **nada de reflejos planares costosos**; se confirma con medición en F4. Líneas de pista: blancas `#FFFFFF`, dibujadas por código. **El suelo por defecto lo decides tú** con la imagen 01 de la Ficha 1 (no se fija ninguno todavía).
 
-- **`tex_boards_atlas.png`: 2048 × 1024 px.** Es una cuadrícula de **4 columnas × 4 filas = 16 paneles de 512 × 256 px** (cada panel = un tramo de valla de 2 m × 1 m, proporción 2:1). Numerados de izquierda a derecha y de arriba abajo.
-- **Paneles 1-15:** 15 anuncios **distintos e inventados**, estilo cartelería deportiva: fondo de color liso, **una sola palabra o nombre corto inventado (máx. 12 letras)** en letras grandes y gruesas, y un símbolo geométrico simple. Colores saturados, mucho contraste; tiene que leerse desde lejos.
-- **Panel 16:** valla blanca lisa sin anuncio (relleno).
-- Margen de seguridad de **16 px** en el borde de cada panel (los paneles se pegan unos a otros).
-- **Texto:** ChatGPT suele fallar con las letras. Mejor que te dé **los nombres inventados** y los logos como formas, y me pases la lista de nombres; **si el texto sale mal, lo repongo yo por código con una tipografía deportiva** y solo uso de ChatGPT el fondo y el símbolo.
-- **Patrocinadores inventados — ejemplos válidos** (comprueba siempre que no existan buscándolos en Google): Zentora, Aqualume, Vantiq, Orbelis, Kelmora, Brivio, Nordavia, Calmora, Tessera Lab, Pontiq. Puede que alguno coincida por casualidad con una empresa real: **si lo hace, se cambia**.
+### 3B. Vallas con patrocinadores inventados (1 atlas pequeño)
+
+- **`tex_boards_atlas`: 1024 × 512 px** (orientativo: lo confirmo al integrarlo). Cuadrícula de **4 columnas × 4 filas = 16 paneles de 256 × 128 px** (proporción 2:1 = un tramo de valla de 2 m × 1 m, 128 px por metro). Numerados de izquierda a derecha y de arriba abajo.
+- **Paneles 1-15:** 15 anuncios **distintos e inventados**, **planos y geométricos como en tus imágenes de referencia** (triángulos, círculos, trapecios, bandas en azul, amarillo, rojo…): **fondo de color liso**, **un símbolo geométrico** y, si quieres, **un nombre inventado de máx. 8 letras**. Como mucho 3-4 colores por panel, sin degradados, sin sombras, sin fotos. **Panel 16:** blanco liso (relleno).
+- Margen de seguridad de **12 px** en el borde de cada panel.
+- **Ruta recomendada: que ChatGPT escriba un SVG** (un solo archivo de 1024×512 con 16 grupos `<g>`, formas planas y colores en hexadecimal). Es exacto y ocupa muy poco; **yo lo convierto a PNG/KTX2**. Si pone texto, que sea con `<text>` y una fuente genérica (yo lo repongo con una tipografía deportiva si hace falta). **Ruta alternativa:** una imagen PNG de ese tamaño; vale con tu OK, pero el texto suele salir con faltas.
+- **Con el modo neón no hace falta otro atlas:** los mismos paneles se pintan con otra luz y colores emisivos.
+- **Patrocinadores inventados — ejemplos válidos** (comprueba siempre que no existan buscándolos en Google): Zentora, Aqualume, Vantiq, Orbelis, Kelmora, Brivio, Nordavia, Calmora, Tessera, Pontiq. Si alguno coincide por casualidad con una empresa real, se cambia.
 - **Prohibido:** marcas reales de cualquier sector (bebidas, bancos, deportes, coches, apuestas…), logos que se les parezcan, colores y formas típicos de una marca conocida, y publicidad de apuestas, tabaco o alcohol.
+
+### 3C. Logo central y escudos (SVG planos)
+
+- **Logo del círculo central:** **SVG plano**, `viewBox="0 0 512 512"`, circular, 2-3 colores, **sin texto** (si lo prefieres, PNG 512×512 transparente con tu OK). Competición inventada.
+- **Escudos:** ver la Ficha 2 (SVG planos, máx. 4 colores, sin texto).
+
+### Presupuesto de descarga de esta ficha (recalculado para el low-poly)
+
+| Pieza | Peso aproximado en la descarga |
+|---|---|
+| Suelos azul, parquet, crema y neón | **0 MB** (colores y parquet por código) |
+| Atlas de vallas 1024×512 (colores planos, comprime muy bien: WebP/KTX2) | **0,1-0,3 MB** |
+| Logo central SVG | 5-20 KB |
+| 12 escudos SVG (5-15 KB cada uno) | 0,06-0,2 MB |
+| Atlas de dorsales y nombres 512×512 | **0 MB** (se genera al arrancar) |
+| **Total de texturas y arte 2D** | **≈ 0,3-0,6 MB → techo de esta ficha: ≤ 1 MB** (la propuesta anterior, semi-realista, era ≈ 4-6 MB) |
+
+En memoria de la GPU: ≈ 3,5 MB (atlas de vallas 2 MB, dorsales 1 MB, parquet 0,25 MB). **Descarga inicial total del juego (objetivo low-poly de docs/04): ≤ 10 MB** (antes ≤ 25 MB), con el techo duro de 25 MB.
 
 COPIA DESDE AQUÍ ↓
 
 ````
-(Pega primero el BLOQUE DE ESTILO, pero aquí quiero imágenes PLANAS (sin perspectiva, sin sombras, sin reflejos): son texturas de color base.)
+(Pega primero el BLOQUE DE ESTILO, pero aquí quiero GRÁFICOS 2D PLANOS y vectoriales: nada de 3D, ni sombras, ni degradados, ni fotos.)
 
-TEXTURA 1 — Suelo de pista. Genera una textura cuadrada de 1024 x 1024 px, SIN COSTURAS (tileable), vista desde arriba, de una pista de hockey sobre patines pintada de [azul mate con tonos grises muy sutiles / parquet claro de tablillas finas]. Sin líneas, sin logos, sin sombras, sin reflejos, iluminación totalmente uniforme, sin objetos. Que no se note ninguna marca repetida llamativa.
+PIEZA 1 — Atlas de paneles de valla. Escribe un ARCHIVO SVG completo (solo el código, en un bloque de código) de 1024 x 512 (viewBox="0 0 1024 512"), dividido en una cuadrícula de 4 columnas x 4 filas = 16 paneles de 256 x 128, numerados de izquierda a derecha y de arriba abajo, cada uno en su propio grupo <g id="panel-01"> ... <g id="panel-16">. Paneles 1 a 15: anuncios INVENTADOS planos y geométricos (triángulos, círculos, trapecios, bandas), fondo de color liso, un símbolo geométrico y, opcionalmente, un nombre inventado de máximo 8 letras con <text>; 3-4 colores por panel (azul, amarillo, rojo, blanco, negro), sin degradados ni sombras ni imágenes. Panel 16: blanco liso. Margen de 12 px dentro de cada panel. Usa estos nombres inventados: Zentora, Aqualume, Vantiq, Orbelis, Kelmora, Brivio, Nordavia, Calmora, Tessera, Pontiq y otros 5 que inventes tú (que no se parezcan a ninguna marca real). Prohibidas las marcas reales y la publicidad de apuestas, tabaco o alcohol.
+Cuando termines, dame la LISTA de los 16 paneles (número y nombre).
 
-TEXTURA 2 — Logo central. Logo INVENTADO de una competición de hockey sobre patines, circular, plano, 2-3 colores, sin texto legible, sobre fondo transparente (si no puedes, fondo verde puro #00FF00 liso), 1024 x 1024 px.
-
-TEXTURA 3 — Atlas de vallas publicitarias. Una imagen de 2048 x 1024 px dividida en una cuadrícula de 4 columnas x 4 filas (16 paneles de 512 x 256 px, vista frontal plana). Paneles 1 a 15: anuncios INVENTADOS de estilo cartelería deportiva (fondo de color liso, una palabra corta inventada en letras grandes y gruesas de máximo 12 letras, y un símbolo geométrico simple), colores saturados y mucho contraste. Panel 16: blanco liso. Deja 16 px de margen de seguridad en cada panel. Usa estos nombres inventados: Zentora, Aqualume, Vantiq, Orbelis, Kelmora, Brivio, Nordavia, Calmora, Tessera Lab, Pontiq y otros 5 que inventes tú (que no se parezcan a ninguna marca real). Prohibidas las marcas reales y la publicidad de apuestas, tabaco o alcohol.
-Cuando termines, dame la LISTA de los 16 paneles (número y nombre del anuncio).
+PIEZA 2 — Logo central. Escribe un ARCHIVO SVG completo (viewBox="0 0 512 512") del logo INVENTADO de una competición de hockey sobre patines, circular, plano, 2-3 colores en hexadecimal, sin <text>, sin degradados, sin imágenes.
 ````
 
 HASTA AQUÍ ↑
@@ -321,7 +355,7 @@ HASTA AQUÍ ↑
 | Archivo | Descripción | Herramienta y fecha | Prompt | Licencia / permiso | Revisado por | Estado |
 |---|---|---|---|---|---|---|
 | `public/assets/crests/crest_serra-blava.svg` | Escudo del club inventado Patins Serra Blava | ChatGPT (modelo y plan indicados por Guillem), 2026-10-12 | `docs/prompts/crest_serra-blava.txt` | Generado con IA; uso en el juego según los términos de OpenAI vigentes en esa fecha | Guillem (marca/escudo real: descartado) | Final |
-| `docs/concept/concept_01_pista-tv.jpg` | Arte conceptual del plano TV general | ChatGPT, 2026-10-12 | `docs/prompts/concept_01.txt` | Generado con IA; solo referencia, no se distribuye con el juego | Guillem | Referencia |
+| `docs/concept/concept_01_pista-tv-azul.jpg` | Arte conceptual del plano TV general (suelo azul) | ChatGPT, 2026-10-12 | `docs/prompts/concept_01.txt` | Generado con IA; solo referencia, no se distribuye con el juego | Guillem | Referencia |
 
 - El **prompt completo** lo guardo como texto en `docs/prompts/` (un archivo por asset o por lote) y en la tabla pongo la ruta.
 - **Estado:** `Referencia` (no entra en el juego), `Borrador` (provisional) o `Final` (entra en el juego).
@@ -342,9 +376,10 @@ HASTA AQUÍ ↑
 
 | Qué me pasas | Dónde lo guardo | Cuándo se usa |
 |---|---|---|
-| Arte conceptual | `docs/concept/` (no entra en el juego) | Guía de arte de F4 |
-| Escudos | `public/assets/crests/` (SVG, o PNG a 256 y 64 px) | Marcador y menús (F2 / F4) |
-| Hojas de equipación | `docs/concept/kits/` como referencia; el dibujo se construye por código | Equipaciones (F2 / F4) |
-| Texturas | `public/assets/textures/` (comprimidas, ≤ 2048 px) | Pista y vallas (F4) |
+| Arte conceptual (10 imágenes: 01, 01N, 02-09) | `docs/concept/` (no entra en el juego); las 3 de estilo ya están en `docs/concept/style/` | Guía de arte de F4; elegir el suelo por defecto |
+| Escudos (SVG) | `public/assets/crests/` | Marcador y menús (F2 / F4) |
+| Hojas de equipación | `docs/concept/kits/` como referencia; el dibujo se construye por código con colores lisos | Equipaciones (F2 / F4) |
+| Atlas de vallas (SVG → PNG/KTX2, 1024×512) y logo central (SVG) | `public/assets/textures/` | Pista y vallas (F4) |
+| Suelos (azul, parquet, crema) y modo neón | **Sin archivos:** colores, patrón de parquet y luz por código (un «tema» de pabellón como datos) | F4 |
 | `teams.json` | `src/data/teams.json` | Equipos de F2; liga de 12 de F5 |
 | Prompts y créditos | `docs/prompts/` y `CREDITS.md` | Siempre |
