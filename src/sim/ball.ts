@@ -83,20 +83,35 @@ function emit(events: BallEvent[], type: BallEventType, strength: number, side: 
   if (type === 'goal' || type === 'out' || strength >= EVENT_MIN_SPEED) events.push({ type, strength, side });
 }
 
+const heavyTmp = {} as Tuning['ball'];
+
+/** The ball's numbers in play: with the heavy ball on (a test, F1.5c) its bounce numbers replace the normal ones. */
+export function ballParams(tuning: Tuning): Tuning['ball'] {
+  const k = tuning.ball;
+  if (k.heavy < 0.5) return k;
+  Object.assign(heavyTmp, k);
+  heavyTmp.boardRestitution = k.heavyBoardRestitution;
+  heavyTmp.boardFriction = k.heavyBoardFriction;
+  heavyTmp.boardJitter = k.heavyBoardJitter;
+  heavyTmp.floorRestitution = k.heavyFloorRestitution;
+  heavyTmp.postRestitution = k.heavyPostRestitution;
+  return heavyTmp;
+}
+
 /** Advance the ball one fixed tick (with sub-steps). Collision events are appended to `events`. */
 export function stepBall(b: BallState, players: readonly PlayerState[], tuning: Tuning, rng: RngState, dt: number, events: BallEvent[]): void {
   b.prevX = b.x;
   b.prevY = b.y;
   b.prevZ = b.z;
   b.out = false;
+  const k = ballParams(tuning);
   const speed = Math.hypot(b.vx, b.vy, b.vz);
   const n = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil((speed * dt) / MAX_SUBSTEP_MOVE)));
   const h = dt / n;
-  for (let i = 0; i < n && !b.out; i++) substep(b, players, tuning, rng, h, events);
+  for (let i = 0; i < n && !b.out; i++) substep(b, players, tuning, k, rng, h, events);
 }
 
-function substep(b: BallState, players: readonly PlayerState[], tuning: Tuning, rng: RngState, h: number, events: BallEvent[]): void {
-  const k = tuning.ball;
+function substep(b: BallState, players: readonly PlayerState[], tuning: Tuning, k: Tuning['ball'], rng: RngState, h: number, events: BallEvent[]): void {
   const r = RINK.ballRadius;
   const onFloor = b.z <= r + 1e-4 && b.vz <= 1e-3;
 
@@ -146,7 +161,7 @@ function substep(b: BallState, players: readonly PlayerState[], tuning: Tuning, 
   }
 
   // --- Goals (posts, crossbar, net, goal line) ------------------------------------------
-  for (const side of [-1, 1] as const) collideGoal(b, side, prevX, tuning, h, events);
+  for (const side of [-1, 1] as const) collideGoal(b, side, prevX, k, h, events);
   if (b.inGoal !== 0) return; // inside the net: nothing else to hit
 
   // --- Boards ---------------------------------------------------------------------------
@@ -247,8 +262,7 @@ function collideSegment(
   return -vn;
 }
 
-function collideGoal(b: BallState, side: -1 | 1, prevX: number, tuning: Tuning, h: number, events: BallEvent[]): void {
-  const k = tuning.ball;
+function collideGoal(b: BallState, side: -1 | 1, prevX: number, k: Tuning['ball'], h: number, events: BallEvent[]): void {
   const r = RINK.ballRadius;
   const gx = goalLineX(side);
   const hw = RINK.goalWidth / 2;

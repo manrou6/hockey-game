@@ -93,6 +93,17 @@ export const TUNING = {
     playerRestitution: 0.35,
     /** How fast the net kills the ball's speed once inside the goal (1/s). */
     netDamping: 8,
+    /**
+     * "Bola pesada" to try out (idea c of docs/REFERENCIA_PARTIDOS.md; F1.5c; off by factory):
+     * heavy 1 = these replace the bounce numbers above: less bouncy off the boards, the floor
+     * and the frame, sliding more along the boards and with almost no random deflection.
+     */
+    heavy: 0,
+    heavyBoardRestitution: 0.55,
+    heavyBoardFriction: 0.05,
+    heavyBoardJitter: 0.0174533,
+    heavyFloorRestitution: 0.3,
+    heavyPostRestitution: 0.45,
     /** Visual size multiplier so the 7.3 cm ball reads from the TV camera (render only).
      * It is compensated by camera distance: at `visualRefDistance` it is exactly this value,
      * further away it grows, closer it shrinks (never below real size). */
