@@ -30,11 +30,49 @@ async function throwAtPlayer(page: Page): Promise<void> {
   });
 }
 
+/** The ball is back in play (free play puts it back at the centre ~1.5 s of sim time after a goal). */
+const ballInPlay = (page: Page) =>
+  page.evaluate(() => {
+    const w = (window as any).__PATINS__.game.world;
+    return w.ballResetTicks === 0 && !w.ball.scored && w.ball.inGoal === 0;
+  });
+
 const lastShot = (page: Page) =>
   page.evaluate(() => {
     const w = (window as any).__PATINS__.game.world;
     return { tick: w.lastShotTick as number, aerial: w.lastShot.aerial as boolean, timing: w.lastShot.timing as number };
   });
+
+/**
+ * Watch TIR from inside the page, in the very frame its classes change: the lit button lasts only
+ * ~0.2 s of sim time, and in headless Chromium the sim can run well below real time (slow frames,
+ * capped catch-up), so polling from the test or tapping after a round trip can miss it. Notes when
+ * it lights up; at the good moment, taps it there and then ('tap') or freezes the game ('freeze').
+ */
+async function watchVolley(page: Page, action: 'tap' | 'freeze'): Promise<void> {
+  await page.evaluate((action) => {
+    const btn = document.getElementById('btn-shoot')!;
+    const game = (window as any).__PATINS__.game;
+    const seen = ((window as any).__volleySeen = { volley: false, good: false });
+    const observer = new MutationObserver(() => {
+      if (btn.classList.contains('volley')) seen.volley = true;
+      if (seen.good || !btn.classList.contains('volley-good')) return;
+      seen.good = true;
+      observer.disconnect();
+      if (action === 'freeze') {
+        game.paused = true;
+        return;
+      }
+      const r = btn.getBoundingClientRect();
+      const at = { pointerId: 9, isPrimary: false, bubbles: true, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2 };
+      btn.dispatchEvent(new PointerEvent('pointerdown', at));
+      btn.dispatchEvent(new PointerEvent('pointerup', at));
+    });
+    observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
+  }, action);
+}
+
+const volleySeen = (page: Page) => page.evaluate(() => (window as any).__volleySeen as { volley: boolean; good: boolean });
 
 test('remate en el aire: TIR lights up while a ball in the air comes and a tap strikes it', async ({ page }) => {
   test.setTimeout(90_000);
@@ -45,24 +83,25 @@ test('remate en el aire: TIR lights up while a ball in the air comes and a tap s
   await page.waitForTimeout(800);
   const btn = page.locator('#btn-shoot');
   const before = (await lastShot(page)).tick;
+  // TIR lights up, then flashes at the good moment; a tap right then strikes the ball in the air.
+  await watchVolley(page, 'tap');
   await throwAtPlayer(page);
-  await expect(btn).toHaveClass(/volley/, { timeout: 3_000 });
-  // Tap TIR as soon as the button flashes (the good moment).
-  await page.waitForSelector('#btn-shoot.volley-good', { timeout: 3_000 });
-  const box = (await btn.boundingBox())!;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await btn.dispatchEvent('pointerdown', { pointerId: 9, isPrimary: false, clientX: x, clientY: y });
-  await btn.dispatchEvent('pointerup', { pointerId: 9, isPrimary: false, clientX: x, clientY: y });
-  await expect.poll(async () => (await lastShot(page)).tick, { timeout: 3_000 }).not.toBe(before);
+  await expect.poll(() => volleySeen(page), { timeout: 15_000 }).toEqual({ volley: true, good: true });
+  await expect.poll(async () => (await lastShot(page)).tick, { timeout: 15_000 }).not.toBe(before);
   const s = await lastShot(page);
   expect(s.aerial).toBe(true);
   expect(Math.abs(s.timing)).toBeLessThanOrEqual(0.2 + 1e-6);
   await expect(btn).not.toHaveClass(/volley/);
-  // Once more without striking, for the picture of the lit button.
-  await page.waitForTimeout(1500);
+  // Once more without striking, frozen at the good moment for the picture of the lit button
+  // (after a goal, once the ball is back).
+  await expect.poll(() => ballInPlay(page), { timeout: 15_000 }).toBe(true);
+  await watchVolley(page, 'freeze');
   await throwAtPlayer(page);
-  await expect(btn).toHaveClass(/volley/, { timeout: 3_000 });
+  await expect.poll(() => volleySeen(page), { timeout: 15_000 }).toEqual({ volley: true, good: true });
+  await expect(btn).toHaveClass(/volley-good/);
   await page.screenshot({ path: 'test-results/screenshots/f1-volley-window.png' });
+  await page.evaluate(() => {
+    (window as any).__PATINS__.game.paused = false;
+  });
   expect(errors).toEqual([]);
 });
