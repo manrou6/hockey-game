@@ -82,19 +82,22 @@ describe('who the pass goes to: a running teammate, aimed ahead of', () => {
 
 describe('assist parameters of the pass into space', () => {
   const a: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
-  it('off has none; the levels share the range; the respect is per level and off by default', () => {
+  it('off has none; the levels share the range; the respect is per level (Forta keeps 0, v0.1.23)', () => {
     expect(assistParams('off', TUNING, a).spaceCone).toBe(0);
+    expect(assistParams('off', TUNING, a).spaceRespect).toBe(0);
     for (const level of ['light', 'medium', 'strong'] as const) {
       const x = assistParams(level, TUNING, a);
       expect(x.spaceCone).toBe(TUNING.assist.spaceCone);
       expect(x.spaceMinSpeed).toBe(TUNING.assist.spaceMinSpeed);
-      expect(x.spaceRespect).toBe(0);
     }
+    expect(assistParams('light', TUNING, a).spaceRespect).toBe(TUNING.assist.lightSpaceRespect);
+    expect(assistParams('medium', TUNING, a).spaceRespect).toBe(TUNING.assist.mediumSpaceRespect);
+    expect(TUNING.assist.mediumSpaceRespect).toBeGreaterThan(0);
+    expect(assistParams('strong', TUNING, a).spaceRespect).toBe(0); // Forta: the assist decides
     const t = tuningWith((q) => {
       q.assist.mediumSpaceRespect = 0.6;
     });
     expect(assistParams('medium', t, a).spaceRespect).toBe(0.6);
-    expect(assistParams('light', t, a).spaceRespect).toBe(0);
   });
 });
 
@@ -145,25 +148,34 @@ describe('planPass with the pass into space', () => {
     const ball = createBall(0.5, 0);
     return planPass([p!, r!], ball, 0, cmd(Math.cos(deg(aimDeg)), Math.sin(deg(aimDeg))), 'medium', PASS_GROUND, 0, -2, 0, t, createPassPlan());
   };
-  it('with the respect at 0 (factory) the plan is exactly the old assist for an aim inside the cone', () => {
-    const off = tuningWith((t) => {
-      t.assist.spaceCone = 0;
-    });
-    const a = plan(TUNING, 20);
-    const b = plan(off, 20);
+  /** The v0.1.22 behaviour: the range extension without respecting the aim. */
+  const noRespect = tuningWith((t) => {
+    t.assist.lightSpaceRespect = t.assist.mediumSpaceRespect = t.assist.strongSpaceRespect = 0;
+  });
+  /** Before P7 (v0.1.21): nothing. */
+  const before = tuningWith((t) => {
+    t.assist.lightSpaceRespect = t.assist.mediumSpaceRespect = t.assist.strongSpaceRespect = 0;
+    t.assist.spaceCone = 0;
+  });
+  it('with the respect at 0 the plan is exactly the old assist for an aim inside the cone', () => {
+    const a = plan(noRespect, 20);
+    const b = plan(before, 20);
     expect(a.target).toBe(1);
     expect(a.angle).toBe(b.angle);
     expect(a.speed).toBe(b.speed);
     expect(a.meetX).toBe(b.meetX);
   });
+  it('an aim less than the dead zone ahead of the runner (or at him) is the old assist at any respect', () => {
+    const a = plan(TUNING, 8); // 8° < the 14° dead zone
+    const b = plan(before, 8);
+    expect(a.angle).toBe(b.angle);
+    expect(a.speed).toBe(b.speed);
+  });
   it('a running teammate aimed 45° ahead of is now the receiver (before: nobody, the fast 18 m/s no-target pass)', () => {
-    const off = tuningWith((t) => {
-      t.assist.spaceCone = 0;
-    });
-    const before = plan(off, 45);
-    expect(before.target).toBe(-1);
-    expect(before.speed).toBe(TUNING.pass.groundNoTargetSpeed);
-    const after = plan(TUNING, 45);
+    const none = plan(before, 45);
+    expect(none.target).toBe(-1);
+    expect(none.speed).toBe(TUNING.pass.groundNoTargetSpeed);
+    const after = plan(noRespect, 45);
     expect(after.target).toBe(1);
     // Led as a pass to a runner: towards his path, slower than the no-target pass, 15 % of the offset kept.
     expect(after.angle).toBeLessThan(deg(45));
@@ -177,12 +189,42 @@ describe('planPass with the pass into space', () => {
     });
     const aimDeg = 45;
     const a = plan(full, aimDeg);
-    const base = plan(TUNING, aimDeg);
+    const base = plan(noRespect, aimDeg);
     expect(a.target).toBe(1);
-    expect(a.angle).toBeCloseTo(Math.atan2(a.meetY - 0, a.meetX - 0.5) , 1);
+    expect(a.angle).toBeCloseTo(Math.atan2(a.meetY - 0, a.meetX - 0.5), 1);
     expect(Math.abs(wrapAngle(a.angle - deg(aimDeg)))).toBeLessThan(deg(8)); // blade offset aside, along the aim
     expect(Math.abs(a.angle - deg(aimDeg))).toBeLessThan(Math.abs(base.angle - deg(aimDeg)));
     expect(a.meetY).toBeGreaterThan(base.meetY);
+  });
+  it('the factory respect (v0.1.23) sends the ball further ahead than 0 but never beyond spaceMaxTime of his running', () => {
+    const base = plan(noRespect, 55);
+    const factory = plan(TUNING, 55);
+    expect(factory.target).toBe(1);
+    expect(factory.meetY).toBeGreaterThan(base.meetY + 0.5);
+    // He starts at y = 0 and runs 6.5 m/s: the meeting point is at most spaceMaxTime of running (plus the blade offset).
+    expect(factory.meetY).toBeLessThanOrEqual(6.5 * TUNING.assist.spaceMaxTime + 1);
+    const short = tuningWith((t) => {
+      t.assist.spaceMaxTime = 0.5;
+    });
+    expect(plan(short, 55).meetY).toBeLessThan(factory.meetY);
+  });
+  it('a ground pass into space arrives slowly (v0.1.23): launched slower the more of a space pass it is, and as before with the settings at the old values', () => {
+    const slow = plan(TUNING, 55);
+    const noSlow = plan(
+      tuningWith((t) => {
+        t.assist.spaceArrivalSpeed = 99;
+        t.assist.spaceLaunchMin = 99;
+      }),
+      55,
+    );
+    expect(slow.speed).toBeLessThan(noSlow.speed - 1);
+    expect(slow.speed).toBeGreaterThanOrEqual(TUNING.assist.spaceLaunchMin);
+    // An ordinary pass (aim at him) is not touched.
+    expect(plan(TUNING, 0).speed).toBe(plan(before, 0).speed);
+  });
+  it('the range reaches further than v0.1.22: an aim 75° ahead of him still picks him (Mitjana 34° + 52°)', () => {
+    expect(plan(TUNING, 75).target).toBe(1);
+    expect(plan(before, 75).target).toBe(-1);
   });
 });
 

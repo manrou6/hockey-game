@@ -235,6 +235,8 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'assist.spaceCone', min: 0, max: 60, step: 1, unit: '°', scale: DEG },
       { path: 'assist.spaceMinTime', min: 0, max: 1.5, step: 0.05, unit: 's' },
       { path: 'assist.spaceMaxTime', min: 0.5, max: 4, step: 0.1, unit: 's' },
+      { path: 'assist.spaceArrivalSpeed', min: 3, max: 20, step: 0.5, unit: 'm/s' },
+      { path: 'assist.spaceLaunchMin', min: 3, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'assist.spaceDeadzone', min: 0, max: 30, step: 1, unit: '°', scale: DEG },
       { path: 'assist.spaceRamp', min: 1, max: 40, step: 1, unit: '°', scale: DEG },
       { path: 'assist.spaceMinSpeed', min: 0.5, max: 8, step: 0.5, unit: 'm/s' },

@@ -464,7 +464,12 @@ export function planPass(
       to = Math.atan2(ty - ball.y, tx - ball.x);
       if (kind === PASS_GROUND) {
         // Automatic strength, plus the charged power on top (up to the maximum).
-        const auto = groundPassSpeed(dist, groundArrivalFor(dist, k) + (level === 'medium' ? tuning.assist.mediumArrivalBonus : 0), k.groundMinSpeed, k.groundMaxSpeed, kb);
+        // A pass into space arrives slower (and may be launched slower) the more it is one (P7): the
+        // runner gets there after the ball, so the ball must not be long gone.
+        const arrival = groundArrivalFor(dist, k) + (level === 'medium' ? tuning.assist.mediumArrivalBonus : 0);
+        const arrivalSpace = arrival + space * (Math.min(arrival, tuning.assist.spaceArrivalSpeed) - arrival);
+        const minSpace = k.groundMinSpeed + space * (Math.min(k.groundMinSpeed, tuning.assist.spaceLaunchMin) - k.groundMinSpeed);
+        const auto = groundPassSpeed(dist, arrivalSpace, minSpace, k.groundMaxSpeed, kb);
         out.speed = auto + (Math.max(auto, k.groundMaxSpeed) - auto) * charge;
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;

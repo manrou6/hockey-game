@@ -259,6 +259,8 @@
   "tuning.assist.spaceCone": "Pase al espacio: margen hacia delante del compañero que corre",
   "tuning.assist.spaceMinTime": "Pase al espacio: mínimo de segundos por delante del compañero",
   "tuning.assist.spaceMaxTime": "Pase al espacio: máximo de segundos por delante del compañero",
+  "tuning.assist.spaceArrivalSpeed": "Pase al espacio: velocidad máxima de llegada del pase raso",
+  "tuning.assist.spaceLaunchMin": "Pase al espacio: velocidad mínima de salida del pase raso",
   "tuning.assist.spaceDeadzone": "Pase al espacio: apuntado mínimo por delante que ya cuenta",
   "tuning.assist.spaceRamp": "Pase al espacio: grados hasta el respeto completo",
   "tuning.assist.spaceMinSpeed": "Pase al espacio: velocidad mínima del compañero (de través)",

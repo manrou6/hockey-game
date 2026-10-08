@@ -1,9 +1,11 @@
 import { describe, it } from 'vitest';
 import {
   asV0120,
+  asV0122,
   BASE_TUNING,
   FIRST_TOUCH,
   fmt,
+  fmtDiag,
   fmtSpace,
   IDEAL,
   measureTurn,
@@ -133,4 +135,100 @@ run('passing bench', () => {
       }
     }
   });
+
+  it('P7 diagnosis: why can the pass not go as far ahead as aimed (v0.1.22 numbers)', { timeout: 900000 }, () => {
+    const t = BASE_TUNING();
+    for (const lead of [1, 1.2, 1.4, 1.8]) {
+      for (const receive of ['chase', 'release'] as const) {
+        const st = runSpace(t, 'medium', { lead, receive });
+        console.log(`DIAG medium lead ${lead.toFixed(1)} ${receive.padEnd(7)} ${fmtDiag(st)} | has ${st.has.toFixed(0)}% zone ${st.zone.toFixed(0)}% t ${st.timeMean.toFixed(2)}`);
+      }
+    }
+  });
+
+  it('P7 v0.1.23 grid: respect x max time x dead zone (cone 1.0 rad)', { timeout: 3600000 }, () => {
+    const level = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.PATINS_LEVEL ?? 'medium';
+    for (const dz of [0.35, 0.2]) {
+      for (const respect of [0.5, 0.75, 1]) {
+        for (const maxTime of [1, 1.25, 1.5]) {
+          const t = BASE_TUNING();
+          t.assist.lightSpaceRespect = t.assist.mediumSpaceRespect = respect;
+          t.assist.spaceMaxTime = maxTime;
+          t.assist.spaceCone = 1;
+          t.assist.spaceDeadzone = dz;
+          const cols: string[] = [];
+          for (const lead of [1, 1.4, 1.8]) {
+            const ch = runSpace(t, level, { lead, receive: 'chase' });
+            const rel = runSpace(t, level, { lead, receive: 'release' });
+            cols.push(`L${lead.toFixed(1)}: chase ${ch.has.toFixed(0)}% ${ch.timeMean.toFixed(1)}s rel ${rel.has.toFixed(0)}% ahead ${ch.aheadSec.toFixed(2)}s (${ch.early >= 0 ? '+' : ''}${ch.early.toFixed(2)})`);
+          }
+          console.log(`GRID2 ${level} dz ${dz} respect ${respect.toFixed(2)} maxT ${maxTime.toFixed(2)} || ${cols.join(' || ')}`);
+        }
+      }
+    }
+  });
+
+  it('P7 v0.1.23 baseline for the grid (respect 0): seconds ahead', { timeout: 600000 }, () => {
+    for (const level of ['light', 'medium']) {
+      const t = BASE_TUNING();
+      t.assist.spaceCone = 1;
+      const cols: string[] = [];
+      for (const lead of [1, 1.4, 1.8]) {
+        const ch = runSpace(t, level, { lead, receive: 'chase' });
+        const rel = runSpace(t, level, { lead, receive: 'release' });
+        cols.push(`L${lead.toFixed(1)}: chase ${ch.has.toFixed(0)}% ${ch.timeMean.toFixed(1)}s rel ${rel.has.toFixed(0)}% ahead ${ch.aheadSec.toFixed(2)}s (${ch.early >= 0 ? '+' : ''}${ch.early.toFixed(2)})`);
+      }
+      console.log(`GRID2 ${level} respect 0 || ${cols.join(' || ')}`);
+    }
+  });
+
+  it('P7 v0.1.23: v0.1.22 numbers vs now (300 passes per case)', { timeout: 3600000 }, () => {
+    for (const level of ['medium', 'light', 'strong']) {
+      for (const lead of [1, 1.2, 1.4, 1.8]) {
+        for (const receive of ['chase', 'release'] as const) {
+          for (const [name, t] of [['v0.1.22', asV0122(BASE_TUNING())], ['v0.1.23', BASE_TUNING()]] as const) {
+            const st = runSpace(t, level, { lead, receive }, 0.12, 300);
+            console.log(`FINAL ${level.padEnd(6)} lead ${lead.toFixed(1)} ${receive.padEnd(7)} ${name} ${fmtDiag(st)} | has ${st.has.toFixed(0)}% zone ${st.zone.toFixed(0)}% t ${st.timeMean.toFixed(2)} ahead ${st.aheadSec.toFixed(2)}s`);
+          }
+        }
+      }
+    }
+  });
+
+  it('P7 v0.1.23: slower arrival for passes into space (medium, respect 0.75, maxT 1.25, cone 0.9)', { timeout: 3600000 }, () => {
+    for (const [arr, min] of [[12, 12], [10, 8], [8, 6], [6, 5]] as const) {
+      const t = BASE_TUNING();
+      t.assist.spaceArrivalSpeed = arr;
+      t.assist.spaceLaunchMin = min;
+      const cols: string[] = [];
+      for (const lead of [1, 1.4, 1.8]) {
+        const ch = runSpace(t, 'medium', { lead, receive: 'chase' });
+        const rel = runSpace(t, 'medium', { lead, receive: 'release' });
+        cols.push(`L${lead.toFixed(1)}: chase ${ch.has.toFixed(0)}% ${ch.timeMean.toFixed(1)}s | rel ${rel.has.toFixed(0)}% clean ${rel.clean.toFixed(0)}% | ahead ${ch.aheadSec.toFixed(2)}s (${ch.early >= 0 ? '+' : ''}${ch.early.toFixed(2)}) launch ${ch.launch.toFixed(1)}`);
+      }
+      console.log(`ARR arrival ${arr} launchMin ${min} || ${cols.join(' || ')}`);
+    }
+  });
+
+  it('P7 v0.1.23: freedom grid with slower arrival (medium)', { timeout: 3600000 }, () => {
+    for (const arr of [8, 6]) {
+      for (const respect of [0.75, 1]) {
+        for (const maxTime of [1.25, 1.75, 2.5]) {
+          const t = BASE_TUNING();
+          t.assist.spaceArrivalSpeed = arr;
+          t.assist.spaceLaunchMin = arr - 1.5;
+          t.assist.mediumSpaceRespect = respect;
+          t.assist.spaceMaxTime = maxTime;
+          const cols: string[] = [];
+          for (const lead of [1, 1.4, 1.8]) {
+            const ch = runSpace(t, 'medium', { lead, receive: 'chase' });
+            const rel = runSpace(t, 'medium', { lead, receive: 'release' });
+            cols.push(`L${lead.toFixed(1)}: chase ${ch.has.toFixed(0)}% ${ch.timeMean.toFixed(1)}s rel ${rel.has.toFixed(0)}% ahead ${ch.aheadSec.toFixed(2)}s (${ch.early >= 0 ? '+' : ''}${ch.early.toFixed(2)})`);
+          }
+          console.log(`FREE arrival ${arr} respect ${respect.toFixed(2)} maxT ${maxTime.toFixed(2)} || ${cols.join(' || ')}`);
+        }
+      }
+    }
+  });
 });
+

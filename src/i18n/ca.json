@@ -259,6 +259,8 @@
   "tuning.assist.spaceCone": "Passada a l'espai: marge cap endavant del company que corre",
   "tuning.assist.spaceMinTime": "Passada a l'espai: mínim de segons per davant del company",
   "tuning.assist.spaceMaxTime": "Passada a l'espai: màxim de segons per davant del company",
+  "tuning.assist.spaceArrivalSpeed": "Passada a l'espai: velocitat màxima d'arribada de la passada rasa",
+  "tuning.assist.spaceLaunchMin": "Passada a l'espai: velocitat mínima de sortida de la passada rasa",
   "tuning.assist.spaceDeadzone": "Passada a l'espai: apuntat mínim per davant que ja compta",
   "tuning.assist.spaceRamp": "Passada a l'espai: graus fins al respecte complet",
   "tuning.assist.spaceMinSpeed": "Passada a l'espai: velocitat mínima del company (de través)",

@@ -1,5 +1,7 @@
 import { TUNING, type Tuning } from '../../../src/config/tuning';
 import { emptyCommand, type PlayerCommand } from '../../../src/sim/commands';
+import { aimAhead, assistParams, type AssistParams } from '../../../src/sim/pass';
+import { roll, type RollResult } from '../../../src/sim/rolling';
 import { createWorld, stepWorld, type WorldState } from '../../../src/sim/world';
 
 // Passing test bench (F1.4d): a scripted "human" plays chains of passes between the 3 players of
@@ -387,6 +389,18 @@ export interface SpaceStats {
   timeP90: number;
   /** % in which the control did not switch to the runner (no receiver chosen). */
   noSwitch: number;
+  /** Diagnosis of "I can't aim far enough ahead": */
+  /** Mean angle (deg) the human aimed ahead of the runner, and % of aims inside the range where a running teammate is chosen. */
+  aimedDeg: number;
+  inRange: number;
+  /** Mean launch speed (m/s) of the pass. */
+  launch: number;
+  /** Mean (point where the ball crosses his path, in seconds of running ahead of him) / (point the human aimed at). 1 = the ball goes where he aimed. */
+  leadRatio: number;
+  /** Mean seconds the ball is early (+) or late (−) at that crossing relative to the runner. */
+  early: number;
+  /** Mean seconds of running ahead of him at which the ball crosses his path. */
+  aheadSec: number;
 }
 
 /** Ball speed (m/s) a human assumes when he leads a runner. */
@@ -397,12 +411,20 @@ const HUMAN_BALL_SPEED = 11.5;
  * ahead of him, at where he will be, with `policy.lead` × the ideal lead and an aiming error.
  * Then he plays the new controlled player as `policy.receive` says. Raso, tap, 4 s to recover it.
  */
-export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aimError = 0.12, n = 150, runSpeed = 6.5): SpaceStats {
+export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aimError = 0.12, n = 150, runSpeed = 6.5, trace?: (w: WorldState, seed: number, k: number) => void): SpaceStats {
   let zone = 0;
   let has = 0;
   let clean = 0;
   let noSwitch = 0;
+  let inRange = 0;
   const times: number[] = [];
+  const aimedDegs: number[] = [];
+  const launches: number[] = [];
+  const ratios: number[] = [];
+  const aheads: number[] = [];
+  const earlies: number[] = [];
+  const rollTmp: RollResult = { speed: 0, time: 0 };
+  const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
   for (let seed = 1; seed <= n; seed++) {
     const rnd = lcg(seed * 131 + 17);
     const t = tuning;
@@ -450,6 +472,14 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     const a = Math.atan2(ay - p.y, ax - p.x) + (rnd() * 2 - 1) * aimError;
     const sx = Math.cos(a);
     const sy = Math.sin(a);
+    // Diagnosis: where the human aimed (seconds of running ahead of the runner) and the geometry at the press.
+    const ap = assistParams(level as WorldState['assist'], tuning, assistTmp);
+    const ahead = aimAhead(p, r, a, ap.spaceMinSpeed);
+    aimedDegs.push((Math.max(-90, ahead) * 180) / Math.PI);
+    if (ahead <= ap.cone + ap.spaceCone) inRange++;
+    const pressB = { x: w.ball.x, y: w.ball.y };
+    const pressR = { x: r.x, y: r.y };
+    const aimedTau = tau * policy.lead;
     const startPass = w.lastPassTick;
     let released = -1;
     for (let k = 0; k < tapTicks + 20 && released < 0; k++) {
@@ -459,6 +489,26 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     }
     if (released < 0) continue;
     if (w.controlled !== 1) noSwitch++;
+    // Where does the launched ball cross the runner's straight path?
+    {
+      const bvx = w.ball.vx;
+      const bvy = w.ball.vy;
+      launches.push(Math.hypot(bvx, bvy));
+      const dx = pressR.x - pressB.x;
+      const dy = pressR.y - pressB.y;
+      const crossDV = bvx * rvy - bvy * rvx;
+      if (Math.abs(crossDV) > 0.5) {
+        const tauBall = (dx * bvy - dy * bvx) / crossDV; // seconds of running ahead of him
+        const along = (dx * rvy - dy * rvx) / crossDV; // metres/(m/s) along the ball's direction, i.e. s/|d|
+        if (along > 0 && tauBall > 0 && aimedTau > 0.05) {
+          ratios.push(tauBall / Math.max(0.2, aimedTau));
+          aheads.push(tauBall);
+          const dist = along * Math.hypot(bvx, bvy);
+          const tb = roll(Math.hypot(bvx, bvy), dist, tuning.ball, rollTmp).time + 0.1;
+          if (Number.isFinite(tb)) earlies.push(tauBall - tb);
+        }
+      }
+    }
     let outcome = -1;
     let minD = Infinity;
     let got = -1;
@@ -476,6 +526,7 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
         if (dd > 0.6) c = cmd((px - r.x) / dd, (py - r.y) / dd, { sprint: dd > 4 });
       }
       step(c);
+      trace?.(w, seed, k);
       minD = Math.min(minD, Math.hypot(w.ball.x - r.x, w.ball.y - r.y));
       if (w.lastReceptionTick >= released && w.lastReceptionPlayer === 1 && outcome < 0) outcome = w.lastReceptionOutcome;
       if (w.ball.owner === 1) got = k;
@@ -496,10 +547,30 @@ export function runSpace(tuning: Tuning, level: string, policy: SpacePolicy, aim
     timeMean: mean(times),
     timeP90: s.length ? s[Math.min(s.length - 1, Math.floor(0.9 * s.length))]! : Number.NaN,
     noSwitch: (100 * noSwitch) / n,
+    aimedDeg: mean(aimedDegs),
+    inRange: (100 * inRange) / n,
+    launch: mean(launches),
+    leadRatio: mean(ratios),
+    early: mean(earlies),
+    aheadSec: mean(aheads),
   };
+}
+
+export function fmtDiag(s: SpaceStats): string {
+  return `aimed ${s.aimedDeg.toFixed(0)}° ahead | in range ${s.inRange.toFixed(0)}% | picked ${(100 - s.noSwitch).toFixed(0)}% | launch ${s.launch.toFixed(1)} m/s | ball goes to ${(s.leadRatio * 100).toFixed(0)}% of the aimed lead | arrives ${s.early >= 0 ? s.early.toFixed(2) + 's early' : (-s.early).toFixed(2) + 's late'}`;
 }
 
 export function fmtSpace(s: SpaceStats): string {
   const f = (v: number): string => (Number.isNaN(v) ? '  -' : v.toFixed(2));
   return `zone ${s.zone.toFixed(0)}% | has ball ${s.has.toFixed(0)}% clean ${s.clean.toFixed(0)}% | time ${f(s.timeMean)}s p90 ${f(s.timeP90)}s | no control switch ${s.noSwitch.toFixed(0)}%`;
 }
+
+/** The factory values of v0.1.22 for the pass-into-space numbers retuned in v0.1.23 (for before/after runs). */
+export function asV0122(t: Tuning): Tuning {
+  t.assist.lightSpaceRespect = t.assist.mediumSpaceRespect = t.assist.strongSpaceRespect = 0;
+  t.assist.spaceCone = 0.6;
+  t.assist.spaceMaxTime = 2;
+  t.assist.spaceDeadzone = 0.35;
+  return t;
+}
+
