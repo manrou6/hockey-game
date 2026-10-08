@@ -39,3 +39,7 @@ export function wallFor(_p: PlayerState, tuning: Tuning): Tuning['wall'] {
 export function shotFor(_p: PlayerState, tuning: Tuning): Tuning['shot'] {
   return tuning.shot;
 }
+
+export function volleyFor(_p: PlayerState, tuning: Tuning): Tuning['volley'] {
+  return tuning.volley;
+}

@@ -363,6 +363,38 @@ export const TUNING = {
    * some randomness; then: clean < heavyAt ≤ heavy touch < reboundAt ≤ rebound < missAt ≤ miss.
    * Values of an AVERAGE player (read through src/sim/feel.ts receiveFor).
    */
+  volley: {
+    /**
+     * Remate en el aire / volea (F1.5d, decided by Guillem 2026-10-08): a ball in the air that
+     * comes to the controlled player's stick (within `reach` m of his blade, between minHeight
+     * and maxHeight m above the floor at the contact) is struck with the same TIRO, released
+     * within windowTime/2 (s) of the moment it gets there: released before, it leaves at the
+     * contact; still held at the contact, the stick carries the ball until the release. Good
+     * timing = within `good` (s) of the contact: up to +powerBonus of speed when perfect; past
+     * it the error grows up to × (1 + badError) at the edge of the window. Its error is the
+     * shot's (with the context of F1.5c) × shot.firstTouchError × (1 + the difficulty in the
+     * air: its speed relative to him from easySpeed (adds 0) to hardSpeed (adds 1, m/s), and
+     * from behind, off balance, stretching as the reception, plus a low contact below idealLow
+     * and a high one above idealHigh, m). While it is armed the joystick
+     * only aims: the player keeps meeting the ball. lookahead (s): how far ahead the ball is
+     * followed; lowTarget (m): the height a low volley crosses the goal line.
+     */
+    windowTime: 0.4,
+    good: 0.08,
+    minHeight: 0.02,
+    maxHeight: 1.05,
+    reach: 0.75,
+    powerBonus: 0.15,
+    badError: 1,
+    easySpeed: 6,
+    hardSpeed: 20,
+    idealLow: 0.3,
+    idealHigh: 0.7,
+    lowPenalty: 0.5,
+    highPenalty: 0.5,
+    lookahead: 0.5,
+    lowTarget: 0.25,
+  },
   receive: {
     /** Reception zone of the receiver of an aimed pass: the ball within this distance of his
      * body (m, low enough) reaches his stick (stretching for it: harder, see stretchPenalty).
