@@ -174,8 +174,63 @@ export const TUNING = {
     relockTime: 0.3,
     /** Sprint top speed while carrying the ball (sprint without ball: skating.sprintSpeed). */
     sprintSpeedWithBall: 9.3,
-    /** PROVISIONAL until F1.5: quick shot speed (m/s). */
-    shotSpeed: 22,
+  },
+  /**
+   * Shooting (F1.5a, docs/03 §3 TIRO). TIRO tapped (released before tapTime) = quick shot at
+   * quickSpeed; held = drag shot: the ball stays glued to the blade, you skate slower
+   * (chargeSpeedFactor of the top speed, no sprint) and the power rises from minSpeed to
+   * maxSpeed over chargeTime (s) while the error shrinks (chargePrecision at full power); the
+   * fully charged shot is the strong shot from outside. It leaves when TIRO is released. Height
+   * with the same diagonal drag as PASE: none = low (on the floor), up-right = high (crosses the
+   * goal line at highHeight), up-left = chip (an arc at chipAngle that lands chipLandBeyond
+   * behind the goal line, at most chipMaxSpeed). Values of an AVERAGE player (the Tir attribute
+   * goes through src/sim/feel.ts shotFor).
+   */
+  shot: {
+    tapTime: 0.2,
+    chargeTime: 0.6,
+    quickSpeed: 20,
+    minSpeed: 16,
+    maxSpeed: 28,
+    chargeSpeedFactor: 0.8,
+    /**
+     * Where it goes (option A, decided by Guillem 2026-10-08): the angle between the stick and
+     * the direction to the centre of the goal, magnified: an angle of <level>AimRange (rad) to
+     * one side = that post (minus postMargin, m). With the stick released: towards the far post
+     * (farPost of the way from the centre). If the stick points more than aimMaxOff (rad) away
+     * from the goal it is not aiming at it: the ball goes where the stick points. With the
+     * assist off the ball always goes exactly where the stick points.
+     */
+    lightAimRange: 0.3490659,
+    mediumAimRange: 0.4712389,
+    strongAimRange: 0.5934119,
+    aimMaxOff: 1.3962634,
+    postMargin: 0.12,
+    farPost: 0.8,
+    highHeight: 0.8,
+    chipAngle: 0.6108652,
+    chipLandBeyond: 0.9,
+    chipMaxSpeed: 20,
+    /** Direction error (rad, about ±1 standard deviation): always (quick shot and the start of the
+     * charge), at full sprint, off balance (skid / trencada), and per rad that the shot turns
+     * away from where the player faces beyond turnFree (rad). The height error is errorHeight ×
+     * the direction error; the strength error a fraction of the speed. Medium / strong assist
+     * multiply the errors by these factors; a perfect Tir attribute (99) reduces them by
+     * attributeAdvantage. */
+    errorBase: 0.0349066,
+    chargePrecision: 0.5,
+    errorSprint: 0.0523599,
+    errorOffBalance: 0.0872665,
+    errorTurn: 0.0698132,
+    turnFree: 1.0471976,
+    errorHeight: 0.6,
+    errorPower: 0.04,
+    mediumErrorFactor: 0.9,
+    strongErrorFactor: 0.8,
+    attributeAdvantage: 0.5,
+    /** The aim reticle on the goal shows while you carry the ball within this distance of the
+     * goal line (m), and always while TIRO is held (the reticle itself is on/off in Settings). */
+    reticleRange: 20,
   },
   /**
    * Passing (docs/03 §3, F1.4b). PASE tap = ground pass, hold = lofted pass; the pass leaves
@@ -341,8 +396,11 @@ export const TUNING = {
     spaceRamp: 0.17,
     /** Strength of a pass into space (ground): the ball arrives at most this fast (m/s) and may be launched
      * from this slow (m/s), in proportion to how much of a pass into space it is (the aim respected). */
-    spaceArrivalSpeed: 6,
+    spaceArrivalSpeed: 7,
     spaceLaunchMin: 4.5,
+    /** Charged (PASE held), a ground pass into space arrives faster, up to this (m/s) at full power
+     * (v0.1.24). At or above pass.groundMaxSpeed: as in v0.1.23 (charged like a pass to his feet, up to 30 m/s launch). */
+    spaceChargedArrivalSpeed: 13,
   },
   /**
    * Wall pass (F1.4d, docs/03 §3): a low pass against a side board that comes back to where you

@@ -230,5 +230,44 @@ run('passing bench', () => {
       }
     }
   });
+
+  it('v0.1.24: power of a pass into space (tap / half / full charge), v0.1.23 vs now, medium', { timeout: 3600000 }, () => {
+    const before = BASE_TUNING();
+    before.assist.spaceChargedArrivalSpeed = 30;
+    before.assist.spaceArrivalSpeed = 6;
+    const now = BASE_TUNING();
+    for (const [tname, t] of [['v0.1.23', before], ['v0.1.24', now]] as const) {
+      for (const [name, hold] of [['tap', 0.1], ['half', 0.5], ['full', 0.85]] as const) {
+        for (const lead of [1, 1.2, 1.4]) {
+          for (const receive of ['chase', 'release'] as const) {
+            const st = runSpace(t, 'medium', { lead, receive, hold, aimMag: 0.2 }, 0.12, 300);
+            console.log(`POWER ${tname} ${name.padEnd(4)} lead ${lead.toFixed(1)} ${receive.padEnd(7)} launch ${st.launch.toFixed(1)} arrival ${st.arrival.toFixed(1)} m/s | has ${st.has.toFixed(0)}% clean ${st.clean.toFixed(0)}% t ${st.timeMean.toFixed(2)}s p90 ${st.timeP90.toFixed(2)}s | ahead ${st.aheadSec.toFixed(2)}s (${st.early >= 0 ? '+' : ''}${st.early.toFixed(2)})`);
+          }
+        }
+      }
+    }
+  });
+
+  it('v0.1.24: sweep of the space-pass power (tap arrival x full-charge arrival), medium', { timeout: 3600000 }, () => {
+    for (const tapArr of [6, 7, 8]) {
+      for (const fullArr of [12, 13, 14]) {
+        const t = BASE_TUNING();
+        t.assist.spaceArrivalSpeed = tapArr;
+        t.assist.spaceChargedArrivalSpeed = fullArr;
+        const cols: string[] = [];
+        for (const [name, hold] of [['tap', 0.1], ['half', 0.5], ['full', 0.85]] as const) {
+          const parts: string[] = [];
+          for (const lead of [1, 1.4]) {
+            const ch = runSpace(t, 'medium', { lead, receive: 'chase', hold, aimMag: 0.2 }, 0.12, 150);
+            const rel = runSpace(t, 'medium', { lead, receive: 'release', hold, aimMag: 0.2 }, 0.12, 150);
+            parts.push(`L${lead.toFixed(1)} arr ${rel.arrival.toFixed(1)} ch ${ch.has.toFixed(0)}% ${ch.timeMean.toFixed(1)}s rel ${rel.has.toFixed(0)}%`);
+          }
+          cols.push(`${name}: ${parts.join(', ')}`);
+        }
+        if (tapArr !== 6 && fullArr !== 13) continue;
+        console.log(`SWEEPPOW tap ${tapArr} full ${fullArr} || ${cols.join(' || ')}`);
+      }
+    }
+  });
 });
 

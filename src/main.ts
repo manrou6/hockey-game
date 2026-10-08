@@ -19,6 +19,7 @@ import { CAMERA_PRESET_IDS, type CameraPresetId } from './render/cameraPresets';
 import { saveSettings } from './ui/settings';
 import { createWorld, stepWorld } from './sim/world';
 import { passPower } from './sim/pass';
+import { shotPower } from './sim/shot';
 
 registerSW({ immediate: true });
 
@@ -60,8 +61,8 @@ function pause(): void {
   if (game.paused) return;
   game.paused = true;
   input.enabled = false;
-  // A PASE held when pausing is cancelled (it must not fire on resume).
-  for (const p of game.world.players) p.passHold = -1;
+  // A PASE / TIRO held when pausing is cancelled (it must not fire on resume).
+  for (const p of game.world.players) p.passHold = p.shotHold = -1;
   hud.hidden = true;
   tuningPanel.close();
   menu.showMain();
@@ -81,13 +82,18 @@ const menu = new Menu(settings, {
   onPassArrowChange: (on) => {
     renderer.showPassArrow = on;
   },
+  onShotReticleChange: (on) => {
+    renderer.showShotReticle = on;
+  },
 });
 game.world.assist = settings.assist;
 renderer.showPassArrow = settings.passArrow;
+renderer.showShotReticle = settings.shotReticle;
 
 // PASE button: while it's held an arc fills with the power; its colour is the height chosen
 // by sliding up (white = low, orange = driven lofted, purple = lob), like the arrow.
 const passButton = input.buttons.buttons.pass;
+const shootButton = input.buttons.buttons.shoot;
 game.onFrame(() => {
   const p = game.world.players[game.world.controlled];
   const hold = p ? p.passHold : -1;
@@ -98,6 +104,14 @@ game.onFrame(() => {
   passButton.classList.toggle('lob', charging && height >= 2);
   // At least a sliver so the colour shows on a tap/slide before any power builds up.
   if (charging) passButton.style.setProperty('--charge', String(Math.max(0.08, passPower(hold, TUNING.pass))));
+  // TIRO (F1.5a): the same arc while charging a shot; colour = height (white low, orange high, purple chip).
+  const shotHold = p ? p.shotHold : -1;
+  const shooting = shotHold >= 0;
+  const shotHeight = game.commands[0]!.shootHeight;
+  shootButton.classList.toggle('charging', shooting);
+  shootButton.classList.toggle('drive', shooting && shotHeight === 1);
+  shootButton.classList.toggle('lob', shooting && shotHeight >= 2);
+  if (shooting) shootButton.style.setProperty('--charge', String(Math.max(0.08, shotPower(shotHold, TUNING.shot))));
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.
@@ -183,7 +197,7 @@ game.start();
   /** Mean cost (ms) of one sim tick on a throwaway world (does not touch the live game). */
   benchSim: (ticks: number): number => {
     const w = createWorld(7, TEAMMATES);
-    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, switchPlayer: false }];
+    const cmds = [{ moveX: 1, moveY: 0.3, sprint: true, pass: false, shoot: false, dribble: false, passHeld: false, passHeight: 0, shootHeld: false, shootHeight: 0, switchPlayer: false }];
     const t0 = performance.now();
     for (let i = 0; i < ticks; i++) {
       if (i % 90 === 0) cmds[0]!.moveY = -cmds[0]!.moveY;

@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -132,7 +132,6 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'dribble.pickupMaxHeight', min: 0.05, max: 1, step: 0.05, unit: 'm' },
       { path: 'dribble.pressureRadius', min: 0.5, max: 4, step: 0.1, unit: 'm' },
       { path: 'dribble.relockTime', min: 0, max: 1, step: 0.05, unit: 's' },
-      { path: 'dribble.shotSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
     ],
   },
   {
@@ -167,6 +166,39 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'pass.errorLoft', min: 1, max: 3, step: 0.1, unit: '×' },
       { path: 'pass.errorPower', min: 0, max: 20, step: 1, unit: '%', scale: 100 },
       { path: 'pass.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+    ],
+  },
+  {
+    id: 'shot',
+    params: [
+      { path: 'shot.quickSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+      { path: 'shot.minSpeed', min: 8, max: 35, step: 0.5, unit: 'm/s' },
+      { path: 'shot.maxSpeed', min: 8, max: 40, step: 0.5, unit: 'm/s' },
+      { path: 'shot.tapTime', min: 0.08, max: 0.5, step: 0.01, unit: 's' },
+      { path: 'shot.chargeTime', min: 0.1, max: 2, step: 0.05, unit: 's' },
+      { path: 'shot.chargeSpeedFactor', min: 30, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.mediumAimRange', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'shot.lightAimRange', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'shot.strongAimRange', min: 5, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'shot.aimMaxOff', min: 30, max: 180, step: 5, unit: '°', scale: DEG },
+      { path: 'shot.postMargin', min: 0, max: 0.5, step: 0.01, unit: 'm' },
+      { path: 'shot.farPost', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.highHeight', min: 0.2, max: 1.2, step: 0.05, unit: 'm' },
+      { path: 'shot.chipAngle', min: 10, max: 60, step: 1, unit: '°', scale: DEG },
+      { path: 'shot.chipLandBeyond', min: 0, max: 3, step: 0.1, unit: 'm' },
+      { path: 'shot.chipMaxSpeed', min: 5, max: 30, step: 0.5, unit: 'm/s' },
+      { path: 'shot.errorBase', min: 0, max: 10, step: 0.25, unit: '°', scale: DEG },
+      { path: 'shot.chargePrecision', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'shot.errorSprint', min: 0, max: 20, step: 0.5, unit: '°', scale: DEG },
+      { path: 'shot.errorOffBalance', min: 0, max: 25, step: 0.5, unit: '°', scale: DEG },
+      { path: 'shot.errorTurn', min: 0, max: 20, step: 0.5, unit: '°/rad', scale: DEG },
+      { path: 'shot.turnFree', min: 0, max: 180, step: 5, unit: '°', scale: DEG },
+      { path: 'shot.errorHeight', min: 0, max: 2, step: 0.05, unit: '×' },
+      { path: 'shot.errorPower', min: 0, max: 20, step: 1, unit: '%', scale: 100 },
+      { path: 'shot.mediumErrorFactor', min: 0.2, max: 1.5, step: 0.05, unit: '×' },
+      { path: 'shot.strongErrorFactor', min: 0.2, max: 1.5, step: 0.05, unit: '×' },
+      { path: 'shot.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
+      { path: 'shot.reticleRange', min: 0, max: 40, step: 1, unit: 'm' },
     ],
   },
   {
@@ -237,6 +269,7 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'assist.spaceMaxTime', min: 0.5, max: 4, step: 0.1, unit: 's' },
       { path: 'assist.spaceArrivalSpeed', min: 3, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'assist.spaceLaunchMin', min: 3, max: 20, step: 0.5, unit: 'm/s' },
+      { path: 'assist.spaceChargedArrivalSpeed', min: 3, max: 30, step: 0.5, unit: 'm/s' },
       { path: 'assist.spaceDeadzone', min: 0, max: 30, step: 1, unit: '°', scale: DEG },
       { path: 'assist.spaceRamp', min: 1, max: 40, step: 1, unit: '°', scale: DEG },
       { path: 'assist.spaceMinSpeed', min: 0.5, max: 8, step: 0.5, unit: 'm/s' },

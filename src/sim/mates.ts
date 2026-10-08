@@ -170,8 +170,8 @@ export function botCommand(ctx: BotContext, i: number, tuning: Tuning, out: Play
   const p = players[i]!;
   const me = players[controlled];
   out.moveX = out.moveY = 0;
-  out.sprint = out.pass = out.shoot = out.dribble = out.passHeld = out.switchPlayer = false;
-  out.passHeight = 0;
+  out.sprint = out.pass = out.shoot = out.dribble = out.passHeld = out.shootHeld = out.switchPlayer = false;
+  out.passHeight = out.shootHeight = 0;
 
   // With the ball (only when the control does not switch): turn to the controlled player and
   // give it back after returnDelay, the same kind of pass he received (the pass assist aims
