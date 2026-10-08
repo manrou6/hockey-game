@@ -55,6 +55,7 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
   if (cmd.shoot && p.shotHold < 0 && p.passHold < 0 && p.shotTurn <= 0) {
     p.shotHold = 0;
     p.shotWithBall = hasBall;
+    p.shotPressHeading = hasBall ? p.heading : Number.NaN;
   } else if (p.shotHold >= 0) p.shotHold += dt;
   if (p.shotHold < 0) return;
   if (hasBall) p.shotWithBall = true;
@@ -71,21 +72,53 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
   }
 }
 
+/** Is the goal he attacks near (turnRange) and more than turnMinAngle away from `facing`? */
+function goalBehind(p: PlayerState, ball: BallState, facing: number, k: Tuning['shot']): boolean {
+  const gx = goalLineX(attackedSide(p));
+  return Math.hypot(gx - ball.x, ball.y) <= k.turnRange && Math.abs(wrapAngle(Math.atan2(-ball.y, gx - ball.x) - facing)) > k.turnMinAngle;
+}
+
 /**
  * Should the queued shot be a turn shot (media vuelta, F1.5b)? Near the goal, aimed at it, and
- * more than turnMinAngle away from where he faces.
+ * more than turnMinAngle away from where he faces; or a quick shot pressed with the goal behind
+ * him (F1.5c: the same media vuelta whether the stick is released or aimed at the goal).
  */
 export function needsTurn(p: PlayerState, ball: BallState, plan: ShotPlan, tuning: Tuning): boolean {
   const k = shotFor(p, tuning);
-  return !p.shotTurned && plan.aimed && goalDistance(p, ball) <= k.turnRange && Math.abs(wrapAngle(plan.angle - p.heading)) > k.turnMinAngle;
+  if (p.shotTurned || !plan.aimed || goalDistance(p, ball) > k.turnRange) return false;
+  if (Math.abs(wrapAngle(plan.angle - p.heading)) > k.turnMinAngle) return true;
+  return p.shotQuick && !Number.isNaN(p.shotPressHeading) && goalBehind(p, ball, p.shotPressHeading, k);
 }
 
-/** Start the quick turn towards the shot (the ball stays on the stick; the shot leaves at the end). */
+/**
+ * TIRO being tapped (pressed now, or held less than tapTime) carrying the ball with the goal
+ * near and behind him: the stick must not turn him meanwhile (the media vuelta will), so he
+ * keeps skating the way he goes (or stays put when slow). Changes `cmd`; true if it did (F1.5c).
+ */
+export function holdForTurn(p: PlayerState, ball: BallState, cmd: PlayerCommand, hasBall: boolean, tuning: Tuning): boolean {
+  if (!hasBall || p.shotTurn > 0) return false;
+  const k = shotFor(p, tuning);
+  const pressing = p.shotHold < 0 ? cmd.shoot && p.passHold < 0 : p.shotHold < k.tapTime;
+  const facing = p.shotHold < 0 ? p.heading : p.shotPressHeading;
+  if (!pressing || Number.isNaN(facing) || !goalBehind(p, ball, facing, k)) return false;
+  const v = Math.hypot(p.vx, p.vy);
+  const keep = v > skatingFor(p, tuning).pivotSpeed ? Math.min(1, Math.hypot(cmd.moveX, cmd.moveY)) / v : 0;
+  cmd.moveX = p.vx * keep;
+  cmd.moveY = p.vy * keep;
+  return true;
+}
+
+/**
+ * Start the quick turn towards the shot (the ball stays on the stick; the shot leaves at the
+ * end). He glides round: letting go of the stick for it is not a skid stop.
+ */
 export function startTurn(p: PlayerState, plan: ShotPlan, tuning: Tuning): void {
   p.shotTurn = Math.max(1e-3, shotFor(p, tuning).turnTime);
   p.shotTurnFrom = p.heading;
   p.shotTurnTo = plan.angle;
   p.bufShoot = 0;
+  p.stickPeak = 0;
+  p.skidTime = 0;
 }
 
 /**

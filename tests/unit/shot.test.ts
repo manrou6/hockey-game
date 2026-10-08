@@ -3,7 +3,7 @@ import { goalLineX, RINK } from '../../src/config/rink';
 import { TUNING, type Tuning } from '../../src/config/tuning';
 import { createBall } from '../../src/sim/ball';
 import { emptyCommand, type PlayerCommand } from '../../src/sim/commands';
-import { createPlayer, wrapAngle, type PlayerState } from '../../src/sim/player';
+import { createPlayer, isSkidding, wrapAngle, type PlayerState } from '../../src/sim/player';
 import {
   createShotPlan,
   heightAt,
@@ -431,11 +431,11 @@ describe('in the world', () => {
 // --- F1.5b: first-touch shot and turn shot ------------------------------------------------
 
 /** A ground pass rolling to the blade of the (still) player 7 m in front of the goal, from `gap` m away at his side. */
-function passToShooter(tuning: Tuning, speed = 14, gap = 6): WorldState {
+function passToShooter(tuning: Tuning, speed = 14, gap = 6, y = 0): WorldState {
   const w = createWorld(5, 0);
   const p = w.players[0]!;
   p.x = p.prevX = GX - 7.5;
-  p.y = p.prevY = 0;
+  p.y = p.prevY = y;
   p.heading = p.prevHeading = Math.PI / 2; // facing +y, where the pass comes from
   const bladeX = p.x + 0.55 * Math.cos(p.heading) + 0.14 * Math.sin(p.heading);
   const bladeY = p.y + 0.55 * Math.sin(p.heading) - 0.14 * Math.cos(p.heading);
@@ -474,12 +474,13 @@ describe('first-touch shot (F1.5b)', () => {
   });
   it('TIRO right after getting it (within the first-touch window) is a first-touch shot; later it is not', () => {
     const t = tuningWith(exact);
-    const w = passToShooter(t);
+    // A bit to the side of the goal: square to the pass, the goal is not behind him (no media vuelta).
+    const w = passToShooter(t, 14, 6, -2);
     for (let i = 0; i < 90 && w.ball.owner !== 0; i++) stepWorld(w, [cmd()], t);
     expect(w.ball.owner).toBe(0);
     stepWorld(w, [dir(0, { shoot: true })], t);
     expect(w.lastShot.firstTouch).toBe(true);
-    const w2 = passToShooter(t);
+    const w2 = passToShooter(t, 14, 6, -2);
     for (let i = 0; i < 90 && w2.ball.owner !== 0; i++) stepWorld(w2, [cmd()], t);
     for (let i = 0; i < Math.round(t.receive.firstTouchWindow * 60) + 2; i++) stepWorld(w2, [cmd()], t);
     stepWorld(w2, [dir(0, { shoot: true })], t);
@@ -552,6 +553,57 @@ describe('turn shot (media vuelta, F1.5b)', () => {
     const normal = shotErrorSd(p, plan, true, 0, 'medium', TUNING);
     p.shotTurned = true;
     expect(shotErrorSd(p, plan, true, 0, 'medium', TUNING)).toBeCloseTo(normal * TUNING.shot.turnError, 9);
+  });
+  it('the same media vuelta with the stick aimed at the goal (F1.5c): the stick does not turn him during the tap, the turn does', () => {
+    const t = tuningWith(exact);
+    const timing = (aim: boolean): { turned: boolean; ticks: number; headingAtRelease: number } => {
+      const w = backToGoal(t, 5);
+      const p = w.players[0]!;
+      const h0 = p.heading;
+      const stick = (): PlayerCommand => (aim ? dir(Math.atan2(-w.ball.y, GX - w.ball.x)) : cmd());
+      stepWorld(w, [{ ...stick(), shoot: true, shootHeld: true }], t);
+      for (let i = 0; i < 4; i++) stepWorld(w, [{ ...stick(), shootHeld: true }], t);
+      const headingAtRelease = Math.abs(wrapAngle(p.heading - h0));
+      let ticks = 5;
+      while (w.lastShotTick < 0 && ticks < 60) {
+        stepWorld(w, [stick()], t);
+        ticks++;
+      }
+      return { turned: w.lastShot.turned, ticks, headingAtRelease };
+    };
+    const released = timing(false);
+    const aimed = timing(true);
+    expect(aimed.turned).toBe(true);
+    expect(aimed.headingAtRelease).toBeLessThan(0.01);
+    expect(aimed.ticks).toBe(released.ticks);
+    expect(aimed.ticks / 60).toBeLessThanOrEqual(0.35);
+  });
+  it('skating away and aiming at the goal: no skid stop, the same media vuelta; a charge lets the stick turn him (no media vuelta)', () => {
+    const t = tuningWith(exact);
+    const w = backToGoal(t, 6);
+    const p = w.players[0]!;
+    p.vx = -5;
+    const toGoal = (): PlayerCommand => dir(Math.atan2(-w.ball.y, GX - w.ball.x));
+    stepWorld(w, [{ ...toGoal(), shoot: true, shootHeld: true }], t);
+    for (let i = 0; i < 4; i++) {
+      stepWorld(w, [{ ...toGoal(), shootHeld: true }], t);
+      expect(isSkidding(p)).toBe(false);
+    }
+    stepWorld(w, [toGoal()], t);
+    for (let i = 0; i < 30 && w.lastShotTick < 0; i++) {
+      expect(isSkidding(p)).toBe(false);
+      stepWorld(w, [toGoal()], t);
+    }
+    expect(w.lastShot.turned).toBe(true);
+    // Charging (held past the tap) he turns with the stick as he skates: no media vuelta.
+    const c = backToGoal(t, 6);
+    const q = c.players[0]!;
+    stepWorld(c, [{ ...dir(0), shoot: true, shootHeld: true }], t);
+    for (let i = 0; i < 40; i++) stepWorld(c, [{ ...dir(0), shootHeld: true }], t);
+    expect(Math.abs(wrapAngle(q.heading))).toBeLessThan(0.5);
+    stepWorld(c, [dir(0)], t);
+    expect(c.lastTurnTick).toBeLessThan(0);
+    expect(c.lastShotTick).toBe(c.tick - 1);
   });
   it('is deterministic', () => {
     const go = (): number[] => {
