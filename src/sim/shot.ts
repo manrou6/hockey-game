@@ -9,12 +9,14 @@ import { isCutting, isSkidding, wrapAngle, type PlayerState } from './player';
 import type { RngState } from './rng';
 import { SOLVER_DT, SOLVER_MAX_TIME } from './rolling';
 
-// The shot (F1.5a, docs/03 §3 TIRO). A tap of TIRO is a quick shot; holding it charges a drag
+// The shot (F1.5a-b, docs/03 §3 TIRO). A tap of TIRO is a quick shot; holding it charges a drag
 // shot (the ball glued to the blade, the player a bit slower) whose power and precision grow
 // until it is released. The height comes from the same diagonal drag as PASE (low / high /
 // chip). Where it goes (option A): the angle of the stick from the direction to the centre of
 // the goal, magnified so that a small angle already reaches a post; the stick released = the
-// far post. Everything is decided at the release; then the ball is plain physics.
+// far post. F1.5b: TIRO just before getting the ball (or right after) = first-touch shot;
+// near the goal with the back to it, a quick turn first (media vuelta). Everything is decided
+// at the release; then the ball is plain physics.
 
 export const SHOT_LOW = 0;
 export const SHOT_HIGH = 1;
@@ -42,17 +44,21 @@ export function goalDistance(p: PlayerState, ball: BallState): number {
 }
 
 /**
- * TIRO button, for the player carrying the ball: the press starts the charge, the release
- * queues the shot (bufShoot) with its kind, whether it was a tap and its power. Pressed without
- * the ball it does nothing yet (shooting at the first touch is F1.5b); losing the ball while
- * charging cancels it. Not while PASE is being held.
+ * TIRO button: the press starts the charge, the release queues the shot (bufShoot) with its
+ * kind, whether it was a tap and its power. Carrying the ball it leaves at once; without the
+ * ball it waits in the input buffer and leaves as a first-touch shot if he gets the ball in
+ * time (F1.5b). Pressed with the ball, losing it while charging cancels it. Not while PASE is
+ * held or during a turn shot.
  */
 export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tuning, dt: number, hasBall: boolean): void {
   const k = shotFor(p, tuning);
-  if (cmd.shoot && p.shotHold < 0 && hasBall && p.passHold < 0) p.shotHold = 0;
-  else if (p.shotHold >= 0) p.shotHold += dt;
+  if (cmd.shoot && p.shotHold < 0 && p.passHold < 0 && p.shotTurn <= 0) {
+    p.shotHold = 0;
+    p.shotWithBall = hasBall;
+  } else if (p.shotHold >= 0) p.shotHold += dt;
   if (p.shotHold < 0) return;
-  if (!hasBall) {
+  if (hasBall) p.shotWithBall = true;
+  else if (p.shotWithBall) {
     p.shotHold = -1;
     return;
   }
@@ -61,6 +67,44 @@ export function updateShotButton(p: PlayerState, cmd: PlayerCommand, tuning: Tun
     p.shotQuick = p.shotHold < k.tapTime;
     p.shotCharge = p.shotQuick ? 0 : shotPower(p.shotHold, k);
     p.shotHold = -1;
+    p.bufShoot = hasBall ? 1 : Math.max(1, Math.round(tuning.input.bufferTime * tuning.sim.tickRate));
+  }
+}
+
+/**
+ * Should the queued shot be a turn shot (media vuelta, F1.5b)? Near the goal, aimed at it, and
+ * more than turnMinAngle away from where he faces.
+ */
+export function needsTurn(p: PlayerState, ball: BallState, plan: ShotPlan, tuning: Tuning): boolean {
+  const k = shotFor(p, tuning);
+  return !p.shotTurned && plan.aimed && goalDistance(p, ball) <= k.turnRange && Math.abs(wrapAngle(plan.angle - p.heading)) > k.turnMinAngle;
+}
+
+/** Start the quick turn towards the shot (the ball stays on the stick; the shot leaves at the end). */
+export function startTurn(p: PlayerState, plan: ShotPlan, tuning: Tuning): void {
+  p.shotTurn = Math.max(1e-3, shotFor(p, tuning).turnTime);
+  p.shotTurnFrom = p.heading;
+  p.shotTurnTo = plan.angle;
+  p.bufShoot = 0;
+}
+
+/**
+ * One tick of a turn shot, after the player has moved: rotate him (smoothly) towards the shot;
+ * at the end queue the shot. Losing the ball cancels it.
+ */
+export function stepTurn(p: PlayerState, hasBall: boolean, tuning: Tuning, dt: number): void {
+  if (p.shotTurn <= 0) return;
+  if (!hasBall) {
+    p.shotTurn = 0;
+    return;
+  }
+  const total = Math.max(1e-3, shotFor(p, tuning).turnTime);
+  p.shotTurn = Math.max(0, p.shotTurn - dt);
+  const u = Math.min(1, 1 - p.shotTurn / total);
+  const e = u * u * (3 - 2 * u);
+  p.heading = wrapAngle(p.shotTurnFrom + wrapAngle(p.shotTurnTo - p.shotTurnFrom) * e);
+  if (p.shotTurn === 0) {
+    p.shotTurned = true;
     p.bufShoot = 1;
   }
 }
@@ -139,7 +183,9 @@ export function planShot(p: PlayerState, ball: BallState, cmd: PlayerCommand, le
   out.aimed = false;
   // Option A: the stick's angle from the centre of the goal, magnified (a post at aimRange).
   const pointing = Number.isNaN(stick) ? p.heading : stick;
-  if (level !== 'off' && Math.abs(wrapAngle(pointing - toCentre)) <= k.aimMaxOff) {
+  // With the stick released near the goal the shot aims at it whichever way he faces (a turn shot, F1.5b).
+  const releasedNear = Number.isNaN(stick) && Math.hypot(gx - ball.x, ball.y) <= k.turnRange;
+  if (level !== 'off' && (releasedNear || Math.abs(wrapAngle(pointing - toCentre)) <= k.aimMaxOff)) {
     out.aimed = true;
     if (Number.isNaN(stick)) out.targetY = (ball.y >= 0 ? -1 : 1) * half * k.farPost;
     else out.targetY = side * Math.max(-1, Math.min(1, wrapAngle(stick - toCentre) / Math.max(0.01, aimRange(level, k)))) * half;
@@ -193,7 +239,11 @@ export function shotErrorSd(p: PlayerState, plan: ShotPlan, quick: boolean, char
   const turn = Math.max(0, Math.abs(wrapAngle(plan.angle - p.heading)) - k.turnFree);
   const base = k.errorBase * (quick ? 1 : 1 - k.chargePrecision * charge);
   const skill = Math.min(1, Math.max(0, p.shooting / 99));
-  return (base + k.errorSprint * sprint + k.errorOffBalance * offBalance + k.errorTurn * turn) * shotErrorFactor(level, k) * (1 - k.attributeAdvantage * skill);
+  // First touch (F1.5b): harder after a hard reception and the more it turns the ball's path.
+  const firstTouch = p.firstTouchTicks > 0;
+  const redirect = firstTouch && !Number.isNaN(p.receivedBallAngle) ? Math.max(0, Math.abs(wrapAngle(plan.angle - p.receivedBallAngle)) - k.redirectFree) : 0;
+  const situation = (firstTouch ? k.firstTouchError * (1 + Math.max(0, p.receiveDifficulty)) : 1) * (p.shotTurned ? k.turnError : 1);
+  return (base + k.errorSprint * sprint + k.errorOffBalance * offBalance + k.errorTurn * turn + k.errorRedirect * redirect) * situation * shotErrorFactor(level, k) * (1 - k.attributeAdvantage * skill);
 }
 
 export interface ShotResult {
@@ -205,10 +255,13 @@ export interface ShotResult {
   angle: number;
   elevation: number;
   speed: number;
+  /** A first-touch shot / after a turn (F1.5b). */
+  firstTouch: boolean;
+  turned: boolean;
 }
 
 export function createShotResult(): ShotResult {
-  return { kind: SHOT_LOW, targetY: 0, targetZ: 0, aimed: false, angle: 0, elevation: 0, speed: 0 };
+  return { kind: SHOT_LOW, targetY: 0, targetZ: 0, aimed: false, angle: 0, elevation: 0, speed: 0, firstTouch: false, turned: false };
 }
 
 const planTmp = createShotPlan();
@@ -230,9 +283,12 @@ export function performShot(p: PlayerState, ball: BallState, cmd: PlayerCommand,
   ball.vy = Math.sin(angle) * h;
   ball.vz = speed * Math.sin(elevation);
   ball.z = RINK.ballRadius;
+  out.firstTouch = p.firstTouchTicks > 0;
+  out.turned = p.shotTurned;
   p.bufShoot = 0;
   p.bufPass = 0;
   p.passHold = -1;
+  p.shotTurned = false;
   out.kind = plan.kind;
   out.targetY = plan.targetY;
   out.targetZ = plan.targetZ;

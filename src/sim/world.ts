@@ -11,7 +11,7 @@ import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from '
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
-import { createShotPlan, createShotResult, goalDistance, performShot, planShot, shotKindFromHeight, shotPower, updateShotButton, SHOT_LOW, type ShotKind, type ShotPlan, type ShotResult } from './shot';
+import { createShotPlan, createShotResult, goalDistance, needsTurn, performShot, planShot, shotKindFromHeight, shotPower, startTurn, stepTurn, updateShotButton, SHOT_LOW, type ShotKind, type ShotPlan, type ShotResult } from './shot';
 
 export type { PlayerState } from './player';
 export { createPlayer } from './player';
@@ -85,6 +85,8 @@ export interface WorldState {
   lastShotX: number;
   lastShotY: number;
   lastShot: ShotResult;
+  /** Tick a turn shot (media vuelta) started (F1.5b). */
+  lastTurnTick: number;
   /** The last reception (F1.4c): tick, who, and how it went (src/sim/receive.ts). */
   lastReceptionTick: number;
   lastReceptionPlayer: number;
@@ -142,6 +144,7 @@ export function createWorld(seed: number, mates = 0): WorldState {
     lastShotX: 0,
     lastShotY: 0,
     lastShot: createShotResult(),
+    lastTurnTick: -1000,
     lastReceptionTick: -1000,
     lastReceptionPlayer: -1,
     lastReceptionOutcome: RECEIVE_CLEAN,
@@ -248,6 +251,7 @@ const effective: PlayerCommand[] = [];
 const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0, meetX: Number.NaN, meetY: Number.NaN };
 const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0, wall: false, wallX: 0, wallY: 0 };
 const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
+const turnPlanTmp = createShotPlan();
 
 function copyCommand(from: PlayerCommand, to: PlayerCommand): void {
   to.moveX = from.moveX;
@@ -336,6 +340,11 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     if (i === world.controlled) humanCommand(world, human, receiver, tuning, out);
     else if (players[i]!.bot) botCommand(botCtx, i, tuning, out);
     else copyCommand(commands[i] ?? IDLE, out);
+    // Turning to shoot (media vuelta): he just glides round; buttons wait.
+    if (players[i]!.shotTurn > 0) {
+      out.moveX = out.moveY = 0;
+      out.sprint = out.pass = out.shoot = out.passHeld = out.shootHeld = false;
+    }
   }
 
   for (let i = 0; i < players.length; i++) {
@@ -343,13 +352,14 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     const cmd = effective[i]!;
     bufferActions(p, cmd, tuning);
     // PASE and TIRO: one at a time (charging a shot, PASE is ignored).
-    if (p.shotHold < 0 && updatePassButton(p, cmd, tuning, dt) === 'pressed') {
+    if (p.shotHold < 0 && p.shotTurn <= 0 && updatePassButton(p, cmd, tuning, dt) === 'pressed') {
       // The receiver is chosen when PASE is pressed (the ring then stays on him).
       const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
       lockPassTarget(players, i, aimAngle(p, i === world.controlled ? human : cmd), assistParams(level, tuning, assistTmp));
     }
     updateShotButton(p, cmd, tuning, dt, ball.owner === i);
     stepPlayer(p, cmd, tuning, dt, ball.owner === i);
+    stepTurn(p, ball.owner === i, tuning, dt);
     p.holdTime = ball.owner === i ? p.holdTime + dt : 0;
   }
   if (players.length > 1) {
@@ -476,9 +486,18 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   const p = world.players[i]!;
   if (p.bufShoot > 0) {
     // TIRO (F1.5a): the human with his Settings assist level, teammates with Fuerte.
+    const shotCmd = i === world.controlled ? human : cmd;
+    const level: AssistLevel = i === world.controlled ? world.assist : 'strong';
+    // Near the goal with his back to it: a quick turn first (media vuelta, F1.5b).
+    const plan = planShot(p, world.ball, shotCmd, level, p.shotKind as ShotKind, p.shotCharge, p.shotQuick, tuning, turnPlanTmp);
+    if (needsTurn(p, world.ball, plan, tuning)) {
+      startTurn(p, plan, tuning);
+      world.lastTurnTick = world.tick;
+      return false;
+    }
     world.lastShotX = world.ball.x;
     world.lastShotY = world.ball.y;
-    performShot(p, world.ball, i === world.controlled ? human : cmd, i === world.controlled ? world.assist : 'strong', world.rng, tuning, world.lastShot);
+    performShot(p, world.ball, shotCmd, level, world.rng, tuning, world.lastShot);
     world.lastShotTick = world.tick;
     world.lastShotPlayer = i;
     world.passTo = -1;

@@ -62,7 +62,10 @@ function pause(): void {
   game.paused = true;
   input.enabled = false;
   // A PASE / TIRO held when pausing is cancelled (it must not fire on resume).
-  for (const p of game.world.players) p.passHold = p.shotHold = -1;
+  for (const p of game.world.players) {
+    p.passHold = p.shotHold = -1;
+    p.bufShoot = 0;
+  }
   hud.hidden = true;
   tuningPanel.close();
   menu.showMain();

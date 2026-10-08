@@ -231,6 +231,25 @@ export const TUNING = {
     /** The aim reticle on the goal shows while you carry the ball within this distance of the
      * goal line (m), and always while TIRO is held (the reticle itself is on/off in Settings). */
     reticleRange: 20,
+    /**
+     * First-touch shot (F1.5b): TIRO released without the ball waits in the input buffer
+     * (input.bufferTime) and fires as he gets it; or TIRO right after getting it (within
+     * receive.firstTouchWindow). Its error × firstTouchError × (1 + how hard the reception was),
+     * plus errorRedirect per rad that the shot turns the ball's path beyond redirectFree (rad).
+     */
+    firstTouchError: 1.25,
+    redirectFree: 1.5707963,
+    errorRedirect: 0.0174533,
+    /**
+     * Turn shot ("media vuelta", F1.5b): within turnRange (m) of the goal, a shot more than
+     * turnMinAngle (rad) away from where the player faces first turns him quickly (turnTime s,
+     * the ball stays on the stick, he glides) and then leaves, with its error × turnError. With
+     * the stick released near the goal the shot aims at the far post whichever way he faces.
+     */
+    turnRange: 10,
+    turnMinAngle: 1.7453293,
+    turnTime: 0.22,
+    turnError: 1.5,
   },
   /**
    * Passing (docs/03 §3, F1.4b). PASE tap = ground pass, hold = lofted pass; the pass leaves

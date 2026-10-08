@@ -48,6 +48,17 @@ export interface PlayerState {
   shotKind: number;
   shotQuick: boolean;
   shotCharge: number;
+  /** TIRO was pressed while carrying the ball (losing it then cancels the charge); pressed
+   * without it, the shot waits for the ball (first touch, F1.5b). */
+  shotWithBall: boolean;
+  /** Turn shot (media vuelta, F1.5b): seconds left of the quick turn, from / to heading (rad),
+   * and whether the queued shot comes after one (more error). */
+  shotTurn: number;
+  shotTurnFrom: number;
+  shotTurnTo: number;
+  shotTurned: boolean;
+  /** Direction the ball was travelling (relative to him, rad) when he last got it; NaN = none. */
+  receivedBallAngle: number;
   /** Kind of the last pass this player received (teammates give it back the same way). */
   receivedKind: number;
   /** F1.4c: ticks left to pass "first touch" after receiving, and how hard that
@@ -112,7 +123,7 @@ export interface PlayerState {
 export function createPlayer(id: number, x: number, y: number, heading = 0): PlayerState {
   return {
     id, x, y, vx: 0, vy: 0, heading, braking: false,
-    team: 0, control: 75, passing: 75, shooting: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
+    team: 0, control: 75, passing: 75, shooting: 75, shotHold: -1, shotKind: 0, shotQuick: true, shotCharge: 0, shotWithBall: false, shotTurn: 0, shotTurnFrom: 0, shotTurnTo: 0, shotTurned: false, receivedBallAngle: Number.NaN, passHold: -1, passKind: 0, passCharge: 0, passLockTarget: -2, passLockOffset: 0, receivedKind: 0, firstTouchTicks: 0, receiveDifficulty: 0, turnLock: 0, noPickupTicks: 0, bufPass: 0, bufShoot: 0, bufDribble: 0,
     boostTime: 0, boostCooldown: 0, wasSprinting: false,
     skidTime: 0, skidDuration: 0, skidSpeed0: 0, skidDir: 0, skidSide: 1, stickPeak: 0, lastTurnSign: 1,
     boostAccel: 0, boostIsSprint: false,
