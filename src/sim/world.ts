@@ -540,9 +540,8 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
     stepBall(ball, players, tuning, world.rng, dt, world.events);
     for (let i = 0; i < players.length; i++) {
       const p = players[i]!;
-      // A ball in the air coming to the controlled player: he may still strike it (remate en el
-      // aire, F1.5d), so it is controlled at the contact, not before; armed, it is struck instead.
-      if (i === world.controlled && world.volley.found && (volleyArmed(world, p, human, tuning) || world.volley.time > 0.5 / tuning.sim.tickRate)) continue;
+      // A remate en el aire armed (F1.5d): he strikes the ball instead of controlling it.
+      if (i === world.controlled && volleyArmed(world, p, human, tuning)) continue;
       // The receiver of a pass has a bigger reception zone (stretching for it).
       const aimedAt = i === world.passTo;
       // The passer of a wall pass has a bigger zone for the ball coming back from the board.

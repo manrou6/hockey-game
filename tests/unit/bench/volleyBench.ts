@@ -505,11 +505,13 @@ export function runVolleyDirect(tuning: Tuning, level: AssistLevel, c: DirectCas
       st.valid = false;
       return st;
     }
+    // (The latest prediction before the ball gets there: without TIRO a low ball may be controlled first.)
     let cue = -1;
-    for (let i = 0; i < 60 && cue < 0; i++) {
+    for (let i = 0; i < 60 && dry.w.ball.owner < 0; i++) {
       stepWorld(dry.w, [directCmd(dry, level, tuning, i, null)], tuning);
       const v = dry.w.volley;
-      if (v.found && v.time < 0.5 / 60) cue = i + 1;
+      if (v.found) cue = i + 1 + Math.round(v.time * 60);
+      if (v.found && v.time < 0.5 / 60) break;
     }
     if (cue < 0) continue;
     const rnd = lcg(seed * 7727 + 3);
