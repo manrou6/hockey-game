@@ -370,5 +370,22 @@
   "tuning.mates.switchMargin": "Auto switch: must be nearer by",
   "tuning.mates.switchDelay": "Auto switch: for",
   "tuning.mates.switchCooldown": "Minimum time between switches",
-  "tuning.game.speed": "Game speed (the whole game at once)"
+  "tuning.game.speed": "Game speed (the whole game at once)",
+  "tuning.pass.driveAirHeight": "Driven lofted: height it reaches the teammate at (0 = as v0.1.27)",
+  "tuning.pass.driveAirApex": "Driven lofted: highest point of the arc",
+  "tuning.pass.driveAirAngle": "Driven lofted: steepest launch (short passes)",
+  "tuning.pass.driveAirFull": "Driven lofted arrives in the air up to (distance)",
+  "tuning.pass.driveAirEnd": "From this distance on, the old driven lofted (lands short)",
+  "tuning.section.slowMo": "Volley slow motion",
+  "tuning.slowMo.enabled": "Slow motion while the ball comes",
+  "tuning.slowMo.scale": "Speed during the slow motion",
+  "tuning.slowMo.duration": "Total length (real time)",
+  "tuning.slowMo.rampIn": "Ease in",
+  "tuning.slowMo.rampOut": "Ease out",
+  "tuning.slowMo.lead": "Starts before the ball reaches the stick",
+  "tuning.receive.highMaxHeight": "High ball: highest it can be blocked with the stick",
+  "tuning.receive.highPenalty": "High ball: difficulty of blocking it in the air",
+  "tuning.receive.cushionKeep": "High ball blocked: speed it keeps",
+  "tuning.receive.cushionDrop": "High ball blocked: drop speed",
+  "tuning.receive.cushionTime": "High ball blocked: time to make it his"
 }

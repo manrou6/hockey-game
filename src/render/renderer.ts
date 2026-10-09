@@ -35,6 +35,13 @@ const PLAYER_RADIUS_VISUAL = 0.35;
 /** Stick geometry in the body's local frame (+x forward, −z right, origin at mid-height). */
 const STICK_HAND = new Vector3(0.12, 0.12, -0.3);
 const STICK_REST = new Vector3(0.55, -0.84, -0.22);
+/** Longest reach of the blade from the hand (m, body-local): arm + stick. */
+const STICK_REACH = 1.35;
+/** A loose ball in the air this close to a player (m, horizontal) and this high above the floor
+ * (m) draws his blade to it (F1.5e: a remate en el aire or a high ball blocked is seen at its height). */
+const REACH_DISTANCE = 1.2;
+const REACH_MIN_HEIGHT = 0.12;
+const REACH_MAX_HEIGHT = 1.6;
 
 interface StickRig {
   pivot: TransformNode;
@@ -66,6 +73,9 @@ export class Renderer {
   private readonly playerMeshes: Mesh[] = [];
   private readonly sticks: StickRig[] = [];
   private readonly tmpVec = new Vector3();
+  /** The ball's simulated position this frame (render coordinates, not enlarged): what sticks reach for. */
+  private readonly ballSim = new Vector3();
+  private readonly tmpVec2 = new Vector3();
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
   /** The ball seen through whatever hides it (drawn only where something is in front of it). */
@@ -463,12 +473,25 @@ export class Renderer {
   }
 
   /**
-   * While carrying the ball the blade follows it (behind the ball, on the floor);
-   * otherwise it returns to the rest pose. Smoothed so it never snaps.
+   * While carrying the ball the blade follows it (behind the ball, on the floor); a loose ball in
+   * the air close to him draws it to the ball's height (`reach`: F1.5e); otherwise it returns to
+   * the rest pose. Smoothed so it never snaps.
    */
-  private syncStick(rig: StickRig, owns: boolean, heading: number, px: number, pz: number, dt: number): void {
+  private syncStick(rig: StickRig, owns: boolean, heading: number, px: number, pz: number, dt: number, reach = false): void {
     const target = this.tmpVec;
-    if (owns) {
+    if (reach) {
+      const b = this.ballSim;
+      const dx = b.x - px;
+      const dz = b.z - pz;
+      const c = Math.cos(heading);
+      const s = Math.sin(heading);
+      // Body-local: x forward, y up from the body's centre, z to his left.
+      target.set(dx * c + dz * s - 0.07, b.y - PLAYER_HEIGHT_VISUAL / 2, -(dx * s - dz * c));
+      target.y = Math.max(-0.84, target.y);
+      const off = target.subtractToRef(STICK_HAND, this.tmpVec2);
+      const len = off.length();
+      if (len > STICK_REACH) off.scaleInPlace(STICK_REACH / len).addToRef(STICK_HAND, target);
+    } else if (owns) {
       const b = this.ballMesh.position;
       const dx = b.x - px;
       const dz = b.z - pz;
@@ -541,10 +564,15 @@ export class Renderer {
       this.ballMarker.position.set(bx, 0.006, bz);
     }
 
-    // Sticks follow the ball while dribbling (after the ball mesh has its new position).
+    // Sticks follow the ball while dribbling (after the ball mesh has its new position), and reach
+    // for a loose ball in the air next to the player (its real position, not the drawn one).
+    this.ballSim.set(bx, by, bz);
+    const h = by - BALL_RADIUS;
+    const high = b.owner < 0 && h >= REACH_MIN_HEIGHT && h <= REACH_MAX_HEIGHT;
     for (let i = 0; i < world.players.length; i++) {
       const mesh = this.playerMeshes[i]!;
-      this.syncStick(this.sticks[i]!, b.owner === i, -mesh.rotation.y, mesh.position.x, mesh.position.z, frameSeconds);
+      const reach = high && Math.hypot(bx - mesh.position.x, bz - mesh.position.z) <= REACH_DISTANCE;
+      this.syncStick(this.sticks[i]!, b.owner === i, -mesh.rotation.y, mesh.position.x, mesh.position.z, frameSeconds, reach);
     }
 
     // Camera: the active preset aims between the controlled player and the ball. When the

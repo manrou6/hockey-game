@@ -20,6 +20,24 @@ export const TUNING = {
   game: {
     speed: 1,
   },
+  /**
+   * Slow-mo of the remate en el aire (F1.5e, v0.1.28; on by default, decided by Guillem): while a
+   * ball in the air comes to the controlled player's stick with the TIR window open, game time
+   * runs at `scale` for a moment: `lead` s of game time before the ball gets to his stick it
+   * eases down over rampIn s, stays, and eases back up over rampOut s; `duration` s of real time
+   * in all (once per ball). Like the game speed, only the pace of the fixed ticks changes: the
+   * simulation and its results are untouched (the good timing is measured in game time, so it
+   * lasts longer in real time). It slows the whole scene, rivals included: to review in F2
+   * (rivals) and for the online mode. enabled: 1 = on, 0 = off.
+   */
+  slowMo: {
+    enabled: 1,
+    scale: 0.65,
+    duration: 0.35,
+    rampIn: 0.07,
+    rampOut: 0.1,
+    lead: 0.12,
+  },
   /** Skater movement (docs/03 §1). Speeds m/s, accelerations m/s², angles rad. */
   skating: {
     /** Collision radius of a player on the rink plane. */
@@ -332,6 +350,18 @@ export const TUNING = {
     driveNoTargetDistance: 18,
     /** Fully charged driven pass to nobody lands this far (m). */
     driveNoTargetMaxDistance: 30,
+    /** Driven lofted pass that reaches the teammate IN THE AIR (F1.5e, v0.1.28): up to airFull
+     * (m) it gets to his stick at airHeight (m above the floor) on its way down, launched no
+     * steeper than airAngle (rad) so that its arc peaks at about airApex (m; a little more with
+     * the human's strength error): a tense, low pass, the flatter the faster. Charged: faster and
+     * flatter, still at airHeight. From airEnd (m) on it is the pass above (it lands landShort
+     * before him); in between, a blend. Real physics all the way: only the launch is chosen.
+     * airHeight 0 = the pass of v0.1.27 at every distance. */
+    driveAirHeight: 0.5,
+    driveAirApex: 1.15,
+    driveAirAngle: 0.296706,
+    driveAirFull: 16,
+    driveAirEnd: 20,
     /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
      * maximum launch speed (m/s), and distance range to nobody (by power). */
     loftAngle: 0.5235988,
@@ -356,18 +386,12 @@ export const TUNING = {
     /** How much a perfect Pase attribute (99) reduces the errors (0 = nothing, 1 = no error). */
     attributeAdvantage: 0.5,
   },
-  /**
-   * Reception (F1.4c, docs/03 §3): every time a loose ball reaches a stick it is rolled once
-   * (deterministic) how well it is controlled. Difficulty = speed + where it comes from +
-   * height/bounce + the receiver's state + stretching, reduced by the Control attribute, plus
-   * some randomness; then: clean < heavyAt ≤ heavy touch < reboundAt ≤ rebound < missAt ≤ miss.
-   * Values of an AVERAGE player (read through src/sim/feel.ts receiveFor).
-   */
   volley: {
     /**
      * Remate en el aire / volea (F1.5d, decided by Guillem 2026-10-08): a ball in the air that
      * comes to the controlled player's stick (within `reach` m of his blade, between minHeight
-     * and maxHeight m above the floor at the contact) is struck with the same TIRO, released
+     * and maxHeight m above the floor at the contact; v0.1.28: from 0.15 m, below it is the first
+     * touch of F1.5b, up to 1.50 m, the rule's limit, art. 6.3) is struck with the same TIRO, released
      * within windowTime/2 (s) of the moment it gets there: released before, it leaves at the
      * contact; still held at the contact, the stick carries the ball until the release. Good
      * timing = within `good` (s) of the contact: up to +powerBonus of speed when perfect; past
@@ -381,8 +405,8 @@ export const TUNING = {
      */
     windowTime: 0.4,
     good: 0.08,
-    minHeight: 0.02,
-    maxHeight: 1.05,
+    minHeight: 0.15,
+    maxHeight: 1.5,
     reach: 0.75,
     powerBonus: 0.15,
     badError: 1,
@@ -395,6 +419,13 @@ export const TUNING = {
     lookahead: 0.5,
     lowTarget: 0.25,
   },
+  /**
+   * Reception (F1.4c, docs/03 §3): every time a loose ball reaches a stick it is rolled once
+   * (deterministic) how well it is controlled. Difficulty = speed + where it comes from +
+   * height/bounce + the receiver's state + stretching, reduced by the Control attribute, plus
+   * some randomness; then: clean < heavyAt ≤ heavy touch < reboundAt ≤ rebound < missAt ≤ miss.
+   * Values of an AVERAGE player (read through src/sim/feel.ts receiveFor).
+   */
   receive: {
     /** Reception zone of the receiver of an aimed pass: the ball within this distance of his
      * body (m, low enough) reaches his stick (stretching for it: harder, see stretchPenalty).
@@ -442,6 +473,18 @@ export const TUNING = {
      * green clean, yellow heavy touch, orange rebound, red miss; it lasts feedbackTime (s). */
     showFeedback: 1,
     feedbackTime: 0.6,
+    /** A driven pass that comes in the air (F1.5e, v0.1.28): above dribble.pickupMaxHeight it
+     * can't be picked up directly, so its receiver blocks it with the stick, up to highMaxHeight
+     * (m above the floor); the one you control, at his stick (where he would strike it). One
+     * reception roll as always, with highPenalty instead of heightPenalty and no bounce penalty
+     * (it is flying); controlled, it drops at cushionDrop (m/s), the stick bringing it to his
+     * blade, keeping cushionKeep of its speed relative to him, and it is his as soon as it is low
+     * enough (within cushionTime s, no second roll); a rebound or a miss as any reception. */
+    highMaxHeight: 1.2,
+    highPenalty: 0.15,
+    cushionKeep: 0.15,
+    cushionDrop: 2,
+    cushionTime: 0.5,
   },
   /**
    * Pass assist (docs/03 §3): the teammate closest to the aimed direction inside the cone is

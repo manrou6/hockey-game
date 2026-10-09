@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TUNING, type Tuning } from '../../src/config/tuning';
+import { RINK } from '../../src/config/rink';
 import { createBall, GRAVITY, stepBall, type BallEvent } from '../../src/sim/ball';
 import { emptyCommand, type PlayerCommand } from '../../src/sim/commands';
 import { createPlayer } from '../../src/sim/player';
@@ -217,10 +218,11 @@ describe('passing to the teammates (world)', () => {
     expect(runUntil(w, cmd(), tuning, () => w.ball.owner === 1, 240)).toBeGreaterThanOrEqual(0);
   });
 
-  it('held: the driven lofted pass rises from the floor, peaks low and lands just before him (real physics)', () => {
+  it('held, with driveAirHeight 0 (the pass of v0.1.27, and every driven pass from driveAirEnd on): it rises from the floor, peaks low and lands just before him (real physics)', () => {
     const tuning = tuningWith((t) => {
       exact(t);
       t.mates.move = 0;
+      t.pass.driveAirHeight = 0;
     });
     const w = createWorld(22, 2);
     takeBall(w, tuning);
@@ -284,6 +286,37 @@ describe('passing to the teammates (world)', () => {
     }
   });
 
+  it('held (F1.5e): the driven lofted pass reaches a teammate 9 m away in the air, at about driveAirHeight, after a low arc, and he blocks it and keeps it', () => {
+    const tuning = tuningWith((t) => {
+      exact(t);
+      t.mates.move = 0;
+    });
+    const w = createWorld(22, 2);
+    takeBall(w, tuning);
+    const m = w.players[2]!;
+    m.x = m.prevX = 9;
+    hold(w, aimAt(w, 2), 0, tuning, 1);
+    expect(w.passTo).toBe(2);
+    expect(w.passKind).toBe(PASS_DRIVE);
+    expect(w.passAir).toBe(1);
+    let maxZ = 0;
+    let floor = false;
+    let cushionAt = Number.NaN;
+    expect(
+      runUntil(w, cmd(), tuning, () => {
+        maxZ = Math.max(maxZ, w.ball.z - RINK.ballRadius);
+        if (w.events.some((e) => e.type === 'floor') && Number.isNaN(cushionAt)) floor = true;
+        if (w.lastCushionPlayer === 2 && w.lastCushionTick === w.tick - 1) cushionAt = w.ball.z - RINK.ballRadius;
+        return w.ball.owner === 2;
+      }, 300),
+    ).toBeGreaterThanOrEqual(0);
+    expect(floor).toBe(false); // it never lands before him
+    expect(cushionAt).toBeGreaterThan(0.3);
+    expect(cushionAt).toBeLessThan(1);
+    expect(maxZ).toBeLessThan(1.4);
+    expect(m.receivedKind).toBe(PASS_DRIVE);
+  });
+
   it('a lofted pass is pure physics after the release: no correction in flight', () => {
     const tuning = tuningWith((t) => {
       t.mates.move = 0;
@@ -300,8 +333,9 @@ describe('passing to the teammates (world)', () => {
       // changed by gravity (and a little air drag).
       for (let i = 0; i < 200 && !w.events.some((e) => e.type === 'floor'); i++) {
         step(w, cmd(), tuning);
-        // Stop at the first floor contact or when someone takes it (on the stick: not flying).
-        if (w.events.some((e) => e.type === 'floor') || w.ball.owner >= 0) break;
+        // Stop at the first floor contact or when someone touches it (on the stick, or blocked in
+        // the air by its receiver: F1.5e).
+        if (w.events.some((e) => e.type === 'floor') || w.ball.owner >= 0 || w.lastCushionTick === w.tick - 1) break;
         expect(Math.atan2(w.ball.vy, w.ball.vx)).toBeCloseTo(dir, 6);
         expect(w.ball.vz - vz).toBeLessThan(-GRAVITY * DT * 0.95);
         expect(w.ball.vz - vz).toBeGreaterThan(-GRAVITY * DT * 1.2);
@@ -561,8 +595,9 @@ describe('power (hold) and height (slide) are independent', () => {
     expect(charged.speed).toBeGreaterThan(tapped.speed + 3);
     expect(charged.elev).toBeLessThan(tapped.elev);
   });
-  it('the driven lofted pass is clearly slower than the low one at 10 m', () => {
-    expect(launch(1, 0, 10).speed).toBeLessThan(launch(0, 0, 10).speed * 0.8);
+  it('the driven lofted pass is tense but leaves slower than the low one at 10 m (F1.5e: it flies to him; v0.1.27: clearly slower)', () => {
+    expect(launch(1, 0, 10).speed).toBeLessThan(launch(0, 0, 10).speed);
+    expect(launch(1, 0, 10).speed).toBeGreaterThan(launch(0, 0, 10).speed * 0.8);
   });
 });
 

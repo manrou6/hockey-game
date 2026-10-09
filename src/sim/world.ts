@@ -2,12 +2,12 @@ import { RINK } from '../config/rink';
 import type { Tuning } from '../config/tuning';
 import { createBall, placeBall, stepBall, type BallEvent, type BallState } from './ball';
 import { emptyCommand, type PlayerCommand } from './commands';
-import { bladePoint, bufferActions, pickupDistance, pressureOn, stepDribble } from './dribble';
+import { bladePoint, bufferActions, highBallDistance, pickupDistance, pressureOn, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
 import { boardSignedDistance, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
 import { passFor, receiveFor, shotFor, skatingFor, volleyFor, wallFor } from './feel';
-import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
+import { cushionBall, receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
 import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
@@ -53,6 +53,12 @@ export interface WorldState {
   passTo: number;
   passKind: PassKind;
   passFrom: number;
+  /** How much that pass was planned to reach him in the air (F1.5e, src/sim/pass.ts driveAirWeight):
+   * > 0 = a driven pass he may block in the air with his stick (a cushion, src/sim/receive.ts). */
+  passAir: number;
+  /** Last time a player blocked a driven pass in the air (tick, who; F1.5e): read by benches and the render. */
+  lastCushionTick: number;
+  lastCushionPlayer: number;
   /** While the controlled player holds PASE with the ball: the pass as it would leave now
    * (direction with the assist, strength, kind) — drawn as the arrow on the floor. */
   aimPlan: PassPlan;
@@ -126,6 +132,9 @@ export function createWorld(seed: number, mates = 0): WorldState {
     passTo: -1,
     passKind: PASS_GROUND,
     passFrom: -1,
+    passAir: 0,
+    lastCushionTick: -1000,
+    lastCushionPlayer: -1,
     aimPlan: createPassPlan(),
     aimActive: false,
     lastPassTick: -1000,
@@ -253,7 +262,7 @@ function freePlayBallRules(world: WorldState): void {
 /** Per-player commands actually applied this tick (scratch, reused: no allocation). */
 const effective: PlayerCommand[] = [];
 const botCtx: BotContext = { players: [], ball: createBall(0, 0), controlled: 0, receiver: -1, time: 0, meetX: Number.NaN, meetY: Number.NaN };
-const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0, wall: false, wallX: 0, wallY: 0 };
+const passResult: PassResult = { target: -1, kind: PASS_GROUND, meetX: 0, meetY: 0, wall: false, wallX: 0, wallY: 0, air: 0 };
 const assistTmp: AssistParams = { cone: 0, correction: 0, spaceRespect: 0, spaceCone: 0, spaceDeadzone: 0, spaceRamp: 0, spaceMinSpeed: 0 };
 const turnPlanTmp = createShotPlan();
 const contactTmp: VolleyContact = createVolleyContact();
@@ -547,7 +556,29 @@ export function stepWorld(world: WorldState, commands: readonly PlayerCommand[],
       // The passer of a wall pass has a bigger zone for the ball coming back from the board.
       const reach = !aimedAt ? 0 : i === world.wallBack ? Math.max(receiveFor(p, tuning).reach, wallFor(p, tuning).reach) : receiveFor(p, tuning).reach;
       const blade = pickupDistance(ball, p, tuning, reach);
-      if (blade < 0) continue;
+      if (blade < 0) {
+        // A driven pass that comes in the air (F1.5e): its receiver blocks it with the stick and
+        // it drops to him (or rebounds / goes past).
+        if (aimedAt && world.passAir > 0 && p.cushionTicks <= 0) {
+          // The player you control blocks it at his stick (where he would strike it, F1.5d), not as
+          // soon as it is within his reach: until then he may still press TIR.
+          const mine = i === world.controlled && world.volley.found;
+          if (mine && world.volley.time >= 0.5 / tuning.sim.tickRate) continue;
+          const high = highBallDistance(ball, p, tuning, reach, mine ? volleyFor(p, tuning).reach : 0);
+          if (high >= 0) {
+            const outcome = cushionBall(ball, p, high, tuning, world.rng, world.events);
+            world.lastCushionTick = world.tick;
+            world.lastCushionPlayer = i;
+            if (outcome !== RECEIVE_CLEAN && outcome !== RECEIVE_HEAVY) {
+              world.lastReceptionTick = world.tick;
+              world.lastReceptionPlayer = i;
+              world.lastReceptionOutcome = outcome;
+              break;
+            }
+          }
+        }
+        continue;
+      }
       // One roll per approach: clean, heavy touch, rebound or miss (src/sim/receive.ts).
       const outcome = receiveBall(ball, i, p, blade, tuning, world.rng, world.events);
       world.lastReceptionTick = world.tick;
@@ -612,8 +643,10 @@ const approachTmp: Approach = { dist: 0, t: 0 };
  */
 function passDied(world: WorldState, tuning: Tuning): boolean {
   const ball = world.ball;
-  if (hitSomething(world) || Math.hypot(ball.vx, ball.vy) < 1) return true;
   const r = world.players[world.passTo];
+  // A driven pass its receiver blocked in the air (F1.5e) is dropping to him: still his pass.
+  if (r && r.cushionTicks > 0) return false;
+  if (hitSomething(world) || Math.hypot(ball.vx, ball.vy) < 1) return true;
   if (!r) return true;
   const a = ballApproach(ball, r.x, r.y, approachTmp);
   const reach = receiveFor(r, tuning).reach;
@@ -670,6 +703,7 @@ function ballActions(world: WorldState, i: number, cmd: PlayerCommand, human: Pl
   world.passTo = passResult.target;
   world.passKind = passResult.kind;
   world.passFrom = i;
+  world.passAir = passResult.air;
   // A wall pass: the ball goes to the board; the passer gets it back once it has bounced.
   world.wallFrom = passResult.wall ? i : -1;
   world.wallBack = -1;

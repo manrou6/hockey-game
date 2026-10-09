@@ -40,8 +40,9 @@ export interface VolleyCase {
   /** He follows the TIR button's cue (F1.5d) instead of the ball's arrival. */
   followCue?: boolean;
   /** Where the pass comes from: behind him and to a side (default), from the side, or from the
-   * front-side (a pass back from near the goal line / the corner). */
-  from?: 'back' | 'side' | 'front';
+   * front-side (a pass back from near the goal line / the corner); or straight from behind
+   * (almost on the goal axis: the pass is exactly passDist long, for the flight profile). */
+  from?: 'back' | 'side' | 'front' | 'behind';
 }
 
 export interface VolleyStats {
@@ -78,6 +79,9 @@ export interface VolleyStats {
   onGood: number;
   onBad: number;
   strikeHeight: number;
+  /** % of the aerial strikes with the ball below 0.15 m (not really in the air: F1.5e), and below 0.3 m. */
+  strikeLow: number;
+  strikeLow30: number;
 }
 
 function lcg(seed: number): () => number {
@@ -113,7 +117,14 @@ function setup(c: VolleyCase, seed: number): Setup {
   // The pass comes from behind him and to the side (a cross from the wing / the back), from the
   // side, or from the front-side (back from the corner).
   const spread = 0.6 + 0.4 * rnd();
-  const fromDir = c.from === 'side' ? toGoal + sideY * (Math.PI / 2 + (spread - 0.8) * 0.5) : c.from === 'front' ? toGoal + sideY * (spread - 0.1) : toGoal + Math.PI + sideY * spread;
+  const fromDir =
+    c.from === 'side'
+      ? toGoal + sideY * (Math.PI / 2 + (spread - 0.8) * 0.5)
+      : c.from === 'front'
+        ? toGoal + sideY * (spread - 0.1)
+        : c.from === 'behind'
+          ? toGoal + Math.PI + sideY * spread * 0.25
+          : toGoal + Math.PI + sideY * spread;
   let px = rxX + Math.cos(fromDir) * c.passDist;
   let py = rxY + Math.sin(fromDir) * c.passDist;
   py = Math.max(-RINK.width / 2 + 1.2, Math.min(RINK.width / 2 - 1.2, py));
@@ -175,6 +186,9 @@ interface DryRun {
   height: number;
   relSpeed: number;
   outcome: number;
+  /** Highest the ball flew (above the floor, m) from the pass to the contact; passer to receiver (m). */
+  apex: number;
+  passLen: number;
 }
 
 /** The pass alone (nobody presses TIRO): when and how the ball gets to the receiver. */
@@ -182,10 +196,12 @@ function dryRun(c: VolleyCase, level: AssistLevel, tuning: Tuning, seed: number)
   const s = setup(c, seed);
   const w = s.w;
   w.assist = level;
-  const out: DryRun = { passTick: -1, contactTick: -1, cueTick: -1, height: Number.NaN, relSpeed: Number.NaN, outcome: -1 };
+  const out: DryRun = { passTick: -1, contactTick: -1, cueTick: -1, height: Number.NaN, relSpeed: Number.NaN, outcome: -1, apex: 0, passLen: Math.hypot(w.players[0]!.x - w.players[s.rx]!.x, w.players[0]!.y - w.players[s.rx]!.y) };
   let best = Infinity;
   let prevZ = R;
   let prevRel = Number.NaN;
+  let cushioned = false;
+  const cw = w as unknown as { lastCushionTick?: number; lastCushionPlayer?: number };
   for (let i = 0; i < 240; i++) {
     const r0 = w.players[s.rx]!;
     prevZ = w.ball.z;
@@ -193,17 +209,28 @@ function dryRun(c: VolleyCase, level: AssistLevel, tuning: Tuning, seed: number)
     stepWorld(w, [humanCmd(s, c, level, tuning, i, null)], tuning);
     if (out.passTick < 0 && w.ball.owner < 0) out.passTick = i;
     if (out.passTick < 0) continue;
+    if (w.ball.owner < 0) out.apex = Math.max(out.apex, prevZ - R, w.ball.z - R);
     const r = w.players[s.rx]!;
     const view = (w as unknown as { volley?: { found: boolean; time: number } }).volley;
-    if (view?.found && w.controlled === s.rx) out.cueTick = i + Math.round(view.time / TICK);
+    if (!cushioned && view?.found && w.controlled === s.rx) out.cueTick = i + Math.round(view.time / TICK);
+    // A driven pass blocked in the air (F1.5e): the contact is there, the reception comes once it drops.
+    if (!cushioned && cw.lastCushionPlayer === s.rx && cw.lastCushionTick === w.tick - 1) {
+      cushioned = true;
+      out.contactTick = i;
+      out.height = w.ball.z - R;
+      out.relSpeed = prevRel;
+    }
     if (w.lastReceptionPlayer === s.rx && w.lastReceptionTick === w.tick - 1 && out.outcome < 0) {
       out.outcome = w.lastReceptionOutcome;
-      // Where the ball was when he got it: the reception's own tick (before it was picked up).
-      out.contactTick = i;
-      out.height = prevZ - R;
-      out.relSpeed = prevRel;
+      if (!cushioned) {
+        // Where the ball was when he got it: the reception's own tick (before it was picked up).
+        out.contactTick = i;
+        out.height = prevZ - R;
+        out.relSpeed = prevRel;
+      }
       break;
     }
+    if (cushioned) continue;
     if (w.ball.owner >= 0) break;
     const dist = Math.hypot(w.ball.x - r.x, w.ball.y - r.y);
     if (dist < best && dist <= 1.2) {
@@ -221,6 +248,8 @@ export function runVolley(tuning: Tuning, level: AssistLevel, c: VolleyCase, n =
     n, height: 0, low: 0, underBar: 0, relSpeed: 0, rxClean: 0, rxHeavy: 0, rxRebound: 0, rxMiss: 0, rxNone: 0,
     shot: 0, onTarget: 0, inZone: 0, speedAtGoal: Number.NaN, failNoTouch: 0, failReception: 0, failEarly: 0, failLate: 0,
     passToShot: Number.NaN, aerial: 0, goodTiming: Number.NaN, onGood: Number.NaN, onBad: Number.NaN, strikeHeight: Number.NaN,
+    strikeLow: Number.NaN,
+    strikeLow30: Number.NaN,
   };
   let goodOn = 0;
   let bad = 0;
@@ -345,6 +374,8 @@ export function runVolley(tuning: Tuning, level: AssistLevel, c: VolleyCase, n =
   st.onGood = good > 0 ? (100 * goodOn) / good : Number.NaN;
   st.onBad = bad > 0 ? (100 * badOn) / bad : Number.NaN;
   st.strikeHeight = mean(strikeHeights);
+  st.strikeLow = strikeHeights.length ? (100 * strikeHeights.filter((h) => h < 0.15).length) / strikeHeights.length : Number.NaN;
+  st.strikeLow30 = strikeHeights.length ? (100 * strikeHeights.filter((h) => h < 0.3).length) / strikeHeights.length : Number.NaN;
   return st;
 }
 
@@ -356,7 +387,7 @@ function tuningGood(tuning: Tuning): number {
 
 export function fmtVolley(s: VolleyStats): string {
   const f = (x: number): string => (Number.isNaN(x) ? '  -' : x.toFixed(0).padStart(3));
-  return `ball at him ${s.height.toFixed(2)} m (≤0.35 m ${f(s.low)}%) ${s.relSpeed.toFixed(1)} m/s | no TIRO: clean ${f(s.rxClean)}% heavy ${f(s.rxHeavy)}% rebound ${f(s.rxRebound)}% miss ${f(s.rxMiss)}% untouched ${f(s.rxNone)}% | TIRO: shot ${f(s.shot)}% on target ${f(s.onTarget)}% zone ${f(s.inZone)}% ${Number.isNaN(s.speedAtGoal) ? '' : s.speedAtGoal.toFixed(1) + ' m/s'} | no shot: untouched ${f(s.failNoTouch)}% reception ${f(s.failReception)}% early ${f(s.failEarly)}% late ${f(s.failLate)}% | aerial ${f(s.aerial)}% good timing ${f(s.goodTiming)}% (on target ${f(s.onGood)}% / bad ${f(s.onBad)}%) at ${Number.isNaN(s.strikeHeight) ? '-' : s.strikeHeight.toFixed(2)} m`;
+  return `ball at him ${s.height.toFixed(2)} m (≤0.35 m ${f(s.low)}%) ${s.relSpeed.toFixed(1)} m/s | no TIRO: clean ${f(s.rxClean)}% heavy ${f(s.rxHeavy)}% rebound ${f(s.rxRebound)}% miss ${f(s.rxMiss)}% untouched ${f(s.rxNone)}% | TIRO: shot ${f(s.shot)}% on target ${f(s.onTarget)}% zone ${f(s.inZone)}% ${Number.isNaN(s.speedAtGoal) ? '' : s.speedAtGoal.toFixed(1) + ' m/s'} | no shot: untouched ${f(s.failNoTouch)}% reception ${f(s.failReception)}% early ${f(s.failEarly)}% late ${f(s.failLate)}% | aerial ${f(s.aerial)}% good timing ${f(s.goodTiming)}% (on target ${f(s.onGood)}% / bad ${f(s.onBad)}%) at ${Number.isNaN(s.strikeHeight) ? '-' : s.strikeHeight.toFixed(2)} m (<0.15 m ${f(s.strikeLow)}%, <0.30 m ${f(s.strikeLow30)}%)`;
 }
 
 export const BASE_TUNING = (): Tuning => structuredClone(TUNING);
@@ -369,6 +400,58 @@ export function contactHeights(tuning: Tuning, level: AssistLevel, c: VolleyCase
     if (d.contactTick >= 0) out.push(d.height);
   }
   return out.sort((a, b) => a - b);
+}
+
+export interface PassProfile {
+  n: number;
+  /** Passer to receiver (m, mean); height of the ball when it gets to him (closest or at the
+   * reception, m: p10 / median / p90); % of them in the comfortable 0.3-1.0 m, below 0.15 m. */
+  passLen: number;
+  p10: number;
+  median: number;
+  p90: number;
+  comfy: number;
+  low: number;
+  /** Highest point of the flight (m: mean, max); time from the pass to him (s, mean). */
+  apex: number;
+  apexMax: number;
+  time: number;
+}
+
+/** How the pass flies to the receiver (no TIRO): heights, apex, flight time (F1.5e). */
+export function passProfile(tuning: Tuning, level: AssistLevel, c: VolleyCase, n = 200): PassProfile {
+  const h: number[] = [];
+  const apex: number[] = [];
+  const time: number[] = [];
+  const len: number[] = [];
+  for (let seed = 1; seed <= n; seed++) {
+    const d = dryRun(c, level, tuning, seed);
+    len.push(d.passLen);
+    if (d.contactTick < 0) continue;
+    h.push(d.height);
+    apex.push(d.apex);
+    time.push((d.contactTick - d.passTick) * TICK);
+  }
+  h.sort((a, b) => a - b);
+  const q = (f: number): number => h[Math.min(h.length - 1, Math.floor(f * h.length))] ?? Number.NaN;
+  const share = (ok: (x: number) => boolean): number => (h.length ? (100 * h.filter(ok).length) / h.length : Number.NaN);
+  return {
+    n,
+    passLen: mean(len),
+    p10: q(0.1),
+    median: q(0.5),
+    p90: q(0.9),
+    comfy: share((x) => x >= 0.3 && x <= 1.0),
+    low: share((x) => x < 0.15),
+    apex: mean(apex),
+    apexMax: apex.length ? Math.max(...apex) : Number.NaN,
+    time: mean(time),
+  };
+}
+
+export function fmtProfile(s: PassProfile): string {
+  const f = (x: number): string => (Number.isNaN(x) ? '  -' : x.toFixed(0).padStart(3));
+  return `pass ${s.passLen.toFixed(1)} m | at him p10 ${s.p10.toFixed(2)} median ${s.median.toFixed(2)} p90 ${s.p90.toFixed(2)} m | 0.3-1.0 m ${f(s.comfy)}% <0.15 m ${f(s.low)}% | apex ${s.apex.toFixed(2)} max ${s.apexMax.toFixed(2)} m | ${s.time.toFixed(2)} s to him (${(s.passLen / s.time).toFixed(1)} m/s)`;
 }
 
 /** Debug: trace one seed of a case (tick by tick, from the pass). */

@@ -190,3 +190,81 @@ describe('remate en el aire (F1.5d)', () => {
     expect(go()).toEqual(go());
   });
 });
+
+describe('F1.5e: the real volley', () => {
+  it('contact height: from volley.minHeight 0.15 m (below it is the first touch of F1.5b) up to maxHeight 1.50 m (the rule, art. 6.3)', () => {
+    expect(V.minHeight).toBe(0.15);
+    expect(V.maxHeight).toBe(1.5);
+    const t = tuningWith(exact);
+    // Skimming low (never above ~0.1 m near his stick): not a remate en el aire.
+    const low = delivery(t, 10, 0.05, 0.2);
+    expect(predictContact(low.w.ball, low.w.players[0]!, t, createVolleyContact()).found).toBe(false);
+    const ok = delivery(t, 10, 0.25);
+    const c = predictContact(ok.w.ball, ok.w.players[0]!, t, createVolleyContact());
+    expect(c.found).toBe(true);
+    expect(c.height).toBeGreaterThanOrEqual(V.minHeight);
+    const high = delivery(t, 10, 1.3);
+    expect(predictContact(high.w.ball, high.w.players[0]!, t, createVolleyContact()).found).toBe(true);
+  });
+
+  /** Player 0 (controlled) passes a driven lofted pass to teammate 1, `dist` m away, who stands still. */
+  function drivenPass(tuning: Tuning, dist: number): WorldState {
+    const w = createWorld(11, 1);
+    const p = w.players[0]!;
+    const r = w.players[1]!;
+    p.x = p.prevX = GX - 7 - dist;
+    p.y = p.prevY = 0;
+    p.heading = p.prevHeading = 0;
+    r.x = r.prevX = GX - 7;
+    r.y = r.prevY = 0;
+    r.heading = r.prevHeading = Math.PI;
+    r.vx = r.vy = 0;
+    const b = bladePoint(p, tuning);
+    w.ball.x = w.ball.prevX = b.x;
+    w.ball.y = w.ball.prevY = b.y;
+    w.ball.owner = 0;
+    w.controlled = 0;
+    stepWorld(w, [cmd({ moveX: 0.3, pass: true, passHeld: false, passHeight: 1 })], tuning);
+    expect(w.passTo).toBe(1);
+    return w;
+  }
+
+  it('a teammate\'s driven lofted pass (12 m) gets to the receiver in the air; without TIRO he blocks it at his stick and keeps it', () => {
+    const t = tuningWith((x) => {
+      x.pass.errorBase = x.pass.errorSprint = x.pass.errorPressure = x.pass.errorOffBalance = x.pass.errorPower = 0;
+      x.mates.move = 0;
+    });
+    const w = drivenPass(t, 12);
+    expect(w.passAir).toBe(1);
+    expect(w.controlled).toBe(1); // the control goes to the receiver as the pass leaves
+    let blockedAt = Number.NaN;
+    let maxZ = 0;
+    for (let i = 0; i < 120 && w.ball.owner !== 1; i++) {
+      stepWorld(w, [cmd()], t);
+      maxZ = Math.max(maxZ, w.ball.z - R);
+      if (w.lastCushionPlayer === 1 && w.lastCushionTick === w.tick - 1) blockedAt = w.ball.z - R;
+    }
+    expect(w.ball.owner).toBe(1);
+    expect(blockedAt).toBeGreaterThan(0.3);
+    expect(blockedAt).toBeLessThan(1);
+    expect(maxZ).toBeLessThan(1.4);
+  });
+
+  it('... and with a tap of TIR when the button flashes it is struck in the air, at its height (no lowering it first)', () => {
+    const t = tuningWith((x) => {
+      exact(x);
+      x.pass.errorBase = x.pass.errorSprint = x.pass.errorPressure = x.pass.errorOffBalance = x.pass.errorPower = 0;
+      x.mates.move = 0;
+    });
+    const w = drivenPass(t, 12);
+    for (let i = 0; i < 120 && w.lastShotTick < 0; i++) {
+      const tap = w.volley.good && w.ball.owner < 0;
+      stepWorld(w, [cmd({ moveX: 1, shoot: tap, shootHeld: false })], t);
+    }
+    expect(w.lastShot.aerial).toBe(true);
+    expect(w.lastShot.contactHeight).toBeGreaterThan(0.3);
+    expect(Math.abs(w.lastShot.timing)).toBeLessThanOrEqual(V.good + 1e-9);
+    // It leaves from where it was struck, in the air.
+    expect(w.ball.z - R).toBeGreaterThan(0.25);
+  });
+});

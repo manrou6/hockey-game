@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { BASE_TUNING, contactHeights, fmtDirect, fmtVolley, runVolley, runVolleyDirect, type PassType, type VolleyCase } from './volleyBench';
+import { BASE_TUNING, contactHeights, fmtDirect, fmtProfile, fmtVolley, passProfile, runVolley, runVolleyDirect, type PassType, type VolleyCase } from './volleyBench';
 
 // Benchmarks (not assertions): PATINS_BENCH=1 npx vitest run tests/unit/bench/volley
 const run = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.PATINS_BENCH ? describe : describe.skip;
@@ -118,6 +118,29 @@ run('volley skill cap (F1.5d)', () => {
     const t = BASE_TUNING();
     for (const offset of [-0.25, -0.2, -0.15, -0.1, -0.08, -0.05, 0, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25]) {
       console.log(`VOLT ${offset >= 0 ? '+' : ''}${offset.toFixed(2)} s | ${fmtDirect(runVolleyDirect(t, 'medium', { dist: 7, angle: 0, speed: 10, height: 0.45, timing: 0, offset }))}`);
+    }
+  });
+});
+
+run('volley F1.5e: the real volley', () => {
+  it('how the pass flies to the receiver: driven lofted and lob, by distance (no TIRO)', { timeout: 3600000 }, () => {
+    const t = BASE_TUNING();
+    for (const pass of ['drive', 'lob'] as PassType[]) {
+      for (const passDist of [5, 8, 12, 16, 18, 20, 22, 25]) {
+        const c: VolleyCase = { pass, passDist, dist: 7, angle: 0, timing: 0, aimLead: 0, gesture: 'tap', from: 'behind' };
+        console.log(`VOLP ${pass.padEnd(5)} ${String(passDist).padStart(2)} m | ${fmtProfile(passProfile(t, 'medium', c))}`);
+      }
+    }
+  });
+  it('first-time shot of a driven lofted pass, normal human with the cue: how many strikes are really in the air', { timeout: 3600000 }, () => {
+    const t = BASE_TUNING();
+    for (const pass of ['drive', 'lob'] as PassType[]) {
+      for (const passDist of [8, 12, 16]) {
+        for (const [dist, angle] of [[7, 0], [7, 30], [9, 0]] as const) {
+          const c: VolleyCase = { pass, passDist, dist, angle, timing: 0.07, aimLead: 0, gesture: 'tap', followCue: true };
+          console.log(`VOLE ${pass.padEnd(6)} pass ${String(passDist).padStart(2)} m to ${dist} m ${String(angle).padStart(2)}° | ${fmtVolley(runVolley(t, 'medium', c))}`);
+        }
+      }
     }
   });
 });
