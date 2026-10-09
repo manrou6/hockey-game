@@ -21,6 +21,8 @@ export interface MenuCallbacks {
   onPassArrowChange: (on: boolean) => void;
   /** Shot reticle on/off (F1.5a). */
   onShotReticleChange: (on: boolean) => void;
+  /** Vibration on/off (v0.1.29). */
+  onVibrationChange: (on: boolean) => void;
 }
 
 /** Main menu + settings screen, as two full-screen overlays. */
@@ -63,6 +65,7 @@ export class Menu {
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.assist' }), this.assistChoices()]),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.passArrow' }), this.passArrowChoices()]),
       el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.shotReticle' }), this.shotReticleChoices()]),
+      el('div', { className: 'setting' }, [el('span', { className: 'setting-label', i18n: 'settings.vibration' }), this.vibrationChoices()]),
       el('div', { className: 'setting' }, [
         el('span', { className: 'setting-label', i18n: 'settings.quality' }),
         this.qualityChoices(),
@@ -153,6 +156,21 @@ export class Menu {
     return group;
   }
 
+  private vibrationChoices(): HTMLElement {
+    const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
+    for (const on of [true, false]) {
+      const b = el('button', { className: 'choice', i18n: on ? 'common.yes' : 'common.no', attrs: { 'data-vibration': String(on), id: `vibration-${on ? 'on' : 'off'}` } });
+      b.addEventListener('click', () => {
+        this.settings.vibration = on;
+        saveSettings(this.settings);
+        this.callbacks.onVibrationChange(on);
+        this.refreshTexts();
+      });
+      group.append(b);
+    }
+    return group;
+  }
+
   private shotReticleChoices(): HTMLElement {
     const group = el('div', { className: 'choices', attrs: { role: 'radiogroup' } });
     for (const on of [true, false]) {
@@ -219,6 +237,11 @@ export class Menu {
     });
     this.element.querySelectorAll<HTMLElement>('[data-reticle]').forEach((b) => {
       const sel = b.dataset.reticle === String(this.settings.shotReticle);
+      b.classList.toggle('selected', sel);
+      b.setAttribute('aria-checked', String(sel));
+    });
+    this.element.querySelectorAll<HTMLElement>('[data-vibration]').forEach((b) => {
+      const sel = b.dataset.vibration === String(this.settings.vibration);
       b.classList.toggle('selected', sel);
       b.setAttribute('aria-checked', String(sel));
     });

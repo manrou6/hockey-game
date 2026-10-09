@@ -301,6 +301,11 @@ function closeVolley(v: VolleyView): void {
 }
 
 /** Is a remate en el aire armed for player p: TIRO pressed / held without the ball, or released within the timing span? */
+/** The ball is in the air or bouncing (not rolling). */
+function inAir(ball: BallState): boolean {
+  return ball.z - RINK.ballRadius > 0.005 || Math.abs(ball.vz) > 0.05;
+}
+
 function volleyArmed(world: WorldState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): boolean {
   if (!world.volley.found && world.volley.hold <= 0) return false;
   const half = Math.round((volleyFor(p, tuning).windowTime / 2) * tuning.sim.tickRate);
@@ -357,7 +362,7 @@ function volleyStep(world: WorldState, human: PlayerCommand, tuning: Tuning): bo
   }
   predictContact(ball, p, tuning, contactTmp);
   // In the air or bouncing (a rolling ball is a normal reception, F1.5b).
-  v.incoming = contactTmp.passes && (ball.z - RINK.ballRadius > 0.005 || Math.abs(ball.vz) > 0.05);
+  v.incoming = contactTmp.passes && inAir(ball);
   v.found = contactTmp.found;
   v.time = contactTmp.time;
   v.height = contactTmp.height;
@@ -441,9 +446,12 @@ function humanCommand(world: WorldState, human: PlayerCommand, receiver: number,
   }
   const latched = !Number.isNaN(world.latchDir);
   // A ball in the air coming to him, or a remate en el aire armed (F1.5d): the joystick only
-  // aims (the shot reads it), he keeps meeting the ball.
+  // aims (the shot reads it), he keeps meeting the ball. A driven pass in the air aimed at him
+  // (F1.5e) is coming to him from the moment it leaves, before its path meets his blade
+  // (v0.1.29: aiming at the goal while it flew used to drop it and lose the pass).
   const me = world.players[world.controlled];
-  const volley = me !== undefined && world.ball.owner < 0 && (world.volley.incoming || volleyArmed(world, me, human, tuning));
+  const aerialPass = world.passTo === world.controlled && world.passAir > 0 && inAir(world.ball);
+  const volley = me !== undefined && world.ball.owner < 0 && (world.volley.incoming || aerialPass || volleyArmed(world, me, human, tuning));
   if (receiver === world.controlled && (latched || (mag < 0.01 && m.autoReceive >= 0.5) || volley)) {
     interceptMove(world.players[world.controlled]!, world.ball, tuning, out, world.passTo >= 0 ? world.meetX : Number.NaN, world.passTo >= 0 ? world.meetY : Number.NaN);
     out.sprint = false;

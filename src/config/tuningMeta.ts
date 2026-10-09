@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'volley' | 'slowMo' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'volley' | 'slowMo' | 'volleyCue' | 'haptics' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -169,6 +169,10 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'pass.errorPressure', min: 0, max: 20, step: 0.5, unit: '°', scale: DEG },
       { path: 'pass.errorOffBalance', min: 0, max: 25, step: 0.5, unit: '°', scale: DEG },
       { path: 'pass.errorLoft', min: 1, max: 3, step: 0.1, unit: '×' },
+      { path: 'pass.driveErrorFactor', min: 0.5, max: 3, step: 0.05, unit: '×' },
+      { path: 'pass.driveLightCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'pass.driveMediumCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'pass.driveStrongCorrection', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'pass.errorPower', min: 0, max: 20, step: 1, unit: '%', scale: 100 },
       { path: 'pass.attributeAdvantage', min: 0, max: 1, step: 0.05, unit: '' },
     ],
@@ -259,6 +263,28 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'slowMo.rampIn', min: 0, max: 0.3, step: 0.01, unit: 's' },
       { path: 'slowMo.rampOut', min: 0, max: 0.3, step: 0.01, unit: 's' },
       { path: 'slowMo.lead', min: 0, max: 0.3, step: 0.01, unit: 's' },
+    ],
+  },
+  {
+    id: 'volleyCue',
+    params: [
+      { path: 'volleyCue.ball', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'volleyCue.lead', min: 0.1, max: 0.5, step: 0.01, unit: 's' },
+      { path: 'volleyCue.startSize', min: 1, max: 12, step: 0.5, unit: '×' },
+      { path: 'volleyCue.endSize', min: 1, max: 6, step: 0.1, unit: '×' },
+      { path: 'volleyCue.thickness', min: 5, max: 50, step: 1, unit: '%', scale: 100 },
+      { path: 'volleyCue.opacity', min: 10, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'volleyCue.earlyOpacity', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'volleyCue.flashSize', min: 1, max: 2, step: 0.05, unit: '×' },
+      { path: 'volleyCue.flashTime', min: 0.02, max: 0.6, step: 0.01, unit: 's' },
+    ],
+  },
+  {
+    id: 'haptics',
+    params: [
+      { path: 'haptics.volleyMs', min: 0, max: 120, step: 1, unit: 'ms' },
+      { path: 'haptics.volleyGapMs', min: 0, max: 200, step: 5, unit: 'ms' },
+      { path: 'haptics.volleyTailMs', min: 0, max: 80, step: 1, unit: 'ms' },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { TUNING_PARAMS, TUNING_SECTIONS, type TuningParamMeta } from '../config/tuningMeta';
 import { APP_VERSION } from '../config/version';
 import type { TuningOverrides } from '../game/tuningOverrides';
+import type { VolleyDiagnosis } from '../game/volleyFeedback';
 import { onLanguageChange, t, translateDom, type MessageKey } from '../i18n';
 import { el } from './dom';
 
@@ -31,6 +32,9 @@ export class TuningPanel {
   private readonly countLabel: HTMLElement;
   private readonly copyStatus: HTMLElement;
   private readonly copyBox: HTMLTextAreaElement;
+  /** Live diagnosis of the remate en el aire (v0.1.29): to check it on the phone, no terminal. */
+  private readonly diag: HTMLElement;
+  private diagText = '';
 
   constructor(private readonly overrides: TuningOverrides) {
     this.countLabel = el('span', { className: 'tp-count' });
@@ -46,6 +50,7 @@ export class TuningPanel {
     this.copyStatus = el('p', { className: 'tp-status' });
     this.copyBox = el('textarea', { className: 'tp-copybox', attrs: { readonly: '', rows: '4' } });
     this.copyBox.hidden = true;
+    this.diag = el('p', { className: 'tp-diag', attrs: { id: 'tp-diag' } });
 
     const body = el('div', { className: 'tp-body' });
     TUNING_SECTIONS.forEach((section, i) => {
@@ -61,6 +66,7 @@ export class TuningPanel {
       el('div', { className: 'tp-sticky' }, [
         el('div', { className: 'tp-header' }, [el('h2', { i18n: 'tuning.title' }), this.countLabel, close]),
         el('div', { className: 'tp-actions' }, [copy, resetAll]),
+        this.diag,
         this.copyStatus,
         this.copyBox,
       ]),
@@ -91,6 +97,31 @@ export class TuningPanel {
   toggle(): void {
     if (this.isOpen) this.close();
     else this.open();
+  }
+
+  /** Show the live diagnosis of the remate en el aire (called every frame while the panel is open). */
+  showDiagnosis(d: VolleyDiagnosis): void {
+    const f = (x: number, n = 2): string => (Number.isFinite(x) ? x.toFixed(n) : '–');
+    const last =
+      d.opens === 0
+        ? t('tuning.diag.none')
+        : t('tuning.diag.last', {
+            h: f(d.lastHeight),
+            d: f(d.lastDistance, 1),
+            t: Number.isFinite(d.lastTiming) ? `${d.lastTiming >= 0 ? '+' : ''}${f(d.lastTiming)} s` : t('tuning.diag.notStruck'),
+          });
+    const text = [
+      t(d.open ? 'tuning.diag.open' : 'tuning.diag.closed'),
+      t('tuning.diag.scale', { n: Math.round(d.scale * 100) }),
+      t('tuning.diag.opens', { n: d.opens }),
+      last,
+      APP_VERSION,
+    ].join(' · ');
+    if (text !== this.diagText) {
+      this.diagText = text;
+      this.diag.textContent = text;
+      this.diag.classList.toggle('open', d.open);
+    }
   }
 
   private buildRow(meta: TuningParamMeta): HTMLElement {

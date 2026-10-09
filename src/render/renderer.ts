@@ -83,6 +83,14 @@ export class Renderer {
   private ballDrop = 0;
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
+  /** Gold ring around the ball while the remate en el aire window is open (v0.1.29). */
+  private readonly volleyHalo: Mesh;
+  private readonly volleyHaloTex: DynamicTexture;
+  private volleyHaloThickness = -1;
+  private volleyHaloFade = 0;
+  private volleyHaloProgress = 0;
+  private volleyHaloDim = 1;
+  private volleyHaloGood = false;
   /** The ball seen through whatever hides it (drawn only where something is in front of it). */
   private readonly ballGhost: Mesh;
   /** Bright ring on the floor under the player the human controls. */
@@ -142,6 +150,8 @@ export class Renderer {
     buildRink(this.scene);
     this.ballMesh = this.createBallMesh();
     this.ballMarker = this.createBallMarker();
+    this.volleyHaloTex = new DynamicTexture('volleyHaloTex', { width: 128, height: 128 }, this.scene, false);
+    this.volleyHalo = this.createVolleyHalo(this.volleyHaloTex);
     this.ballGhost = this.createBallGhost();
     this.controlRing = this.createRing('controlRing', 'rgba(255,214,40,0.95)', 0.62, 12);
     this.targetRing = this.createRing('targetRing', 'rgba(110,235,255,1)', 0.6, 14);
@@ -249,6 +259,80 @@ export class Renderer {
     ghost.isPickable = false;
     ghost.isVisible = false;
     return ghost;
+  }
+
+  /**
+   * Remate en el aire cue on the ball (v0.1.29): a camera-facing ring (radius 1, scaled per
+   * frame), drawn over everything (its own rendering group) so it reads with the far TV camera.
+   */
+  private createVolleyHalo(tex: DynamicTexture): Mesh {
+    const disc = CreateDisc('volleyHalo', { radius: 1, tessellation: 32 }, this.scene);
+    disc.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial('volleyHaloMat', this.scene);
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.diffuseColor = new Color3(0, 0, 0);
+    mat.emissiveColor = new Color3(1, 0.83, 0.3);
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    mat.disableDepthWrite = true;
+    disc.material = mat;
+    disc.isPickable = false;
+    disc.renderingGroupId = 1;
+    disc.isVisible = false;
+    return disc;
+  }
+
+  /**
+   * Redraw the halo's ring when its thickness (a fraction of the radius) changes: a white ring
+   * (tinted gold by the material) over a darker, wider one so it reads on the floor's white lines.
+   */
+  private drawVolleyHalo(thickness: number): void {
+    const ctx = this.volleyHaloTex.getContext() as CanvasRenderingContext2D;
+    ctx.clearRect(0, 0, 128, 128);
+    const width = Math.max(1, Math.min(52, 60 * thickness));
+    const r = 60 - width / 2;
+    ctx.beginPath();
+    ctx.arc(64, 64, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(40,24,0,0.55)';
+    ctx.lineWidth = width + 8;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,1)';
+    ctx.lineWidth = width;
+    ctx.stroke();
+    this.volleyHaloTex.update();
+    this.volleyHaloThickness = thickness;
+  }
+
+  /**
+   * From `lead` s before a ball in the air gets to the stick (fainter until the TIR window
+   * opens) the ring closes from startSize to endSize (× the drawn ball's radius) as the good
+   * moment comes, and flashes (whiter, opaque, flashSize × bigger) during good timing;
+   * once it closes it fades out over flashTime.
+   */
+  private syncVolleyHalo(world: WorldState, x: number, y: number, z: number, ballRadius: number, dt: number): void {
+    const k = TUNING.volleyCue;
+    const v = world.volley;
+    const halo = this.volleyHalo;
+    const loose = k.ball >= 0.5 && world.ball.owner < 0;
+    const early = loose && !v.open && v.incoming && v.found && v.contactTick < 0 && v.time <= k.lead;
+    if ((loose && v.open) || early) {
+      this.volleyHaloFade = 1;
+      this.volleyHaloProgress = v.contactTick >= 0 ? 1 : 1 - v.time / Math.max(1e-3, k.lead);
+      this.volleyHaloGood = v.open && v.good;
+      this.volleyHaloDim = v.open ? 1 : Math.min(1, Math.max(0, k.earlyOpacity));
+    } else this.volleyHaloFade = Math.max(0, this.volleyHaloFade - dt / Math.max(0.01, k.flashTime));
+    halo.isVisible = this.volleyHaloFade > 0;
+    if (!halo.isVisible) return;
+    if (k.thickness !== this.volleyHaloThickness) this.drawVolleyHalo(k.thickness);
+    const size = k.startSize + (k.endSize - k.startSize) * Math.min(1, Math.max(0, this.volleyHaloProgress));
+    halo.scaling.setAll(Math.max(0.01, ballRadius * size * (this.volleyHaloGood ? Math.max(1, k.flashSize) : 1)));
+    halo.position.set(x, y, z);
+    const mat = halo.material as StandardMaterial;
+    if (this.volleyHaloGood) mat.emissiveColor.set(1, 0.97, 0.75);
+    else mat.emissiveColor.set(1, 0.8, 0.25);
+    mat.alpha = (this.volleyHaloGood ? 1 : Math.min(1, Math.max(0, k.opacity)) * this.volleyHaloDim) * this.volleyHaloFade;
   }
 
   /** Soft disc on the floor under the ball (readability; fades as the ball rises). */
@@ -555,6 +639,7 @@ export class Renderer {
     this.ballDrop *= Math.exp(-frameSeconds / BALL_DROP_TIME);
     this.lastBallY = by + this.ballDrop;
     this.ballMesh.position.set(bx, by + this.ballDrop + BALL_RADIUS * (scale - 1), bz);
+    this.syncVolleyHalo(world, bx, by + BALL_RADIUS * (scale - 1), bz, BALL_RADIUS * scale, frameSeconds);
     // Silhouette through the near board: only close to it (the board is the −z side).
     const ghost = this.ballGhost;
     const nearBoard = bz + RINK.width / 2;

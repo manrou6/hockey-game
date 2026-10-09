@@ -263,9 +263,8 @@ export function gaussian(rng: RngState): number {
   return (nextFloat(rng) + nextFloat(rng) + nextFloat(rng) + nextFloat(rng) - 2) * Math.sqrt(3);
 }
 
-/** Direction error (rad, one standard deviation) of a pass by this player right now. */
-export function passErrorSd(p: PlayerState, players: readonly PlayerState[], loft: boolean, tuning: Tuning): number {
-  // loft = any lofted pass (driven or lob).
+/** Direction error (rad, one standard deviation) of a pass of this kind by this player right now. */
+export function passErrorSd(p: PlayerState, players: readonly PlayerState[], kind: PassKind, tuning: Tuning): number {
   const k = passFor(p, tuning);
   const sk = skatingFor(p, tuning);
   const speed = Math.hypot(p.vx, p.vy);
@@ -273,7 +272,15 @@ export function passErrorSd(p: PlayerState, players: readonly PlayerState[], lof
   const offBalance = isSkidding(p) || isCutting(p) ? 1 : 0;
   const raw = k.errorBase + k.errorSprint * sprint + k.errorPressure * pressureOn(p, players, tuning) + k.errorOffBalance * offBalance;
   const skill = Math.min(1, Math.max(0, p.passing / 99));
-  return raw * (loft ? k.errorLoft : 1) * (1 - k.attributeAdvantage * skill);
+  // Lofted passes are less exact: the lob by errorLoft, the driven pass by its own factor (v0.1.29).
+  const loft = kind === PASS_DRIVE ? k.driveErrorFactor : kind === PASS_LOB ? k.errorLoft : 1;
+  return raw * loft * (1 - k.attributeAdvantage * skill);
+}
+
+/** How much of the aiming error off the receiver a pass of this kind keeps corrected (0..1, v0.1.29). */
+export function aimCorrection(level: AssistLevel, kind: PassKind, assist: AssistParams, k: Tuning['pass']): number {
+  if (kind !== PASS_DRIVE || level === 'off') return assist.correction;
+  return level === 'strong' ? k.driveStrongCorrection : level === 'medium' ? k.driveMediumCorrection : k.driveLightCorrection;
 }
 
 /** Error multiplier of a pass right after receiving (first touch, F1.4c); 1 otherwise. */
@@ -616,8 +623,8 @@ export function planPass(
     }
     // The player aims at where he SEES the teammate; leading him is the assist's job. So the
     // aiming error is measured against the teammate's direction and only (1 − correction) of
-    // it is kept, on top of the led direction.
-    out.angle = to + (1 - space) * (1 - assist.correction) * aimOffset;
+    // it is kept, on top of the led direction (the driven pass has its own correction, v0.1.29).
+    out.angle = to + (1 - space) * (1 - aimCorrection(level, kind, assist, k)) * aimOffset;
   } else if (kind === PASS_LOB) {
     out.elevation = k.loftAngle;
     out.speed = loftPassSpeed(k.loftMinDistance + (k.loftMaxDistance - k.loftMinDistance) * charge, k.loftAngle, k.loftMaxSpeed, kb);
@@ -667,7 +674,7 @@ export function performPass(
   // First touch (F1.4c): right after receiving it is less exact, more after a hard reception.
   // A wall pass is planned (the assist worked out the bounce): smaller errors (F1.4d).
   const touch = firstTouchFactor(p, tuning) * (plan.wall ? wallFor(p, tuning).errorFactor : 1);
-  const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind !== PASS_GROUND, tuning) * touch;
+  const angle = plan.angle + gaussian(rng) * passErrorSd(p, players, plan.kind, tuning) * touch;
   // A lofted pass's distance grows with the square of its speed: halve its strength error so
   // its distance error matches a ground pass's (long passes don't randomly fall short).
   const powerSd = (plan.kind === PASS_GROUND ? k.errorPower : k.errorPower / 2) * touch;

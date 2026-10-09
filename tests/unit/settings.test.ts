@@ -39,6 +39,14 @@ describe('settings: pass assist default (v0.1.21: Mitjana)', () => {
     expect(loadSettings().shotReticle).toBe(false);
   });
 
+  it('Vibració (v0.1.29) is on by default, also for settings saved before it existed; off is remembered', () => {
+    expect(loadSettings().vibration).toBe(true);
+    saveSettings({ ...loadSettings(), vibration: false });
+    expect(loadSettings().vibration).toBe(false);
+    stubStorage({ [KEY]: JSON.stringify({ language: 'es', assist: 'medium', assistRev: 2 }) });
+    expect(loadSettings().vibration).toBe(true);
+  });
+
   it('settings saved before the change (old default Lleugera, no revision) move to Mitjana once', () => {
     stubStorage({ [KEY]: JSON.stringify({ language: 'es', assist: 'light', passArrow: false }) });
     const s = loadSettings();

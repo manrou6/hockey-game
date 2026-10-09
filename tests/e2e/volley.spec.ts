@@ -71,16 +71,19 @@ const volleySeen = (page: Page) => page.evaluate(() => (window as any).__volleyS
 
 /**
  * The slow-mo of the volley window (F1.5e), seen frame by frame (after the HUD has updated): the
- * lowest time scale so far, and the game frozen the first frame it is slowed down with TIR lit.
+ * lowest time scale so far, the gold halo on the ball (v0.1.29) seen while TIR is lit, and the game
+ * frozen the first frame it is slowed down with TIR lit.
  */
 async function watchSlowMo(page: Page): Promise<void> {
   await page.evaluate(() => {
     const btn = document.getElementById('btn-shoot')!;
     const game = (window as any).__PATINS__.game;
-    const slow = ((window as any).__slowSeen = { min: 1, frozen: false, active: true });
+    const halo = (window as any).__PATINS__.renderer.volleyHalo;
+    const slow = ((window as any).__slowSeen = { min: 1, frozen: false, halo: false, active: true });
     game.onFrame(() => {
       if (!slow.active) return;
       slow.min = Math.min(slow.min, game.slowMo.scale);
+      if (halo.isVisible && btn.classList.contains('volley')) slow.halo = true;
       if (game.slowMo.scale < 1 && btn.classList.contains('volley')) {
         slow.frozen = true;
         slow.active = false;
@@ -90,9 +93,9 @@ async function watchSlowMo(page: Page): Promise<void> {
   });
 }
 
-const slowSeen = (page: Page) => page.evaluate(() => (window as any).__slowSeen as { min: number; frozen: boolean });
+const slowSeen = (page: Page) => page.evaluate(() => (window as any).__slowSeen as { min: number; frozen: boolean; halo: boolean });
 
-test('remate en el aire: TIR lights up while a ball in the air comes, the game slows down and a tap strikes it', async ({ page }) => {
+test('remate en el aire: TIR and a gold halo on the ball light up while a ball in the air comes, the game slows down and a tap strikes it', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -117,6 +120,8 @@ test('remate en el aire: TIR lights up while a ball in the air comes, the game s
   await throwAtPlayer(page);
   await expect.poll(async () => (await slowSeen(page)).min, { timeout: 15_000 }).toBeLessThan(1);
   if ((await slowSeen(page)).frozen) await expect(btn).toHaveClass(/volley/);
+  // The cue on the ball (v0.1.29): the halo is drawn while TIR is lit.
+  await expect.poll(async () => (await slowSeen(page)).halo, { timeout: 15_000 }).toBe(true);
   await page.screenshot({ path: 'test-results/screenshots/f1-volley-window.png' });
   await page.evaluate(() => {
     (window as any).__PATINS__.game.paused = false;
