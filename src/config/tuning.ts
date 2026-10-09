@@ -415,8 +415,31 @@ export const TUNING = {
     errorSprint: 0.0872665,
     errorPressure: 0.0698132,
     errorOffBalance: 0.1047198,
-    /** Lofted passes (driven and lob) multiply the direction error by this. */
+    /** The lob multiplies the direction error by this (the driven pass has its own, driveErrorFactor). */
     errorLoft: 1.5,
+    /**
+     * Driven lofted pass ("alt fort"; v0.1.29): it multiplies the direction error by this instead
+     * of errorLoft (1.5 until v0.1.28; still above 1: lofted passes stay less exact than a ground
+     * one). Since F1.5e it reaches the teammate in the air and he has to take it down with the
+     * stick, so a sideways miss forgives less than a bouncing ball. Measured in
+     * tests/unit/bench/driveAimBench (tap, 8-16 m, thumb ±0.12 rad): with your aim at the teammate
+     * it is the pass's own error, not the assist, that puts the ball off the point it was aimed
+     * at (at a sprint with the ball errorBase is ~60 % of it and errorSprint ~40 %); 1.5 → 1.25 takes
+     * that from 0.21 / 0.33 m (standing / sprint, mean; p90 0.42 / 0.67) to 0.17 / 0.27 m (p90 0.35 / 0.56).
+     */
+    driveErrorFactor: 1.25,
+    /**
+     * Driven lofted pass: how much of your aiming error off the receiver is corrected (0..1) at
+     * each assist level, instead of assist.<level>Correction (v0.1.29; until v0.1.28 the same 0.7 /
+     * 0.85 / 1). Like that one it only acts on the aim AT the teammate: who receives it (the cone)
+     * and the aim ahead of a running teammate (pass into space, assist.<level>SpaceRespect) are
+     * untouched. Mitjana 0.95 (bench above): with your aim 20° off the teammate the ball passes
+     * 0.24 / 0.39 m (standing / sprint, mean) off the point it was aimed at, instead of 0.58 / 0.64 m
+     * with 0.85 (Forta: 0.17 / 0.34 m); with the aim at him (±0.12 rad) it was already within 0.01 m of Forta.
+     */
+    driveLightCorrection: 0.7,
+    driveMediumCorrection: 0.95,
+    driveStrongCorrection: 1,
     /** Strength error (fraction of the speed, ±1 standard deviation). */
     errorPower: 0.04,
     /** How much a perfect Pase attribute (99) reduces the errors (0 = nothing, 1 = no error). */

@@ -640,13 +640,17 @@ describe('lost pass: control to the teammate nearest the ball', () => {
 describe('pass error (deterministic, Pase attribute)', () => {
   it('grows at sprint and shrinks with a better Pase attribute; lofted passes are less precise', () => {
     const p = createPlayer(0, 0, 0);
-    const still = passErrorSd(p, [p], false, TUNING);
+    const still = passErrorSd(p, [p], PASS_GROUND, TUNING);
     p.vx = TUNING.skating.sprintSpeed;
-    expect(passErrorSd(p, [p], false, TUNING)).toBeGreaterThan(still * 2);
+    expect(passErrorSd(p, [p], PASS_GROUND, TUNING)).toBeGreaterThan(still * 2);
     p.vx = 0;
     p.passing = 99;
-    expect(passErrorSd(p, [p], false, TUNING)).toBeLessThan(still);
-    expect(passErrorSd(p, [p], true, TUNING)).toBeGreaterThan(passErrorSd(p, [p], false, TUNING));
+    expect(passErrorSd(p, [p], PASS_GROUND, TUNING)).toBeLessThan(still);
+    expect(passErrorSd(p, [p], PASS_LOB, TUNING)).toBeGreaterThan(passErrorSd(p, [p], PASS_GROUND, TUNING));
+    // The lob by errorLoft, the driven pass by its own multiplier (v0.1.29).
+    const ground = passErrorSd(p, [p], PASS_GROUND, TUNING);
+    expect(passErrorSd(p, [p], PASS_LOB, TUNING)).toBeCloseTo(ground * TUNING.pass.errorLoft, 9);
+    expect(passErrorSd(p, [p], PASS_DRIVE, TUNING)).toBeCloseTo(ground * TUNING.pass.driveErrorFactor, 9);
   });
 
   it('same seed and inputs → same passes', () => {
