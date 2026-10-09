@@ -89,13 +89,6 @@ export function receiveBall(ball: BallState, index: number, p: PlayerState, blad
     p.receiveDifficulty = Math.max(0, e);
     return outcome;
   }
-  missOrRebound(ball, p, outcome, rvx, rvy, s, tuning, rng, events);
-  return outcome;
-}
-
-/** A reception that failed: he can't touch it for lockTime; a rebound bounces back off the stick. */
-function missOrRebound(ball: BallState, p: PlayerState, outcome: ReceiveOutcome, rvx: number, rvy: number, s: number, tuning: Tuning, rng: RngState, events: BallEvent[]): void {
-  const r = receiveFor(p, tuning);
   p.noPickupTicks = Math.max(p.noPickupTicks, Math.round(r.lockTime * tuning.sim.tickRate));
   if (outcome === RECEIVE_REBOUND) {
     // Back off the stick (the way it came), slower, a bit to either side, popping up.
@@ -106,4 +99,5 @@ function missOrRebound(ball: BallState, p: PlayerState, outcome: ReceiveOutcome,
     ball.vz = Math.max(ball.vz, r.reboundLift);
     events.push({ type: 'player', strength: s, side: 0 });
   }
+  return outcome;
 }

@@ -175,7 +175,7 @@ export function pickupDistance(ball: BallState, p: PlayerState, tuning: Tuning, 
 }
 
 /**
- * F1.5e: can the receiver of a driven pass that comes in the air block it with his stick now?
+ * F1.5e: can the receiver of a driven pass that comes in the air take it down with his stick now?
  * Like pickupDistance, but for a ball above dribble.pickupMaxHeight up to receive.highMaxHeight
  * (and also within `bladeReach` m of his blade): its distance from his blade (m), or −1.
  */

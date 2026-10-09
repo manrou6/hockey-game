@@ -351,12 +351,13 @@ export const TUNING = {
     /** Fully charged driven pass to nobody lands this far (m). */
     driveNoTargetMaxDistance: 30,
     /** Driven lofted pass that reaches the teammate IN THE AIR (F1.5e, v0.1.28): up to airFull
-     * (m) it gets to his stick at airHeight (m above the floor) on its way down, launched no
+     * (m, to his stick) it gets there at airHeight (m above the floor) on its way down, launched no
      * steeper than airAngle (rad) so that its arc peaks at about airApex (m; a little more with
      * the human's strength error): a tense, low pass, the flatter the faster. Charged: faster and
      * flatter, still at airHeight. From airEnd (m) on it is the pass above (it lands landShort
-     * before him); in between, a blend. Real physics all the way: only the launch is chosen.
-     * airHeight 0 = the pass of v0.1.27 at every distance. */
+     * before him); in between, a blend (none at the factory values: a blend arrived fast and low,
+     * hard to control). Real physics all the way: only the launch is chosen. airHeight 0 = the
+     * pass of v0.1.27 at every distance. */
     driveAirHeight: 0.5,
     driveAirApex: 1.15,
     driveAirAngle: 0.296706,
