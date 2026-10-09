@@ -17,10 +17,12 @@ export interface Settings {
   passArrow: boolean;
   /** Reticle on the goal showing where the shot would go (F1.5a, default on). */
   shotReticle: boolean;
+  /** Short vibrations on the phone (v0.1.29: a perfect remate en el aire; default on). */
+  vibration: boolean;
 }
 
 const STORAGE_KEY = 'patins.settings.v1';
-const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv', assist: 'medium', passArrow: true, shotReticle: true };
+const DEFAULTS: Settings = { language: 'ca', quality: DEFAULT_QUALITY, tuningMode: false, camera: 'tv', assist: 'medium', passArrow: true, shotReticle: true, vibration: true };
 
 /**
  * Revision of the assist default. v0.1.21 made Mitjana the default: a device that saved its
@@ -42,6 +44,7 @@ export function loadSettings(): Settings {
       assist: Number(data.assistRev) >= ASSIST_REV && isAssistLevel(data.assist) ? data.assist : DEFAULTS.assist,
       passArrow: typeof data.passArrow === 'boolean' ? data.passArrow : DEFAULTS.passArrow,
       shotReticle: typeof data.shotReticle === 'boolean' ? data.shotReticle : DEFAULTS.shotReticle,
+      vibration: typeof data.vibration === 'boolean' ? data.vibration : DEFAULTS.vibration,
     };
   } catch {
     return { ...DEFAULTS };

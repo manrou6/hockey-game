@@ -20,6 +20,7 @@ import { saveSettings } from './ui/settings';
 import { createWorld, stepWorld } from './sim/world';
 import { passPower } from './sim/pass';
 import { shotPower } from './sim/shot';
+import { VolleyFeedback } from './game/volleyFeedback';
 
 registerSW({ immediate: true });
 
@@ -88,10 +89,23 @@ const menu = new Menu(settings, {
   onShotReticleChange: (on) => {
     renderer.showShotReticle = on;
   },
+  onVibrationChange: () => {
+    /* read from settings on every perfect strike */
+  },
 });
 game.world.assist = settings.assist;
 renderer.showPassArrow = settings.passArrow;
 renderer.showShotReticle = settings.shotReticle;
+
+// Remate en el aire feedback outside the sim: the panel's live diagnosis and the vibration of a
+// perfect strike (Android; ignored where navigator.vibrate does not exist).
+const volleyFeedback = new VolleyFeedback(game.world, (pattern) => {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* no vibration on this device */
+  }
+});
 
 // PASE button: while it's held an arc fills with the power; its colour is the height chosen
 // by sliding up (white = low, orange = driven lofted, purple = lob), like the arrow.
@@ -122,6 +136,9 @@ game.onFrame(() => {
   shootButton.classList.toggle('volley', volleyOn);
   shootButton.classList.toggle('volley-good', volleyOn && volley.good);
   if (volleyOn) shootButton.style.setProperty('--charge', String(Math.max(0.08, volley.progress)));
+  // Live diagnosis for the panel and the vibration of a perfect strike (v0.1.29).
+  volleyFeedback.update(game.world, game.slowMo.scale, TUNING, settings.vibration);
+  if (tuningPanel.isOpen) tuningPanel.showDiagnosis(volleyFeedback.diagnosis);
 });
 
 // Camera: in-game button cycles TV → close → tactical; the choice is remembered.

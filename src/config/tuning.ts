@@ -38,6 +38,33 @@ export const TUNING = {
     rampOut: 0.1,
     lead: 0.12,
   },
+  /**
+   * Cue of the remate en el aire ON THE BALL (v0.1.29, asked by Guillem: he watches the ball,
+   * not the TIR button): while the window is open a gold ring around the drawn ball closes from
+   * startSize to endSize (× the drawn ball's radius, so it reads with the far TV camera too) as
+   * the good moment comes, and flashes brighter during the good timing; it fades out over
+   * flashTime (s) once the window closes. thickness = the ring's line as a fraction of its radius;
+   * opacity 0..1. ball 1 = on, 0 = only the TIR button.
+   */
+  volleyCue: {
+    ball: 1,
+    startSize: 5,
+    endSize: 1.7,
+    thickness: 0.16,
+    opacity: 0.85,
+    flashTime: 0.15,
+  },
+  /**
+   * Vibration of the phone (v0.1.29; Configuració → Vibració, on by default): a remate en el
+   * aire with perfect timing (within volley.good of the good moment) gives a short pulse of
+   * volleyMs (ms), and, if volleyTailMs > 0, after a gap of volleyGapMs a shorter tail pulse.
+   * Devices without vibration simply ignore it.
+   */
+  haptics: {
+    volleyMs: 32,
+    volleyGapMs: 45,
+    volleyTailMs: 14,
+  },
   /** Skater movement (docs/03 §1). Speeds m/s, accelerations m/s², angles rad. */
   skating: {
     /** Collision radius of a player on the rink plane. */

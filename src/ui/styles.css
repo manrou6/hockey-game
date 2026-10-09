@@ -237,6 +237,10 @@
 .tp-icon-btn[hidden] { display: none; }
 .tp-status { margin: 4px 0; color: var(--ui-muted); font-size: 13px; min-height: 0; }
 .tp-status:empty { display: none; }
+/* Live diagnosis of the remate en el aire (v0.1.29): gold while the window is open. */
+.tp-diag { margin: 4px 0; font-size: 12px; line-height: 1.35; color: var(--ui-muted); }
+.tp-diag:empty { display: none; }
+.tp-diag.open { color: #ffe08a; }
 .tp-copybox { width: 100%; box-sizing: border-box; font: 12px ui-monospace, monospace; color: #000; }
 .tp-copybox[hidden] { display: none; }
 .tp-section { margin-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
