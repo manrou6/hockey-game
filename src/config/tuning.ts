@@ -42,16 +42,17 @@ export const TUNING = {
    * Cue of the remate en el aire ON THE BALL (v0.1.29, asked by Guillem: he watches the ball,
    * not the TIR button): while the window is open a gold ring around the drawn ball closes from
    * startSize to endSize (× the drawn ball's radius, so it reads with the far TV camera too) as
-   * the good moment comes, and flashes brighter during the good timing; it fades out over
+   * the good moment comes, and flashes brighter and flashSize × bigger during the good timing; it fades out over
    * flashTime (s) once the window closes. thickness = the ring's line as a fraction of its radius;
    * opacity 0..1. ball 1 = on, 0 = only the TIR button.
    */
   volleyCue: {
     ball: 1,
-    startSize: 5,
-    endSize: 1.7,
-    thickness: 0.16,
+    startSize: 8,
+    endSize: 2.6,
+    thickness: 0.24,
     opacity: 0.85,
+    flashSize: 1.35,
     flashTime: 0.15,
   },
   /**

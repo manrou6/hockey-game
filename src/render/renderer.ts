@@ -283,15 +283,22 @@ export class Renderer {
     return disc;
   }
 
-  /** Redraw the halo's white ring when its thickness (a fraction of the radius) changes. */
+  /**
+   * Redraw the halo's ring when its thickness (a fraction of the radius) changes: a white ring
+   * (tinted gold by the material) over a darker, wider one so it reads on the floor's white lines.
+   */
   private drawVolleyHalo(thickness: number): void {
     const ctx = this.volleyHaloTex.getContext() as CanvasRenderingContext2D;
     ctx.clearRect(0, 0, 128, 128);
-    const width = Math.max(1, Math.min(60, 60 * thickness));
+    const width = Math.max(1, Math.min(52, 60 * thickness));
+    const r = 60 - width / 2;
+    ctx.beginPath();
+    ctx.arc(64, 64, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(40,24,0,0.55)';
+    ctx.lineWidth = width + 8;
+    ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,1)';
     ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.arc(64, 64, 62 - width / 2, 0, Math.PI * 2);
     ctx.stroke();
     this.volleyHaloTex.update();
     this.volleyHaloThickness = thickness;
@@ -299,7 +306,7 @@ export class Renderer {
 
   /**
    * While the window is open the ring closes from startSize to endSize (× the drawn ball's
-   * radius) as the good moment comes, and flashes (whiter, a bit bigger) during good timing;
+   * radius) as the good moment comes, and flashes (whiter, opaque, flashSize × bigger) during good timing;
    * once it closes it fades out over flashTime.
    */
   private syncVolleyHalo(world: WorldState, x: number, y: number, z: number, ballRadius: number, dt: number): void {
@@ -315,12 +322,12 @@ export class Renderer {
     if (!halo.isVisible) return;
     if (k.thickness !== this.volleyHaloThickness) this.drawVolleyHalo(k.thickness);
     const size = k.startSize + (k.endSize - k.startSize) * Math.min(1, Math.max(0, this.volleyHaloProgress));
-    halo.scaling.setAll(Math.max(0.01, ballRadius * size * (this.volleyHaloGood ? 1.15 : 1)));
+    halo.scaling.setAll(Math.max(0.01, ballRadius * size * (this.volleyHaloGood ? Math.max(1, k.flashSize) : 1)));
     halo.position.set(x, y, z);
     const mat = halo.material as StandardMaterial;
     if (this.volleyHaloGood) mat.emissiveColor.set(1, 0.97, 0.75);
     else mat.emissiveColor.set(1, 0.8, 0.25);
-    mat.alpha = Math.min(1, Math.max(0, k.opacity)) * this.volleyHaloFade;
+    mat.alpha = (this.volleyHaloGood ? 1 : Math.min(1, Math.max(0, k.opacity))) * this.volleyHaloFade;
   }
 
   /** Soft disc on the floor under the ball (readability; fades as the ball rises). */

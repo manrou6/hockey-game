@@ -400,6 +400,7 @@
   "tuning.volleyCue.endSize": "Mida al moment bo (× la bola)",
   "tuning.volleyCue.thickness": "Gruix de la línia",
   "tuning.volleyCue.opacity": "Opacitat",
+  "tuning.volleyCue.flashSize": "Mida del destell (× l'anell)",
   "tuning.volleyCue.flashTime": "Temps a esvair-se",
   "tuning.section.haptics": "Vibració del remat perfecte",
   "tuning.haptics.volleyMs": "Pols",

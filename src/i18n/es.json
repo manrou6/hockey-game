@@ -400,6 +400,7 @@
   "tuning.volleyCue.endSize": "Tamaño en el momento bueno (× la bola)",
   "tuning.volleyCue.thickness": "Grosor de la línea",
   "tuning.volleyCue.opacity": "Opacidad",
+  "tuning.volleyCue.flashSize": "Tamaño del destello (× el anillo)",
   "tuning.volleyCue.flashTime": "Tiempo en desvanecerse",
   "tuning.section.haptics": "Vibración del remate perfecto",
   "tuning.haptics.volleyMs": "Pulso",
