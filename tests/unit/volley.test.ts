@@ -251,6 +251,37 @@ describe('F1.5e: the real volley', () => {
     expect(maxZ).toBeLessThan(1.4);
   });
 
+  it('v0.1.29: aiming the stick away from the pass (at the goal) while it flies: he keeps meeting it, the window opens and he takes it down', () => {
+    const t = tuningWith((x) => {
+      x.pass.errorBase = x.pass.errorSprint = x.pass.errorPressure = x.pass.errorOffBalance = x.pass.errorPower = 0;
+      x.mates.move = 0;
+    });
+    const w = drivenPass(t, 12);
+    let opened = false;
+    for (let i = 0; i < 120 && w.ball.owner !== 1; i++) {
+      // 90° away from the pass (more than the switch latch's 45°).
+      stepWorld(w, [cmd({ moveY: 1 })], t);
+      if (w.volley.open) opened = true;
+    }
+    expect(opened).toBe(true);
+    expect(w.ball.owner).toBe(1);
+  });
+
+  it('... and a tap of TIR at the good moment, stick aimed away, strikes it in the air', () => {
+    const t = tuningWith((x) => {
+      exact(x);
+      x.pass.errorBase = x.pass.errorSprint = x.pass.errorPressure = x.pass.errorOffBalance = x.pass.errorPower = 0;
+      x.mates.move = 0;
+    });
+    const w = drivenPass(t, 12);
+    for (let i = 0; i < 120 && w.lastShotTick < 0; i++) {
+      const tap = w.volley.good && w.ball.owner < 0;
+      stepWorld(w, [cmd({ moveY: 1, shoot: tap, shootHeld: false })], t);
+    }
+    expect(w.lastShot.aerial).toBe(true);
+    expect(Math.abs(w.lastShot.timing)).toBeLessThanOrEqual(V.good + 1e-9);
+  });
+
   it('... and with a tap of TIR when the button flashes it is struck in the air, at its height (no lowering it first)', () => {
     const t = tuningWith((x) => {
       exact(x);

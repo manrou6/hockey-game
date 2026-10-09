@@ -118,11 +118,12 @@
 .action-pass.drive, .action-shoot.drive { --arc-color: var(--ui-accent); }
 .action-pass.lob, .action-shoot.lob { --arc-color: #b16cff; }
 .action-shoot { font-size: 17px !important; background: rgba(230, 57, 70, 0.22); border-color: rgba(255, 140, 140, 0.7); }
-/* Remate en el aire (F1.5d): TIR lights up while a ball in the air comes to the stick; its arc, in
-   the button's colour, fills up to the good moment (the ball at the stick) and then flashes. */
-.action-shoot.volley { box-shadow: 0 0 10px 3px rgba(255, 110, 110, 0.75); background: rgba(230, 57, 70, 0.4); --arc-color: #ff8080; }
-.action-shoot.volley::after { opacity: 1; }
-.action-shoot.volley-good { box-shadow: 0 0 18px 7px rgba(255, 230, 150, 0.95); --arc-color: #ffe08a; background: rgba(255, 120, 90, 0.55); }
+/* Remate en el aire (F1.5d): TIR lights up while a ball in the air comes to the stick; its arc
+   fills up to the good moment (the ball at the stick) and then flashes. Gold like the ring on the
+   ball (v0.1.29: the red-on-red cue went unnoticed), with no fade-in (it lasts ~0.3 s). */
+.action-shoot.volley { box-shadow: 0 0 14px 5px rgba(255, 200, 80, 0.85); border-color: #ffd36b; background: rgba(230, 57, 70, 0.4); --arc-color: #ffd36b; }
+.action-shoot.volley::after { opacity: 1; transition: none; }
+.action-shoot.volley-good { box-shadow: 0 0 24px 10px rgba(255, 240, 180, 1); --arc-color: #fff3c4; background: rgba(255, 200, 80, 0.55); }
 .action-dribble { font-size: 14px !important; }
 /* CANVI (switch player): smaller and quieter than the main actions. */
 .action-switch { font-size: 12px !important; background: rgba(110, 235, 255, 0.12); border-color: rgba(110, 235, 255, 0.55); }

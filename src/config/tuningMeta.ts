@@ -265,10 +265,12 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     id: 'volleyCue',
     params: [
       { path: 'volleyCue.ball', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'volleyCue.lead', min: 0.1, max: 0.5, step: 0.01, unit: 's' },
       { path: 'volleyCue.startSize', min: 1, max: 12, step: 0.5, unit: '×' },
       { path: 'volleyCue.endSize', min: 1, max: 6, step: 0.1, unit: '×' },
       { path: 'volleyCue.thickness', min: 5, max: 50, step: 1, unit: '%', scale: 100 },
       { path: 'volleyCue.opacity', min: 10, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'volleyCue.earlyOpacity', min: 0, max: 100, step: 5, unit: '%', scale: 100 },
       { path: 'volleyCue.flashSize', min: 1, max: 2, step: 0.05, unit: '×' },
       { path: 'volleyCue.flashTime', min: 0.02, max: 0.6, step: 0.01, unit: 's' },
     ],

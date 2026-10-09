@@ -89,6 +89,7 @@ export class Renderer {
   private volleyHaloThickness = -1;
   private volleyHaloFade = 0;
   private volleyHaloProgress = 0;
+  private volleyHaloDim = 1;
   private volleyHaloGood = false;
   /** The ball seen through whatever hides it (drawn only where something is in front of it). */
   private readonly ballGhost: Mesh;
@@ -305,18 +306,22 @@ export class Renderer {
   }
 
   /**
-   * While the window is open the ring closes from startSize to endSize (× the drawn ball's
-   * radius) as the good moment comes, and flashes (whiter, opaque, flashSize × bigger) during good timing;
+   * From `lead` s before a ball in the air gets to the stick (fainter until the TIR window
+   * opens) the ring closes from startSize to endSize (× the drawn ball's radius) as the good
+   * moment comes, and flashes (whiter, opaque, flashSize × bigger) during good timing;
    * once it closes it fades out over flashTime.
    */
   private syncVolleyHalo(world: WorldState, x: number, y: number, z: number, ballRadius: number, dt: number): void {
     const k = TUNING.volleyCue;
     const v = world.volley;
     const halo = this.volleyHalo;
-    if (k.ball >= 0.5 && v.open && world.ball.owner < 0) {
+    const loose = k.ball >= 0.5 && world.ball.owner < 0;
+    const early = loose && !v.open && v.incoming && v.found && v.contactTick < 0 && v.time <= k.lead;
+    if ((loose && v.open) || early) {
       this.volleyHaloFade = 1;
-      this.volleyHaloProgress = v.progress;
-      this.volleyHaloGood = v.good;
+      this.volleyHaloProgress = v.contactTick >= 0 ? 1 : 1 - v.time / Math.max(1e-3, k.lead);
+      this.volleyHaloGood = v.open && v.good;
+      this.volleyHaloDim = v.open ? 1 : Math.min(1, Math.max(0, k.earlyOpacity));
     } else this.volleyHaloFade = Math.max(0, this.volleyHaloFade - dt / Math.max(0.01, k.flashTime));
     halo.isVisible = this.volleyHaloFade > 0;
     if (!halo.isVisible) return;
@@ -327,7 +332,7 @@ export class Renderer {
     const mat = halo.material as StandardMaterial;
     if (this.volleyHaloGood) mat.emissiveColor.set(1, 0.97, 0.75);
     else mat.emissiveColor.set(1, 0.8, 0.25);
-    mat.alpha = (this.volleyHaloGood ? 1 : Math.min(1, Math.max(0, k.opacity))) * this.volleyHaloFade;
+    mat.alpha = (this.volleyHaloGood ? 1 : Math.min(1, Math.max(0, k.opacity)) * this.volleyHaloDim) * this.volleyHaloFade;
   }
 
   /** Soft disc on the floor under the ball (readability; fades as the ball rises). */

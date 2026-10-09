@@ -64,9 +64,16 @@ describe('slow-mo profile', () => {
     const good = TUNING.volley.good;
     // The slow-mo starts `lead` s of game time before the contact.
     const real = realFor(K.lead - good, 2 * good, K);
-    expect(real).toBeGreaterThan(2 * good * 1.3);
+    expect(real).toBeGreaterThan(2 * good * 1.25);
     expect(real).toBeLessThan((2 * good) / K.scale + 1e-6);
     expect(slowMoGameTime(K.duration, K)).toBeLessThan(K.duration);
+  });
+  it('v0.1.29: it starts as the TIR window opens and slows the approach: the ball gets to the stick ≥ 0.1 s later', () => {
+    expect(K.lead).toBeCloseTo(TUNING.volley.windowTime / 2, 9);
+    // Real time from the start to the contact (lead s of game time), against lead s without it.
+    expect(realFor(0, K.lead, K) - K.lead).toBeGreaterThanOrEqual(0.1);
+    // Most of the slow-mo is before the contact (v0.1.28: ~60 % after it).
+    expect(realFor(0, K.lead, K)).toBeGreaterThan(K.duration * 0.75);
   });
 });
 
