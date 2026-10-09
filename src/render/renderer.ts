@@ -42,6 +42,8 @@ const STICK_REACH = 1.35;
 const REACH_DISTANCE = 1.2;
 const REACH_MIN_HEIGHT = 0.12;
 const REACH_MAX_HEIGHT = 1.6;
+/** Time constant (s) of the drawn drop of a ball taken down from the air onto the stick. */
+const BALL_DROP_TIME = 0.06;
 
 interface StickRig {
   pivot: TransformNode;
@@ -76,6 +78,9 @@ export class Renderer {
   /** The ball's simulated position this frame (render coordinates, not enlarged): what sticks reach for. */
   private readonly ballSim = new Vector3();
   private readonly tmpVec2 = new Vector3();
+  /** Drawn height of the ball last frame, and how far above its sim height it is drawn now (m). */
+  private lastBallY = 0;
+  private ballDrop = 0;
   private readonly ballMesh: Mesh;
   private readonly ballMarker: Mesh;
   /** The ball seen through whatever hides it (drawn only where something is in front of it). */
@@ -544,7 +549,12 @@ export class Renderer {
     const sizeFactor = (camDist / k.visualRefDistance) * this.cameraRig.ballScale;
     const scale = Math.max(1, k.visualScale * sizeFactor);
     this.ballMesh.scaling.setAll(scale);
-    this.ballMesh.position.set(bx, by + BALL_RADIUS * (scale - 1), bz);
+    // A pass taken down from the air (F1.5e) is on the stick at once in the sim: draw it dropping.
+    if (b.owner >= 0 && this.lastBallY - by > 0.15) this.ballDrop = this.lastBallY - by;
+    else if (b.owner < 0) this.ballDrop = 0;
+    this.ballDrop *= Math.exp(-frameSeconds / BALL_DROP_TIME);
+    this.lastBallY = by + this.ballDrop;
+    this.ballMesh.position.set(bx, by + this.ballDrop + BALL_RADIUS * (scale - 1), bz);
     // Silhouette through the near board: only close to it (the board is the −z side).
     const ghost = this.ballGhost;
     const nearBoard = bz + RINK.width / 2;

@@ -290,10 +290,8 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'receive.showFeedback', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'receive.feedbackTime', min: 0.1, max: 2, step: 0.05, unit: 's' },
       { path: 'receive.highMaxHeight', min: 0.35, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'receive.highEasySpeed', min: 0, max: 30, step: 0.5, unit: 'm/s' },
       { path: 'receive.highPenalty', min: 0, max: 1, step: 0.05, unit: '' },
-      { path: 'receive.cushionKeep', min: 0, max: 50, step: 5, unit: '%', scale: 100 },
-      { path: 'receive.cushionDrop', min: 0, max: 5, step: 0.25, unit: 'm/s' },
-      { path: 'receive.cushionTime', min: 0.1, max: 1, step: 0.05, unit: 's' },
     ],
   },
   {

@@ -200,8 +200,6 @@ function dryRun(c: VolleyCase, level: AssistLevel, tuning: Tuning, seed: number)
   let best = Infinity;
   let prevZ = R;
   let prevRel = Number.NaN;
-  let cushioned = false;
-  const cw = w as unknown as { lastCushionTick?: number; lastCushionPlayer?: number };
   for (let i = 0; i < 240; i++) {
     const r0 = w.players[s.rx]!;
     prevZ = w.ball.z;
@@ -212,25 +210,15 @@ function dryRun(c: VolleyCase, level: AssistLevel, tuning: Tuning, seed: number)
     if (w.ball.owner < 0) out.apex = Math.max(out.apex, prevZ - R, w.ball.z - R);
     const r = w.players[s.rx]!;
     const view = (w as unknown as { volley?: { found: boolean; time: number } }).volley;
-    if (!cushioned && view?.found && w.controlled === s.rx) out.cueTick = i + Math.round(view.time / TICK);
-    // A driven pass blocked in the air (F1.5e): the contact is there, the reception comes once it drops.
-    if (!cushioned && cw.lastCushionPlayer === s.rx && cw.lastCushionTick === w.tick - 1) {
-      cushioned = true;
-      out.contactTick = i;
-      out.height = w.ball.z - R;
-      out.relSpeed = prevRel;
-    }
+    if (view?.found && w.controlled === s.rx) out.cueTick = i + Math.round(view.time / TICK);
     if (w.lastReceptionPlayer === s.rx && w.lastReceptionTick === w.tick - 1 && out.outcome < 0) {
       out.outcome = w.lastReceptionOutcome;
-      if (!cushioned) {
-        // Where the ball was when he got it: the reception's own tick (before it was picked up).
-        out.contactTick = i;
-        out.height = prevZ - R;
-        out.relSpeed = prevRel;
-      }
+      // Where the ball was when he got it: the reception's own tick (before it was picked up).
+      out.contactTick = i;
+      out.height = prevZ - R;
+      out.relSpeed = prevRel;
       break;
     }
-    if (cushioned) continue;
     if (w.ball.owner >= 0) break;
     const dist = Math.hypot(w.ball.x - r.x, w.ball.y - r.y);
     if (dist < best && dist <= 1.2) {

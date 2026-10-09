@@ -360,8 +360,8 @@ export const TUNING = {
     driveAirHeight: 0.5,
     driveAirApex: 1.15,
     driveAirAngle: 0.296706,
-    driveAirFull: 16,
-    driveAirEnd: 20,
+    driveAirFull: 16.5,
+    driveAirEnd: 16.5,
     /** Lob (physical arc): launch angle (rad), lands this far before the receiver (m),
      * maximum launch speed (m/s), and distance range to nobody (by power). */
     loftAngle: 0.5235988,
@@ -415,7 +415,7 @@ export const TUNING = {
     idealLow: 0.3,
     idealHigh: 0.7,
     lowPenalty: 0.5,
-    highPenalty: 0.5,
+    highPenalty: 0.1,
     lookahead: 0.5,
     lowTarget: 0.25,
   },
@@ -473,18 +473,15 @@ export const TUNING = {
      * green clean, yellow heavy touch, orange rebound, red miss; it lasts feedbackTime (s). */
     showFeedback: 1,
     feedbackTime: 0.6,
-    /** A driven pass that comes in the air (F1.5e, v0.1.28): above dribble.pickupMaxHeight it
-     * can't be picked up directly, so its receiver blocks it with the stick, up to highMaxHeight
-     * (m above the floor); the one you control, at his stick (where he would strike it). One
-     * reception roll as always, with highPenalty instead of heightPenalty and no bounce penalty
-     * (it is flying); controlled, it drops at cushionDrop (m/s), the stick bringing it to his
-     * blade, keeping cushionKeep of its speed relative to him, and it is his as soon as it is low
-     * enough (within cushionTime s, no second roll); a rebound or a miss as any reception. */
+    /** A driven pass that comes in the air (F1.5e, v0.1.28): above dribble.pickupMaxHeight a
+     * ball can't be picked up, but its receiver takes the pass down with the stick, up to
+     * highMaxHeight (m above the floor); the one you control, at his stick (where he would
+     * strike it). One reception roll as always, with its speed counting from highEasySpeed
+     * (m/s; it has not lost speed bouncing), highPenalty instead of heightPenalty and no bounce
+     * penalty (it is flying); controlled, it is at his stick. */
     highMaxHeight: 1.2,
-    highPenalty: 0.15,
-    cushionKeep: 0.15,
-    cushionDrop: 2,
-    cushionTime: 0.5,
+    highEasySpeed: 16,
+    highPenalty: 0.1,
   },
   /**
    * Pass assist (docs/03 §3): the teammate closest to the aimed direction inside the cone is

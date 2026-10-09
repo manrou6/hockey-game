@@ -286,7 +286,7 @@ describe('passing to the teammates (world)', () => {
     }
   });
 
-  it('held (F1.5e): the driven lofted pass reaches a teammate 9 m away in the air, at about driveAirHeight, after a low arc, and he blocks it and keeps it', () => {
+  it('held (F1.5e): the driven lofted pass reaches a teammate ~12 m away in the air, at about driveAirHeight, after a low arc, and he takes it down and keeps it', () => {
     const tuning = tuningWith((t) => {
       exact(t);
       t.mates.move = 0;
@@ -301,18 +301,20 @@ describe('passing to the teammates (world)', () => {
     expect(w.passAir).toBe(1);
     let maxZ = 0;
     let floor = false;
-    let cushionAt = Number.NaN;
+    let takenAt = Number.NaN;
+    let prevZ = w.ball.z;
     expect(
       runUntil(w, cmd(), tuning, () => {
         maxZ = Math.max(maxZ, w.ball.z - RINK.ballRadius);
-        if (w.events.some((e) => e.type === 'floor') && Number.isNaN(cushionAt)) floor = true;
-        if (w.lastCushionPlayer === 2 && w.lastCushionTick === w.tick - 1) cushionAt = w.ball.z - RINK.ballRadius;
+        if (w.events.some((e) => e.type === 'floor') && Number.isNaN(takenAt)) floor = true;
+        if (w.lastHighPlayer === 2 && w.lastHighTick === w.tick - 1) takenAt = prevZ - RINK.ballRadius;
+        prevZ = w.ball.z;
         return w.ball.owner === 2;
       }, 300),
     ).toBeGreaterThanOrEqual(0);
     expect(floor).toBe(false); // it never lands before him
-    expect(cushionAt).toBeGreaterThan(0.3);
-    expect(cushionAt).toBeLessThan(1);
+    expect(takenAt).toBeGreaterThan(0.3);
+    expect(takenAt).toBeLessThan(1);
     expect(maxZ).toBeLessThan(1.4);
     expect(m.receivedKind).toBe(PASS_DRIVE);
   });
@@ -335,7 +337,7 @@ describe('passing to the teammates (world)', () => {
         step(w, cmd(), tuning);
         // Stop at the first floor contact or when someone touches it (on the stick, or blocked in
         // the air by its receiver: F1.5e).
-        if (w.events.some((e) => e.type === 'floor') || w.ball.owner >= 0 || w.lastCushionTick === w.tick - 1) break;
+        if (w.events.some((e) => e.type === 'floor') || w.ball.owner >= 0 || w.lastHighTick === w.tick - 1) break;
         expect(Math.atan2(w.ball.vy, w.ball.vx)).toBeCloseTo(dir, 6);
         expect(w.ball.vz - vz).toBeLessThan(-GRAVITY * DT * 0.95);
         expect(w.ball.vz - vz).toBeGreaterThan(-GRAVITY * DT * 1.2);

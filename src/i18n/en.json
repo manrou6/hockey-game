@@ -383,9 +383,7 @@
   "tuning.slowMo.rampIn": "Ease in",
   "tuning.slowMo.rampOut": "Ease out",
   "tuning.slowMo.lead": "Starts before the ball reaches the stick",
-  "tuning.receive.highMaxHeight": "High ball: highest it can be blocked with the stick",
-  "tuning.receive.highPenalty": "High ball: difficulty of blocking it in the air",
-  "tuning.receive.cushionKeep": "High ball blocked: speed it keeps",
-  "tuning.receive.cushionDrop": "High ball blocked: drop speed",
-  "tuning.receive.cushionTime": "High ball blocked: time to make it his"
+  "tuning.receive.highMaxHeight": "High ball: highest it can be taken down with the stick",
+  "tuning.receive.highPenalty": "High ball: difficulty of taking it down from the air",
+  "tuning.receive.highEasySpeed": "High ball: up to this speed it is no harder"
 }

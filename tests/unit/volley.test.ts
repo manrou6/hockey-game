@@ -229,7 +229,7 @@ describe('F1.5e: the real volley', () => {
     return w;
   }
 
-  it('a teammate\'s driven lofted pass (12 m) gets to the receiver in the air; without TIRO he blocks it at his stick and keeps it', () => {
+  it('a teammate\'s driven lofted pass (12 m) gets to the receiver in the air; without TIRO he takes it down at his stick and keeps it', () => {
     const t = tuningWith((x) => {
       x.pass.errorBase = x.pass.errorSprint = x.pass.errorPressure = x.pass.errorOffBalance = x.pass.errorPower = 0;
       x.mates.move = 0;
@@ -240,9 +240,10 @@ describe('F1.5e: the real volley', () => {
     let blockedAt = Number.NaN;
     let maxZ = 0;
     for (let i = 0; i < 120 && w.ball.owner !== 1; i++) {
+      const z = w.ball.z;
       stepWorld(w, [cmd()], t);
       maxZ = Math.max(maxZ, w.ball.z - R);
-      if (w.lastCushionPlayer === 1 && w.lastCushionTick === w.tick - 1) blockedAt = w.ball.z - R;
+      if (w.lastHighPlayer === 1 && w.lastHighTick === w.tick - 1) blockedAt = z - R;
     }
     expect(w.ball.owner).toBe(1);
     expect(blockedAt).toBeGreaterThan(0.3);

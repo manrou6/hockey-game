@@ -109,7 +109,7 @@ run('volley skill cap (F1.5d)', () => {
     const t = BASE_TUNING();
     for (const [dist, angle] of [[7, 0], [7, 30], [7, 55], [10, 0]] as const) {
       for (const speed of [6, 10, 14, 18]) {
-        const cols = [0.05, 0.2, 0.45, 0.8, 1.0].map((height) => `${height.toFixed(2)} m ${fmtDirect(runVolleyDirect(t, 'medium', { dist, angle, speed, height, timing: 0.07 })).replace(/ \| contact.*/, '')}`);
+        const cols = [0.2, 0.45, 0.8, 1.0, 1.3].map((height) => `${height.toFixed(2)} m ${fmtDirect(runVolleyDirect(t, 'medium', { dist, angle, speed, height, timing: 0.07 })).replace(/ \| contact.*/, '')}`);
         console.log(`VOLD ${dist} m ${String(angle).padStart(2)}° ${String(speed).padStart(2)} m/s | ${cols.join(' || ')}`);
       }
     }

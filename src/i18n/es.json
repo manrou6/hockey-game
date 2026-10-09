@@ -383,9 +383,7 @@
   "tuning.slowMo.rampIn": "Rampa de entrada",
   "tuning.slowMo.rampOut": "Rampa de salida",
   "tuning.slowMo.lead": "Empieza antes de que la bola llegue al stick",
-  "tuning.receive.highMaxHeight": "Bola alta: altura máxima para pararla con el stick",
-  "tuning.receive.highPenalty": "Bola alta: dificultad de pararla en el aire",
-  "tuning.receive.cushionKeep": "Bola alta parada: velocidad que conserva",
-  "tuning.receive.cushionDrop": "Bola alta parada: velocidad de caída",
-  "tuning.receive.cushionTime": "Bola alta parada: tiempo para hacerla suya"
+  "tuning.receive.highMaxHeight": "Bola alta: altura máxima para bajarla con el stick",
+  "tuning.receive.highPenalty": "Bola alta: dificultad de bajarla del aire",
+  "tuning.receive.highEasySpeed": "Bola alta: hasta esta velocidad no cuesta más"
 }
