@@ -370,5 +370,20 @@
   "tuning.mates.switchMargin": "Canvi automàtic: ha de ser més a prop per",
   "tuning.mates.switchDelay": "Canvi automàtic: durant",
   "tuning.mates.switchCooldown": "Temps mínim entre canvis",
-  "tuning.game.speed": "Velocitat de joc (tot el joc alhora)"
+  "tuning.game.speed": "Velocitat de joc (tot el joc alhora)",
+  "tuning.pass.driveAirHeight": "Alta forta: alçada a què arriba al company (0 = com la v0.1.27)",
+  "tuning.pass.driveAirApex": "Alta forta: alçada màxima de l'arc",
+  "tuning.pass.driveAirAngle": "Alta forta: angle màxim de sortida (passades curtes)",
+  "tuning.pass.driveAirFull": "L'alta forta arriba per l'aire fins a (distància)",
+  "tuning.pass.driveAirEnd": "Des d'aquesta distància, l'alta forta d'abans (bota abans)",
+  "tuning.section.slowMo": "Càmera lenta del remat a l'aire",
+  "tuning.slowMo.enabled": "Càmera lenta mentre arriba la bola",
+  "tuning.slowMo.scale": "Velocitat durant la càmera lenta",
+  "tuning.slowMo.duration": "Durada total (temps real)",
+  "tuning.slowMo.rampIn": "Rampa d'entrada",
+  "tuning.slowMo.rampOut": "Rampa de sortida",
+  "tuning.slowMo.lead": "Comença abans que la bola arribi al stick",
+  "tuning.receive.highMaxHeight": "Bola alta: alçada màxima per baixar-la amb el stick",
+  "tuning.receive.highPenalty": "Bola alta: dificultat de baixar-la de l'aire",
+  "tuning.receive.highEasySpeed": "Bola alta: fins a aquesta velocitat no costa més"
 }

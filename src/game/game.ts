@@ -5,6 +5,7 @@ import type { Renderer } from '../render/renderer';
 import { FixedStepLoop } from './fixedStepLoop';
 import { FrameStats } from './frameStats';
 import { gameSeconds } from './gameSpeed';
+import { SlowMo } from './slowMo';
 
 /** Teammates on the rink next to the human's player (passing test bench, F1.4). */
 export const TEAMMATES = 2;
@@ -24,6 +25,8 @@ export class Game {
   readonly frameStats = new FrameStats(240);
   /** CPU time spent inside our frame callback (sim + render submit), ms. */
   readonly workStats = new FrameStats(240);
+  /** Slow-mo of the remate en el aire (F1.5e): its time scale multiplies the game speed. */
+  readonly slowMo = new SlowMo();
   /** Current command per controlled player (read-only outside; exposed for tests). */
   readonly commands: PlayerCommand[] = [emptyCommand()];
   private lastTime = -1;
@@ -62,8 +65,10 @@ export class Game {
     if (!this.paused) {
       if (this.input) this.input.read(this.commands[0]!);
       const cmd = this.commands[0]!;
-      // Game speed (panel): more or fewer fixed ticks per real second; the sim is untouched.
-      this.loop.advance(gameSeconds(frameMs / 1000), () => {
+      // Game speed (panel) and the volley slow-mo: more or fewer fixed ticks per real second; the
+      // sim is untouched.
+      const scale = this.slowMo.update(this.world, Math.min(frameMs, 100) / 1000, TUNING.slowMo);
+      this.loop.advance(gameSeconds(frameMs / 1000) * scale, () => {
         stepWorld(this.world, this.commands, TUNING);
         if (cmd.pass || cmd.shoot || cmd.dribble || cmd.switchPlayer) {
           cmd.pass = cmd.shoot = cmd.dribble = cmd.switchPlayer = false;
@@ -71,7 +76,7 @@ export class Game {
         }
       });
     }
-    this.renderer.sync(this.world, this.loop.alpha, gameSeconds(Math.min(frameMs, 100) / 1000));
+    this.renderer.sync(this.world, this.loop.alpha, gameSeconds(Math.min(frameMs, 100) / 1000) * this.slowMo.scale);
     this.renderer.render();
     this.workStats.push(performance.now() - now);
     for (const cb of this.onFrameCallbacks) cb();

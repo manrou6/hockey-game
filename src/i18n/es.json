@@ -370,5 +370,20 @@
   "tuning.mates.switchMargin": "Cambio automático: debe estar más cerca por",
   "tuning.mates.switchDelay": "Cambio automático: durante",
   "tuning.mates.switchCooldown": "Tiempo mínimo entre cambios",
-  "tuning.game.speed": "Velocidad de juego (todo el juego a la vez)"
+  "tuning.game.speed": "Velocidad de juego (todo el juego a la vez)",
+  "tuning.pass.driveAirHeight": "Alto fuerte: altura a la que llega al compañero (0 = como la v0.1.27)",
+  "tuning.pass.driveAirApex": "Alto fuerte: altura máxima del arco",
+  "tuning.pass.driveAirAngle": "Alto fuerte: ángulo máximo de salida (pases cortos)",
+  "tuning.pass.driveAirFull": "El alto fuerte llega por el aire hasta (distancia)",
+  "tuning.pass.driveAirEnd": "Desde esta distancia, el alto fuerte de antes (bota antes)",
+  "tuning.section.slowMo": "Cámara lenta del remate en el aire",
+  "tuning.slowMo.enabled": "Cámara lenta mientras llega la bola",
+  "tuning.slowMo.scale": "Velocidad durante la cámara lenta",
+  "tuning.slowMo.duration": "Duración total (tiempo real)",
+  "tuning.slowMo.rampIn": "Rampa de entrada",
+  "tuning.slowMo.rampOut": "Rampa de salida",
+  "tuning.slowMo.lead": "Empieza antes de que la bola llegue al stick",
+  "tuning.receive.highMaxHeight": "Bola alta: altura máxima para bajarla con el stick",
+  "tuning.receive.highPenalty": "Bola alta: dificultad de bajarla del aire",
+  "tuning.receive.highEasySpeed": "Bola alta: hasta esta velocidad no cuesta más"
 }

@@ -5,7 +5,7 @@ import type { PlayerCommand } from './commands';
 import type { PlayerState } from './player';
 import { boardSignedDistance, collideBox, goalFootprints, type Contact } from './rink';
 import { nextFloat, type RngState } from './rng';
-import { cutFor, dribbleFor, skatingFor } from './feel';
+import { cutFor, dribbleFor, receiveFor, skatingFor } from './feel';
 
 // Carrying the ball on the stick (docs/03 §2: "imantada" with a margin). At normal speed
 // the ball stays glued to the blade with a tiny touch rhythm; it only separates when
@@ -171,6 +171,22 @@ export function pickupDistance(ball: BallState, p: PlayerState, tuning: Tuning, 
   const b = bladePoint(p, tuning);
   const blade = Math.hypot(ball.x - b.x, ball.y - b.y);
   const inZone = blade <= d.pickupRadius || (reach > 0 && Math.hypot(ball.x - p.x, ball.y - p.y) <= reach);
+  return inZone ? blade : -1;
+}
+
+/**
+ * F1.5e: can the receiver of a driven pass that comes in the air take it down with his stick now?
+ * Like pickupDistance, but for a ball above dribble.pickupMaxHeight up to receive.highMaxHeight
+ * (and also within `bladeReach` m of his blade): its distance from his blade (m), or −1.
+ */
+export function highBallDistance(ball: BallState, p: PlayerState, tuning: Tuning, reach: number, bladeReach = 0): number {
+  const d = dribbleFor(p, tuning);
+  if (ball.owner !== -1 || ball.inGoal !== 0 || p.noPickupTicks > 0) return -1;
+  const h = ball.z - RINK.ballRadius;
+  if (h <= d.pickupMaxHeight || h > receiveFor(p, tuning).highMaxHeight) return -1;
+  const b = bladePoint(p, tuning);
+  const blade = Math.hypot(ball.x - b.x, ball.y - b.y);
+  const inZone = blade <= Math.max(d.pickupRadius, bladeReach) || (reach > 0 && Math.hypot(ball.x - p.x, ball.y - p.y) <= reach);
   return inZone ? blade : -1;
 }
 

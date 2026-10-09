@@ -16,7 +16,8 @@ Aceptación: el enlace abre en el Pixel, se instala como app, 60 fps estables, e
 - Física completa de patinaje y bola (docs/03 §1-2), conducción, pase, tiro con carga, rebote en valla.
 - Ambos esquemas de control + editor de posición de botones + vibración.
 - Regates de docs/03 §4 (al menos 5) con placeholder de animación.
-- Remate en el aire / volea (**F1.5d**, justo después de F1.5c) y **aixecar** + combo **aixecar + picar** (**F1.6**, con los regates): decisiones de Guillem del 2026-10-08 en docs/03 §3-§4 y DECISIONS.md. Ningún botón nuevo (aixecar dentro de REGATE, picar dentro de Xut); una sola regla de remate en el aire (mismo Xut, misma ventana); altura máxima provisional 1,05 m (la regla real de bola alta está marcada [VERIFICAR] en docs/02; las faltas son de F3).
+- Remate en el aire / volea (**F1.5d**, justo después de F1.5c) y **aixecar** + combo **aixecar + picar** (**F1.6**, con los regates): decisiones de Guillem del 2026-10-08 en docs/03 §3-§4 y DECISIONS.md. Ningún botón nuevo (aixecar dentro de REGATE, picar dentro de Xut); una sola regla de remate en el aire (mismo Xut, misma ventana); altura máxima 1,50 m (reglamento 2026, art. 6.3, verificado por Guillem el 2026-10-09; antes 1,05 m provisional; las faltas son de F3).
+- **F1.5e** (v0.1.28, tras la prueba de Guillem de la v0.1.27): la volea de verdad: el alto fuerte llega por el aire a una altura cómoda (0,3-1,0 m, pico ≤ 1,40 m), remate en el aire solo de 0,15 a 1,50 m (reglamento, art. 6.3), recepción de la bola alta y cámara lenta de la ventana. El cierre de F1.5 se aplaza hasta que la volea le guste a Guillem. El gesto de arrastre hacia la portería (volea y picada) se decide en el plan de F1.6.
 - Modo Entrenamiento: pista libre + 3 retos (conos, tiro a zonas, regatear a un defensa estático).
 - Portero IA básico.
 Aceptación: Guillem dice que conducir y regatear "se siente bien" tras una ronda de ajustes; marcar gol al portero básico es posible pero no trivial.

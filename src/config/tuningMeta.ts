@@ -20,7 +20,7 @@ export interface TuningParamMeta {
 }
 
 export interface TuningSectionMeta {
-  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'volley' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
+  id: 'game' | 'skating' | 'cut' | 'dribble' | 'pass' | 'shot' | 'shotError' | 'volley' | 'slowMo' | 'receive' | 'wall' | 'assist' | 'passArrow' | 'mates' | 'ball' | 'input' | 'buttons' | 'camera' | 'cameraTv' | 'cameraClose' | 'cameraTactical';
   params: TuningParamMeta[];
 }
 
@@ -146,6 +146,11 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'pass.driveLandShort', min: 0, max: 5, step: 0.25, unit: 'm' },
       { path: 'pass.driveNoTargetDistance', min: 4, max: 30, step: 0.5, unit: 'm' },
       { path: 'pass.driveNoTargetMaxDistance', min: 6, max: 40, step: 0.5, unit: 'm' },
+      { path: 'pass.driveAirHeight', min: 0, max: 1.2, step: 0.05, unit: 'm' },
+      { path: 'pass.driveAirApex', min: 0.5, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'pass.driveAirAngle', min: 5, max: 30, step: 1, unit: '°', scale: DEG },
+      { path: 'pass.driveAirFull', min: 4, max: 30, step: 0.5, unit: 'm' },
+      { path: 'pass.driveAirEnd', min: 4, max: 35, step: 0.5, unit: 'm' },
       { path: 'pass.groundArrivalSpeed', min: 1, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundShortArrivalSpeed', min: 1, max: 20, step: 0.5, unit: 'm/s' },
       { path: 'pass.groundShortFrom', min: 1, max: 15, step: 0.5, unit: 'm' },
@@ -246,6 +251,17 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
     ],
   },
   {
+    id: 'slowMo',
+    params: [
+      { path: 'slowMo.enabled', min: 0, max: 1, step: 1, unit: '', toggle: true },
+      { path: 'slowMo.scale', min: 30, max: 100, step: 5, unit: '%', scale: 100 },
+      { path: 'slowMo.duration', min: 0.1, max: 1, step: 0.05, unit: 's' },
+      { path: 'slowMo.rampIn', min: 0, max: 0.3, step: 0.01, unit: 's' },
+      { path: 'slowMo.rampOut', min: 0, max: 0.3, step: 0.01, unit: 's' },
+      { path: 'slowMo.lead', min: 0, max: 0.3, step: 0.01, unit: 's' },
+    ],
+  },
+  {
     id: 'receive',
     params: [
       { path: 'receive.easySpeed', min: 0, max: 20, step: 0.5, unit: 'm/s' },
@@ -273,6 +289,9 @@ export const TUNING_SECTIONS: TuningSectionMeta[] = [
       { path: 'receive.firstTouchError', min: 1, max: 4, step: 0.1, unit: '×' },
       { path: 'receive.showFeedback', min: 0, max: 1, step: 1, unit: '', toggle: true },
       { path: 'receive.feedbackTime', min: 0.1, max: 2, step: 0.05, unit: 's' },
+      { path: 'receive.highMaxHeight', min: 0.35, max: 1.5, step: 0.05, unit: 'm' },
+      { path: 'receive.highEasySpeed', min: 0, max: 30, step: 0.5, unit: 'm/s' },
+      { path: 'receive.highPenalty', min: 0, max: 1, step: 0.05, unit: '' },
     ],
   },
   {

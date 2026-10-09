@@ -293,6 +293,9 @@ export interface PassResult {
   wall: boolean;
   wallX: number;
   wallY: number;
+  /** Driven lofted pass planned to reach the receiver in the air (F1.5e): 1 = fully, 0 = it lands
+   * before him (the long driven pass, and every other kind), in between = a blend. */
+  air: number;
 }
 
 /** A pass worked out before the human error: what the arrow shows and what gets launched. */
@@ -304,7 +307,7 @@ export interface PassPlan extends PassResult {
 }
 
 export function createPassPlan(): PassPlan {
-  return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, wall: false, wallX: Number.NaN, wallY: Number.NaN, angle: 0, speed: 0, elevation: 0 };
+  return { target: -1, kind: PASS_GROUND, meetX: Number.NaN, meetY: Number.NaN, wall: false, wallX: Number.NaN, wallY: Number.NaN, air: 0, angle: 0, speed: 0, elevation: 0 };
 }
 
 /**
@@ -391,6 +394,99 @@ function flatterLaunch(dist: number, speed: number, kb: Tuning['ball'], out: Pas
   out.speed = speed;
 }
 
+interface CrossResult {
+  /** Height (m above the floor, from the ball's centre at the launch) when it is `dist` m away (−1 if it lands before); time (s). */
+  height: number;
+  time: number;
+}
+
+/** A ball launched from the floor at speed v and `angle`: how high and when it crosses `dist` m away. */
+function crossing(v: number, angle: number, dist: number, k: Tuning['ball'], out: CrossResult): CrossResult {
+  let vh = v * Math.cos(angle);
+  let vz = v * Math.sin(angle);
+  let x = 0;
+  let z = 0;
+  let t = 0;
+  out.height = -1;
+  out.time = Number.POSITIVE_INFINITY;
+  while (x < dist && t < SOLVER_MAX_TIME) {
+    vz -= GRAVITY * SOLVER_DT;
+    const s = Math.max(0, 1 - k.airDrag * Math.hypot(vh, vz) * SOLVER_DT);
+    vh *= s;
+    vz *= s;
+    x += vh * SOLVER_DT;
+    z += vz * SOLVER_DT;
+    t += SOLVER_DT;
+    if (z < 0 && vz < 0) return out;
+  }
+  if (x >= dist) {
+    out.height = z;
+    out.time = t;
+  }
+  return out;
+}
+
+const crossTmp: CrossResult = { height: 0, time: 0 };
+
+/**
+ * How much a driven lofted pass to a teammate `dist` m away is planned to arrive in the air
+ * (F1.5e): 1 up to driveAirFull, 0 from driveAirEnd on (the v0.1.27 pass, landing before him),
+ * a straight blend in between; 0 with driveAirHeight 0.
+ */
+export function driveAirWeight(dist: number, k: Tuning['pass']): number {
+  if (k.driveAirHeight <= 0) return 0;
+  if (dist <= k.driveAirFull) return 1;
+  if (dist >= k.driveAirEnd) return 0;
+  return 1 - (dist - k.driveAirFull) / Math.max(1e-3, k.driveAirEnd - k.driveAirFull);
+}
+
+/**
+ * Driven lofted pass that reaches a teammate `dist` m away IN THE AIR (F1.5e): it gets to him
+ * at driveAirHeight above the floor on its way down, launched no steeper than driveAirAngle and
+ * so that its arc peaks at about driveAirApex (a tense, low pass: the flatter, the faster).
+ * Charged: faster and flatter, still getting to him at that height. Real physics all the way:
+ * only the launch (speed, angle) is chosen. Returns the flight time to him (s).
+ */
+function airLaunch(dist: number, charge: number, k: Tuning['pass'], kb: Tuning['ball'], out: PassPlan): number {
+  const apex = Math.max(0.2, k.driveAirApex);
+  // Drag-free estimate of the launch that peaks at `apex` and is at `h` when `dist` m away on its
+  // way down (z = 4·apex·u(1 − u), u = x / landing distance); never steeper than driveAirAngle.
+  let h = Math.min(k.driveAirHeight, apex * 0.95);
+  const u = (1 + Math.sqrt(Math.max(0, 1 - h / apex))) / 2;
+  out.elevation = Math.min(k.driveAirAngle, Math.atan((4 * apex * u) / Math.max(0.5, dist)));
+  // Very short passes: below this it could only get there still rising.
+  h = Math.min(h, 0.7 * dist * Math.tan(out.elevation));
+  // The speed that gets it there at that height (with air drag).
+  let lo = 1;
+  let hi = SPEED_SEARCH_MAX;
+  for (let i = 0; i < BISECT_STEPS; i++) {
+    const mid = (lo + hi) / 2;
+    if (crossing(mid, out.elevation, dist, kb, crossTmp).height < h) lo = mid;
+    else hi = mid;
+  }
+  out.speed = hi;
+  if (charge > 0) {
+    // Faster and flatter: the lowest launch that still gets to him at that height.
+    const speed = out.speed + (Math.max(out.speed, k.driveChargeMaxSpeed) - out.speed) * charge;
+    if (speed > out.speed + 1e-6) {
+      let elo = 0;
+      let ehi = out.elevation;
+      for (let i = 0; i < BISECT_STEPS; i++) {
+        const mid = (elo + ehi) / 2;
+        if (crossing(speed, mid, dist, kb, crossTmp).height < h) elo = mid;
+        else ehi = mid;
+      }
+      out.elevation = ehi;
+      out.speed = speed;
+    }
+  }
+  const time = crossing(out.speed, out.elevation, dist, kb, crossTmp).time;
+  return Number.isFinite(time) ? time : dist / Math.max(1, out.speed * Math.cos(out.elevation));
+}
+
+/** Fastest launch the driven pass in the air may need (m/s): only bounds the search. */
+const SPEED_SEARCH_MAX = 45;
+
 /**
  * Work out the pass of player `from` (kind and power 0..1 given) towards the stick direction in
  * `cmd`, with the receiver locked at the press (lockTarget −2 = choose now). No human error,
@@ -433,6 +529,7 @@ export function planPass(
   out.meetX = out.meetY = Number.NaN;
   out.wall = false;
   out.wallX = out.wallY = Number.NaN;
+  out.air = 0;
   if (target >= 0) {
     const r = players[target]!;
     const d = dribbleFor(r, tuning);
@@ -483,18 +580,38 @@ export function planPass(
         const tt = groundPassTime(out.speed, dist, kb);
         t = Number.isFinite(tt) ? tt : dist / out.speed;
       } else {
-        // Lands a little before him and bounces/rolls the rest of the way.
-        const land = Math.max(1, dist - (kind === PASS_DRIVE ? k.driveLandShort : k.loftLandShort));
-        if (kind === PASS_DRIVE) {
-          drivenLaunch(land, k, kb, out);
-          // Charged: faster and flatter to the same landing point.
-          if (charge > 0) flatterLaunch(land, out.speed + (Math.max(out.speed, k.driveChargeMaxSpeed) - out.speed) * charge, kb, out);
-        } else {
-          out.elevation = k.loftAngle;
-          out.speed = loftPassSpeed(land, k.loftAngle, k.loftMaxSpeed, kb);
+        // The driven pass up to driveAirEnd reaches him in the air (F1.5e); otherwise (and the lob)
+        // it lands a little before him and bounces/rolls the rest of the way.
+        const air = kind === PASS_DRIVE ? driveAirWeight(dist, k) : 0;
+        out.air = air;
+        if (air < 1) {
+          const land = Math.max(1, dist - (kind === PASS_DRIVE ? k.driveLandShort : k.loftLandShort));
+          if (kind === PASS_DRIVE) {
+            drivenLaunch(land, k, kb, out);
+            // Charged: faster and flatter to the same landing point.
+            if (charge > 0) flatterLaunch(land, out.speed + (Math.max(out.speed, k.driveChargeMaxSpeed) - out.speed) * charge, kb, out);
+          } else {
+            out.elevation = k.loftAngle;
+            out.speed = loftPassSpeed(land, k.loftAngle, k.loftMaxSpeed, kb);
+          }
+          const vh = Math.max(1, out.speed * Math.cos(out.elevation));
+          t = loftFlightTime(out.speed, out.elevation, kb) + (dist - land) / vh;
         }
-        const vh = Math.max(1, out.speed * Math.cos(out.elevation));
-        t = loftFlightTime(out.speed, out.elevation, kb) + (dist - land) / vh;
+        if (air > 0) {
+          const e0 = out.elevation;
+          const v0 = out.speed;
+          const t0 = t;
+          const tAir = airLaunch(dist, charge, k, kb, out);
+          if (air < 1) {
+            // Blend the horizontal and vertical launch speeds: the arc never peaks higher than
+            // either pass (blending angle and speed could).
+            const vh = v0 * Math.cos(e0) + (out.speed * Math.cos(out.elevation) - v0 * Math.cos(e0)) * air;
+            const vz = v0 * Math.sin(e0) + (out.speed * Math.sin(out.elevation) - v0 * Math.sin(e0)) * air;
+            out.speed = Math.hypot(vh, vz);
+            out.elevation = Math.atan2(vz, vh);
+            t = t0 + (tAir - t0) * air;
+          } else t = tAir;
+        }
       }
     }
     // The player aims at where he SEES the teammate; leading him is the assist's job. So the
@@ -571,5 +688,6 @@ export function performPass(
   out.wall = plan.wall;
   out.wallX = plan.wallX;
   out.wallY = plan.wallY;
+  out.air = plan.air;
   return out;
 }
