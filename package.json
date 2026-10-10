@@ -1,7 +1,7 @@
 {
   "name": "patins",
   "private": true,
-  "version": "0.1.29",
+  "version": "0.1.30",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench:feel": "PATINS_BENCH=1 vitest run tests/unit/bench/feelRegression.test.ts --reporter=verbose",
+    "bench:feel:write": "PATINS_BENCH=1 PATINS_BENCH_WRITE=1 vitest run tests/unit/bench/feelRegression.test.ts --reporter=verbose",
     "e2e": "playwright test"
   },
   "dependencies": {

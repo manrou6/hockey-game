@@ -4,11 +4,11 @@ import { createBall, placeBall, stepBall, type BallEvent, type BallState } from 
 import { emptyCommand, type PlayerCommand } from './commands';
 import { bladePoint, bufferActions, highBallDistance, pickupDistance, pressureOn, stepDribble } from './dribble';
 import { collidePlayers, createPlayer, stepPlayer, type PlayerState } from './player';
-import { boardSignedDistance, resolveStatic } from './rink';
+import { boardSignedDistance, goalFootprints, resolveStatic } from './rink';
 import { createRng, type RngState } from './rng';
 import { passFor, receiveFor, shotFor, skatingFor, volleyFor, wallFor } from './feel';
 import { receiveBall, RECEIVE_CLEAN, RECEIVE_HEAVY, type ReceiveOutcome } from './receive';
-import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
+import { aimAngle, assistParams, choosePassTarget, createPassPlan, lockPassTarget, passKindFromHeight, passPower, performPass, planPass, PASS_DRIVE, PASS_GROUND, updatePassButton, type AssistLevel, type AssistParams, type PassKind, type PassPlan, type PassResult } from './pass';
 import { ballApproach, botCommand, findReceiver, interceptMove, type Approach, type BotContext } from './mates';
 import { wrapAngle } from './player';
 import { createVolleyContact, predictContact, strikeVolley, type VolleyContact } from './volley';
@@ -171,6 +171,9 @@ export function createWorld(seed: number, mates = 0): WorldState {
  */
 export function switchControl(world: WorldState, index: number, human: PlayerCommand, latch = true): void {
   if (index === world.controlled || !world.players[index]) return;
+  // A remate en el aire carried on the old player's stick (late release) ends here: the ball
+  // drops where it is (v0.1.30; it used to jump to the new player's blade, §B F1).
+  if (world.volley.hold > 0) closeVolley(world.volley);
   world.controlled = index;
   world.lastSwitchTick = world.tick;
   world.switchCandidate = -1;
@@ -238,6 +241,10 @@ function autoSwitch(world: WorldState, human: PlayerCommand, tuning: Tuning): vo
 }
 
 const n = { nx: 0, ny: 0 };
+/** The goal cages on the floor (players' collision boxes). */
+const GOALS = goalFootprints();
+/** Clearance (m) between an out ball put back in play and a goal cage. */
+const OUT_DROP_CAGE_MARGIN = 0.1;
 
 /** Free play (no rules yet): an out ball reappears in front of the player; a goal goes back to the centre. */
 function freePlayBallRules(world: WorldState): void {
@@ -246,11 +253,16 @@ function freePlayBallRules(world: WorldState): void {
     const p = world.players[world.controlled];
     let x = p ? p.x + Math.cos(p.heading) * 1.2 : 0;
     let y = p ? p.y + Math.sin(p.heading) * 1.2 : 0;
-    // Keep the drop point well inside the boards.
+    // Keep the drop point well inside the boards, and out of the goal cages (v0.1.30, §B F3: it
+    // could be put inside one and thrown out of it on the next tick): in front of the goal.
     const sd = boardSignedDistance(x, y, n);
     if (sd > -1) {
       x -= n.nx * (sd + 1);
       y -= n.ny * (sd + 1);
+    }
+    const m = RINK.ballRadius + OUT_DROP_CAGE_MARGIN;
+    for (const f of GOALS) {
+      if (x > f.minX - m && x < f.maxX + m && y > f.minY - m && y < f.maxY + m) x = f.minX > 0 ? f.minX - m : f.maxX + m;
     }
     placeBall(ball, x, y);
     return;
@@ -300,12 +312,24 @@ function closeVolley(v: VolleyView): void {
   v.hold = 0;
 }
 
-/** Is a remate en el aire armed for player p: TIRO pressed / held without the ball, or released within the timing span? */
+/** A ball carried on the stick at (x, y) stays inside the boards and out of the goal cages (the mouth is open). */
+function carryFits(x: number, y: number): boolean {
+  const r = RINK.ballRadius;
+  if (boardSignedDistance(x, y, n) > -r) return false;
+  for (const f of GOALS) {
+    const side = f.minX > 0 ? 1 : -1;
+    const lineX = side > 0 ? f.minX : f.maxX;
+    if (side * (x - lineX) > 0 && x > f.minX - r && x < f.maxX + r && y > f.minY - r && y < f.maxY + r) return false;
+  }
+  return true;
+}
+
 /** The ball is in the air or bouncing (not rolling). */
 function inAir(ball: BallState): boolean {
   return ball.z - RINK.ballRadius > 0.005 || Math.abs(ball.vz) > 0.05;
 }
 
+/** Is a remate en el aire armed for player p: TIRO pressed / held without the ball, or released within the timing span? */
 function volleyArmed(world: WorldState, p: PlayerState, cmd: PlayerCommand, tuning: Tuning): boolean {
   if (!world.volley.found && world.volley.hold <= 0) return false;
   const half = Math.round((volleyFor(p, tuning).windowTime / 2) * tuning.sim.tickRate);
@@ -330,6 +354,13 @@ function volleyStep(world: WorldState, human: PlayerCommand, tuning: Tuning): bo
   const rate = tuning.sim.tickRate;
   const half = k.windowTime / 2;
   const blade = bladePoint(p, tuning);
+  if (v.hold > 0 && !carryFits(blade.x, blade.y)) {
+    // The stick can't carry the ball through a board or into a goal cage from outside (v0.1.30,
+    // §B F2): the ball drops where it is.
+    closeVolley(v);
+    ball.vx = ball.vy = 0;
+    return false;
+  }
   if (v.hold > 0) {
     // Released late: the stick has been carrying the ball since the contact; it leaves on the release.
     ball.prevX = ball.x;
@@ -364,8 +395,9 @@ function volleyStep(world: WorldState, human: PlayerCommand, tuning: Tuning): bo
   // In the air or bouncing (a rolling ball is a normal reception, F1.5b).
   v.incoming = contactTmp.passes && inAir(ball);
   v.found = contactTmp.found;
-  v.time = contactTmp.time;
-  v.height = contactTmp.height;
+  // Only this ball's contact (v0.1.30, §B F4: with none, the shared scratch held another world's).
+  v.time = contactTmp.found ? contactTmp.time : 0;
+  v.height = contactTmp.found ? contactTmp.height : 0;
   if (!contactTmp.found) {
     closeVolley(v);
     return false;
@@ -447,10 +479,11 @@ function humanCommand(world: WorldState, human: PlayerCommand, receiver: number,
   const latched = !Number.isNaN(world.latchDir);
   // A ball in the air coming to him, or a remate en el aire armed (F1.5d): the joystick only
   // aims (the shot reads it), he keeps meeting the ball. A driven pass in the air aimed at him
-  // (F1.5e) is coming to him from the moment it leaves, before its path meets his blade
-  // (v0.1.29: aiming at the goal while it flew used to drop it and lose the pass).
+  // is coming to him from the moment it leaves, before its path meets his blade (v0.1.29:
+  // aiming at the goal while it flew used to drop it and lose the pass; v0.1.30: also the long
+  // one, beyond pass.driveAirEnd, that lands before him and bounces, §B F6).
   const me = world.players[world.controlled];
-  const aerialPass = world.passTo === world.controlled && world.passAir > 0 && inAir(world.ball);
+  const aerialPass = world.passTo === world.controlled && (world.passAir > 0 || world.passKind === PASS_DRIVE) && inAir(world.ball);
   const volley = me !== undefined && world.ball.owner < 0 && (world.volley.incoming || aerialPass || volleyArmed(world, me, human, tuning));
   if (receiver === world.controlled && (latched || (mag < 0.01 && m.autoReceive >= 0.5) || volley)) {
     interceptMove(world.players[world.controlled]!, world.ball, tuning, out, world.passTo >= 0 ? world.meetX : Number.NaN, world.passTo >= 0 ? world.meetY : Number.NaN);
