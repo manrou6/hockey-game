@@ -1,6 +1,6 @@
 # Plan F1.6: regates, aixecar y picar, juego detrás de la portería, amago de tiro y primer rival
 
-> **Propuesta para Guillem. No hay nada implementado.** Bloque 2, entregable F (2026-10-09). Está hecho sobre el código de la v0.1.29 (commit 00fc599) y tiene en cuenta la auditoría §A (`docs/audit/A.md`, hallazgo 1). Las decisiones de diseño que cambian lo que ya está en /docs están en el §9, cada una con una recomendación, y **no se aplica ninguna sin el sí de Guillem** (CLAUDE.md). Los cambios técnicos internos se anotarán en DECISIONS.md al hacerse.
+> **Propuesta para Guillem. No hay nada implementado.** Bloque 2, entregable F (2026-10-09). Está hecho sobre el código de la v0.1.29 (commit 00fc599) y tiene en cuenta la auditoría §A (`docs/AUDITORIA_F1.md` §A, hallazgo 1). Las decisiones de diseño que cambian lo que ya está en /docs están en el §9, cada una con una recomendación, y **no se aplica ninguna sin el sí de Guillem** (CLAUDE.md). Los cambios técnicos internos se anotarán en DECISIONS.md al hacerse.
 
 ## 0. En 10 líneas (para Guillem)
 1. F1.6 añade **5 regates** con REGATE + joystick: cambio de lado, finta de cuerpo, ruleta, bola entre los patines del rival y amago de tiro. Además: **aixecar** (levantarte tú la bola), **aixecar + picar** (rematarla en el aire), **juego por detrás de la portería** y un **rival de prueba** al que regatear.
@@ -440,7 +440,7 @@ Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates
 | **Ronda 3:** Guillem dice que regatear «se siente bien» | Prueba en el Pixel 8a; valores de «PATINS tuning vX» como fábrica |
 
 ## Objeciones
-*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29 y en las auditorías de `docs/audit/`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
+*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29 y en las auditorías de `docs/AUDITORIA_F1.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
 
 **O1 — Las letras «A» y «B» no significan lo mismo que en DECISIONS ni que en docs/06** · Gravedad **Alta**
 - *Qué falla:* la «opción A» del plan (deslizar en la zona libre, PLAN_F1_6:8, :53-54) **no existe** entre las opciones de aixecar de DECISIONS.md:128. Allí, A = «los regates salen al soltar», B = «el regate se convierte en aixecar si arrastras ↗ en 0,1 s» y C = «doble toque». La zona libre era la opción A de **otro** juego de opciones: el gesto del **remate** (DECISIONS.md:134). La «B2» del plan es, en realidad, la A de DECISIONS:128. Además, docs/06:19 dice «aixecar dentro de REGATE». La auditoría D (C1) ya pedía nombres distintos para los dos juegos de opciones.
@@ -556,7 +556,7 @@ Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates
 - *Propuesta:* la P-A de la auditoría I (aviso «Hi ha una versió nova») como requisito previo de F1.6a, y que el primer punto de cada lista de qué probar sea «comprueba que el panel dice vX».
 
 **O18 — Rendimiento: dos cifras distintas para lo mismo y una prueba que no mide bien** · Gravedad **Baja**
-- *Qué falla:* «≤ 0,03 ms por tick con CPU ×4 (hoy 0,01)» (:395), mientras PLAN_F2:91 da «hoy ~0,03 ms» para lo mismo. La §C de la auditoría (rendimiento) no existe: no hay `docs/audit/C.md` y PROGRESS la tiene sin hacer. Además, `perf.spec` compara tiempo de reloj en una máquina compartida (auditoría E, E.3.3).
+- *Qué falla:* «≤ 0,03 ms por tick con CPU ×4 (hoy 0,01)» (:395), mientras PLAN_F2:91 da «hoy ~0,03 ms» para lo mismo. La §C de la auditoría (rendimiento) no existía al escribir esto *(nota del agente principal, 2026-10-10: ya está en `docs/AUDITORIA_F1.md` §C)*. Además, `perf.spec` compara tiempo de reloj en una máquina compartida (auditoría E, E.3.3).
 - *Por qué importa:* el objetivo no se puede comprobar, y el riesgo real de F1.6 es el render (el rival, su stick, las estelas y la pista de la zona libre), no la simulación.
 - *Propuesta:* medir en el Pixel con `?debug=1` y con referencias relativas, y fijar un presupuesto de draw calls para lo nuevo.
 

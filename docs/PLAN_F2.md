@@ -771,7 +771,7 @@ Todas son **propuestas iniciales**: tras la ronda 4, Guillem puede pedir otra co
 | Nada de F1 cambia en Entrenamiento | Banco J idéntico, `determinism.test.ts`, `simPurity.test.ts` |
 
 ## Objeciones
-*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29, en las auditorías de `docs/audit/` y en `docs/PLAN_F1_6.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
+*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29, en las auditorías de `docs/AUDITORIA_F1.md` y en `docs/PLAN_F1_6.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
 
 **O1 — Defender con Xut y Passada choca con el búfer del primer toque** · Gravedad **Alta**
 - *Qué falla:* cuando el rival lleva la bola, el plan hace Xut = entrada y Passada = Canvi (§7.1, :377-386). Pero soltar Xut sin la bola ya deja el tiro en el búfer 0,2 s (`bufShoot`, shot.ts:66-73) y pone `shotSinceRelease` a 0, que arma el remate en el aire. Soltar Passada deja el pase en el búfer (`bufPass`). Y en cuanto un jugador recoge la bola, `ballActions` dispara lo que hay en el búfer (world.ts:596-597).
@@ -795,7 +795,7 @@ Todas son **propuestas iniciales**: tras la ronda 4, Guillem puede pedir otra co
   - La flecha del pase llama a `planPass` en **cada tick** mientras mantienes Passada (world.ts:614-617). Con alto fuerte o vaselina, eso es ~0,55-1,9 ms por llamada en el contenedor, ~2-7,7 ms en el Pixel según la estimación del propio plan (:94-95, :100).
   - El objetivo es «máximo ≤ 1 ms por tick» (:505). Pero una sola suelta de un pase alto del humano ya cuesta 2-4,5 ms (estimado).
   - La mitigación de la IA, una «tabla precalculada» (:523), contradice el §3.4: «performPass calcula el pase exactamente igual que para el humano» (:151). Los pases de la IA volarían distinto que los tuyos.
-  - Y la §C de la auditoría, a la que el plan remite (:100, :524), **no existe** (no hay `docs/audit/C.md`; PROGRESS la tiene sin hacer).
+  - Y la §C de la auditoría, a la que el plan remite (:100, :524), **no existía** al escribir esto *(nota del agente principal, 2026-10-10: ya está en `docs/AUDITORIA_F1.md` §C)*.
 - *Por qué importa:* a 140 % de velocidad, o en un fotograma de recuperación de 5 ticks, la flecha sola puede pasar de 33 ms, el límite de docs/03:157, y eso **ya en la v0.1.29**. P4 (§5.3) mete además la predicción de la aceleración dentro de `planPass`.
 - *Propuesta:*
   - Antes de F2a: medir en el Pixel con `?debug=1` mientras se mantiene un globo largo, y medir también el render con 10 cápsulas, sticks, dorsales y anillos (draw calls frente al techo de docs/04). Es la §C que falta.
