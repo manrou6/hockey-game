@@ -771,4 +771,139 @@ Todas son **propuestas iniciales**: tras la ronda 4, Guillem puede pedir otra co
 | Nada de F1 cambia en Entrenamiento | Banco J idéntico, `determinism.test.ts`, `simPurity.test.ts` |
 
 ## Objeciones
-*(Sección reservada para el crítico de diseño de la fase 3 del bloque 2.)*
+*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29, en las auditorías de `docs/audit/` y en `docs/PLAN_F1_6.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
+
+**O1 — Defender con Xut y Passada choca con el búfer del primer toque** · Gravedad **Alta**
+- *Qué falla:* cuando el rival lleva la bola, el plan hace Xut = entrada y Passada = Canvi (§7.1, :377-386). Pero soltar Xut sin la bola ya deja el tiro en el búfer 0,2 s (`bufShoot`, shot.ts:66-73) y pone `shotSinceRelease` a 0, que arma el remate en el aire. Soltar Passada deja el pase en el búfer (`bufPass`). Y en cuanto un jugador recoge la bola, `ballActions` dispara lo que hay en el búfer (world.ts:596-597).
+- *Por qué importa:*
+  - Una entrada que gana la bola, si la recoges en menos de 0,2 s, **sale disparada como tiro al primer toque**.
+  - Passada = Canvi elimina justo el pase al primer toque tras interceptar, que es la salida a la contra («de ajedrez estático a un 1 contra 1 vertiginoso», REFERENCIA §1.7).
+  - Además, Canvi ya existe en su propio botón (auditoría D, C2).
+- *Propuesta:*
+  - La entrada **vacía el búfer** de Xut y no arma el remate.
+  - Passada **sigue siendo pase** en defensa (búfer para el primer toque tras robar); Canvi se queda en Canvi.
+  - En defensa, las etiquetas y los iconos de Xut y Regat cambian («Entrada», «Contenir»); hoy nada lo indica.
+  - Test: «entrada con éxito → 0 tiros en los 0,3 s siguientes».
+
+**O2 — Contener y entrar a la vez no se puede hacer con un pulgar** · Gravedad **Media**
+- *Qué falla:* contener = mantener Regat, y al soltar vuelves al control libre (:390). La entrada es Xut (:386). Regat está justo encima de Xut (Regat y 178-262, Xut y 278-378; tuning.ts:740-754), y el pulgar derecho no puede mantener uno y tocar el otro.
+- *Por qué importa:* la secuencia natural, «contener y robar en el momento bueno» (§6.4), obliga a soltar Regat (pierdes el contener), bajar 1,5-2 cm y tocar Xut: unos 0,15-0,25 s, justo cuando el momento bueno dura poco.
+- *Propuesta:* durante el contener, la entrada se hace con un golpe del joystick hacia el portador (pulgar izquierdo), o un toque de Xut mantiene el contener 0,3 s más. Métrica: «de pulsar a la entrada activa ≤ 0,1 s mientras contienes».
+
+**O3 — Rendimiento: el pico de `planPass` ya existe hoy y el objetivo es imposible tal como está escrito** · Gravedad **Alta**
+- *Qué falla:*
+  - La flecha del pase llama a `planPass` en **cada tick** mientras mantienes Passada (world.ts:614-617). Con alto fuerte o vaselina, eso es ~0,55-1,9 ms por llamada en el contenedor, ~2-7,7 ms en el Pixel según la estimación del propio plan (:94-95, :100).
+  - El objetivo es «máximo ≤ 1 ms por tick» (:505). Pero una sola suelta de un pase alto del humano ya cuesta 2-4,5 ms (estimado).
+  - La mitigación de la IA, una «tabla precalculada» (:523), contradice el §3.4: «performPass calcula el pase exactamente igual que para el humano» (:151). Los pases de la IA volarían distinto que los tuyos.
+  - Y la §C de la auditoría, a la que el plan remite (:100, :524), **no existe** (no hay `docs/audit/C.md`; PROGRESS la tiene sin hacer).
+- *Por qué importa:* a 140 % de velocidad, o en un fotograma de recuperación de 5 ticks, la flecha sola puede pasar de 33 ms, el límite de docs/03:157, y eso **ya en la v0.1.29**. P4 (§5.3) mete además la predicción de la aceleración dentro de `planPass`.
+- *Propuesta:*
+  - Antes de F2a: medir en el Pixel con `?debug=1` mientras se mantiene un globo largo, y medir también el render con 10 cápsulas, sticks, dorsales y anillos (draw calls frente al techo de docs/04). Es la §C que falta.
+  - Recalcular la flecha solo cuando el joystick o la carga cambian (una decisión técnica).
+  - Hacer `planPass` barato (solución analítica, o la tabla también para el humano, la misma para todos).
+  - Reescribir el objetivo como «máximo ≤ 1 ms excepto el tick de una suelta», con ese pico acotado aparte.
+
+**O4 — Objetos de trabajo a nivel de módulo: la regla 4 receta el problema que encontró la auditoría** · Gravedad **Alta**
+- *Qué falla:* la regla de oro 4 dice «objetos de trabajo reutilizados, como los que ya usa `world.ts` (`effective`, `botCtx`)» (:113). Esos temporales a nivel de módulo son justo los que, según la auditoría B (F4), dejan pasar datos de un mundo a otro, y según la auditoría E (E.3.4, punto 3) nada comprueba dos mundos intercalados. `botCtx.players` incluso guarda referencias al último mundo. La IA añade la percepción, el anillo de fotos, las tablas en caché que dependen del `tuning` (:146) y los repartos de roles.
+- *Por qué importa:* los bancos de F2 crean cientos de mundos con ajustes distintos (`tuningWith`). Una tabla en caché a nivel de módulo puede contaminar un partido con los números de otro. Y el online de F7 (*rollback*, servidor) lo necesita bit a bit.
+- *Propuesta:* todo el estado de trabajo de la IA dentro del mundo (`world.scratch`) o pasado como argumento, y las cachés con la clave del `tuning`. Como condición para cerrar F2a: el hash de determinismo con dos mundos intercalados (auditoría E, R1), con IA.
+
+**O5 — En tu equipo la IA «nunca lleva la bola»… salvo cuando sí: el ajuste del panel y el portero** · Gravedad **Media**
+- *Qué falla:*
+  - «Siempre controlas al que lleva la bola, así que en tu equipo la IA solo juega sin bola» (:203). Eso solo es cierto con `mates.switchControl` = 1, un ajuste del panel (tuning.ts:643) que DECISIONS:135 (6) da como posiblemente tocado en el móvil de Guillem. Con 0, el compañero que recibe **te devuelve la bola** (mates.ts), un comportamiento de banco de pruebas.
+  - Si el portero es un jugador `bot` de tu equipo, `nearestTeammate` (world.ts:654-669) lo acepta como candidato del cambio automático, de Canvi y del pase perdido. En tu área, el más cercano a la bola suele ser **el portero**, y docs/03 §5 dice que no lo controlas.
+- *Por qué importa:* el partido haría cosas absurdas según cómo esté un ajuste del panel, o te daría el control del portero.
+- *Propuesta:* en el modo partido, `switchControl` forzado a 1 o el portador de la IA también para tus compañeros. Excluir `role = 'gk'` de los candidatos del cambio, con un test para cada caso.
+
+**O6 — Las métricas de equilibrio no tienen potencia estadística** · Gravedad **Media-Alta**
+- *Qué falla:* «victorias del equipo 0 entre 44 y 56 %» y «posesión 45-55 %» con 100 partidos (:637, :720). Con 3-7 goles por partido habrá ~15-25 % de empates, así que equipos iguales ganan ~40 % cada uno: el 44-56 % falla aunque no haya sesgo. Además, el error típico con n = 100 es de ±5 puntos (±10 al 95 %). «Llegenda gana a Fàcil ≥ 80 %» (:692) con 20 partidos tiene ±18 puntos.
+- *Por qué importa:* el banco dará rojos y verdes al azar y se acabará ajustando la IA para que pase.
+- *Propuesta:*
+  - Cada semilla jugada dos veces, cambiando de lado y de índices (partidos espejo), comparando la diferencia de goles media con su intervalo.
+  - El sesgo de índice se mide con su test unitario (§10.6), no con victorias.
+  - Para la dificultad, la diferencia de goles por partido con un intervalo, o n ≥ 200 partidos cortos.
+
+**O7 — Métricas IA contra IA que se calibran solas** · Gravedad **Media**
+- *Qué falla:*
+  - Posesión, pases por posesión, pases completados y tiros por posesión (:630-634) son los números con los que se **afina** la IA (temperatura, umbrales de la xG). Con equipos iguales, una IA degenerada que se equivoque igual en los dos equipos también los cumple.
+  - «Paciencia premiada» (:635) compara con los tiros tras 0-1 pases en ataque organizado, que por definición son tiros lejanos y malos: gana siempre.
+  - «Tiros contra el cuadro ≥ 55 % desde fuera» (:579) depende de qué política del humano de guion se use.
+  - «Cuadro montado ≤ 3 s» no define «montado».
+  - «≥ 1 desmarque cada 4 s» (:606) se cumple con carreras inútiles.
+- *Por qué importa:* el criterio de docs/06, «la IA ataca, defiende y marca de forma creíble», quedaría en verde sin serlo.
+- *Propuesta:*
+  - Anclar las cifras a REFERENCIA (cadenas de 10-15 pases, posesiones de 5-40 s) y medir **contra el humano de guion** con cada política por separado («penetrar: llega a tirar dentro del área ≤ X %»; «circular: más goles por posesión que tirar de lejos», que es la recomendación 10 aplicada a ti).
+  - Definir «cuadro montado» (los 4 a ≤ 1,5 m de su punto) y «desmarque útil» (abre una línea con holgura ≥ 1,2 m).
+
+**O8 — El cambio en defensa Assistit: reglas y métricas que se contradicen** · Gravedad **Media**
+- *Qué falla:* la opción B «nunca» cambia mientras mueves el joystick con intención (≥ 30 % del recorrido en 0,3 s; :399). En el móvil, el pulgar izquierdo está casi siempre en el joystick, así que en la práctica B ≈ Manual. A la vez, la métrica exige que «con un pase rival controlas al defensor que llega antes en ≤ 0,3 s el ≥ 90 %» (:662). Las dos cosas solo se cumplen si el humano de guion deja el joystick suelto. Y «0 cambios mientras mueves el joystick» (:663) es la propia regla, no una medida.
+- *Por qué importa:* es la decisión 2, una de las más importantes, y se tomaría con métricas que dependen del guion.
+- *Propuesta:* para un pase rival, cambiar aunque muevas el joystick, pero con el joystick «enganchado» (como `latchDir` tras un pase, world.ts:172-180) hasta que lo sueltes o lo gires. Medir con el humano de guion **moviendo el joystick** el 80 % del tiempo y con contadores en el móvil (cambios por minuto, «te ha quitado la marca»).
+
+**O9 — El orden retrasa lo que Guillem pidió primero y la primera partida jugable** · Gravedad **Media**
+- *Qué falla:*
+  - El pase al espacio (P3b + P4) es la «prioridad ALTA» (:29) y va tercero (:744), con el argumento de que P8 necesita defensores. Pero P4 (que el pase anticipe la aceleración, con la intención pública) **no** los necesita: el plan mismo lo mide «sin rivales ≥ 90 %» (:604).
+  - Además, Guillem no puede jugar un partido de verdad (marcador, reloj, saques) hasta F2f, el sexto sub-paso.
+  - F2a (:545-566) mete en un sub-paso `createMatch`, los arreglos del equipo 0, `aiRng`, `gameEvents`, la percepción con retraso, las cadencias, el pilotaje, el reparto de roles, una IA mínima para los dos lados y los reinicios: no cabe en una sesión (CLAUDE.md, regla 2).
+- *Por qué importa:* la primera opinión de Guillem sobre «se siente partido» llega tarde, cuando ya está casi todo construido.
+- *Propuesta:*
+  - Partir F2c: c1 = desmarques + P4 + «pasa y va» justo después de F2a; c2 = P8 y P13 después de F2b.
+  - Que F2a acabe con un **partido completo y mínimo** de 2 × 2 min (reloj, marcador, saque tras gol y tras fuera) para que Guillem lo pruebe ya.
+  - Partir F2a en a1 (cimientos y tests) y a2 (IA mínima y partido).
+
+**O10 — Un perfil de asistencia «IA» y una puntería exacta: no son «tus mismas reglas»** · Gravedad **Media**
+- *Qué falla:*
+  - El perfil interno «IA» (cono y corrección de Forta, pero respetando el espacio como Mitjana) se presenta como «decisión técnica» (:158). Pero docs/03:91 dice «los compañeros de la IA pasan siempre con asistencia Fuerte»: cambiarlo es cambiar un documento de diseño, y eso lo decide Guillem.
+  - La IA apunta el joystick a un ángulo exacto (:155), mientras tu pulgar tiene error; el banco del pase ya lo modela con ±8°.
+- *Por qué importa:* el pilar «la IA juega con tus mismas reglas, sin trampas» (:7, :111) no se cumpliría.
+- *Propuesta:* añadirlo como decisión de Guillem. Darle a la IA un error de apuntado del joystick según la dificultad y la Visión (sd en grados, en el panel), además del error del pase.
+
+**O11 — La IA usaría alturas ilegales a propósito** · Gravedad **Media**
+- *Qué falla:* la IA tira «alto o picado» si el portero está tumbado (:257) y usa la vaselina «a ≤ 15 m» (:261). Según docs/02 («Choques con el juego actual»), el picado llega a 1,84 m de media a 10 m y la vaselina pasa de 1,50 m desde ~12 m. El art. 6.3 y el 15.1.d hacen falta técnica cualquier bola por encima de 1,50 m.
+- *Por qué importa:* cuando F3 aplique la regla, el repertorio de la IA se romperá o pitará faltas contra sí misma.
+- *Propuesta:* desde F2, la IA solo elige acciones cuyo punto más alto previsto sea ≤ 1,50 m (en la tabla de salidas del O3), y lo comprueba un test. Si Guillem decide «regla estricta» en F3, el humano tendrá el mismo límite.
+
+**O12 — Tres capas de defensa nuevas a la vez sobre el tiro: no se sabrá cuál lo estropea** · Gravedad **Media**
+- *Qué falla:* F2b añade a la vez la muralla de sticks que desvía rasos (:356), el bloqueo «se tira a tapar» ante **cualquier** carga (:357), el robo mientras cargas (:364) y la presión en el error del tiro (:428), todo encima del portero de F1.8. El tiro cargado de F1.5a, el preciso y potente, quedaría castigado tres veces. El techo de dureza de F1.5c se fijó sin rivales (:435).
+- *Por qué importa:* si a Guillem le parece «imposible marcar», no habrá forma de saber qué capa lo causa.
+- *Propuesta:* activarlas de una en una, con su interruptor y la variación de los bancos J y `shotBench` en cada paso: portero → muralla → tapar → robo en la carga → presión. Fijar con Guillem el **peor caso aceptable** antes de F2b, no después.
+
+**O13 — La compatibilidad de la «presión de la acción» no es exacta como está escrita** · Gravedad **Baja-Media**
+- *Qué falla:* «`pressure.directional` = 0 reproduce exactamente `pressureOn`» (:421). Pero la nueva usa un radio de 2,5 m y combina varios rivales con 1 − Π(1 − cᵢwᵢ), mientras `pressureOn` usa `pressureRadius` 1,8 m y el máximo (dribble.ts:29-38).
+- *Por qué importa:* la promesa «todos los pesos a 0 = idéntico» se rompería sin que nadie lo note, y con ella la protección del banco J en partido.
+- *Propuesta:* que el modo de compatibilidad use el mismo radio y el máximo, y añadir un test de igualdad bit a bit con `pressureOn` en 10 000 posiciones al azar.
+
+**O14 — «Regat mantenido = contener» cambia el significado de docs/03** · Gravedad **Baja-Media**
+- *Qué falla:* docs/03:77 dice «REGATE (mantener) → **presionar**». El plan lo convierte en **contener** (retrasar a distancia, el «jockey» del FIFA; :390), que es casi lo contrario de presionar.
+- *Por qué importa:* es un cambio de diseño documentado y, según CLAUDE.md, hay que preguntar antes.
+- *Propuesta:* añadirlo como decisión de Guillem: contener (recomendado, coherente con «no robar a lo loco») o presionar.
+
+**O15 — Coherencia con F1.6: trabajo duplicado y lo de detrás de la portería se recorta dos veces** · Gravedad **Media**
+- *Qué falla:*
+  - `defender.ts` nace en F1.6a «contra el jugador controlado» y aquí se reescribe como `defendStep(world, i, assignment, out)` (:340).
+  - La recogida justa llega en F2a (:479), cuando los porcentajes de los regates de F1.6 ya están medidos con el sesgo de índice a favor del humano (world.ts:558-599).
+  - El rebote en la valla de fondo hacia un compañero, la recomendación n.º 1 del informe real, pasa de F1.6 (decisión 13) a «opcional al final de F2d» y es lo primero que se recorta (:626, :740).
+  - El coste de hoy no coincide: ~0,03 ms aquí (:91) frente a 0,01 en PLAN_F1_6:395.
+- *Por qué importa:* se programa dos veces lo mismo, se miden cifras que luego cambian y se recorta lo más importante del juego detrás de la portería.
+- *Propuesta:* escribir la API del defensor y la recogida justa una sola vez, en F1.6a; hacer el autopase por la valla de fondo y las esquinas en F1.6g (objeción O9 de F1.6) y aquí solo la versión hacia un compañero, **no** recortable; usar una sola cifra de partida, medida en el Pixel.
+
+**O16 — F2 depende de un F1.8 sin plan, y el panel crecerá cientos de filas** · Gravedad **Baja-Media**
+- *Qué falla:*
+  - Los requisitos previos piden F1.8 (portero) cerrado (:48), y el §9 escribe su «contrato», pero no hay plan de F1.8. Las metas de goles (decisión 12) y la «xG» (:149) dependen por completo de ese portero.
+  - Por otro lado, añadir `ai`, `shapes`, `defence`, `tackle`, `pressure`, `attributes`, `match` y `difficulty` (:490) con meta y etiquetas en 3 idiomas, cuando la auditoría E ya cuenta 356 ajustes (y el 90 % de las claves de i18n son del panel), choca con «el resto en tuning.ts como ajustes avanzados» (:491): `tuningMeta.test` exige que cada número esté en el panel exactamente una vez.
+- *Por qué importa:* sin F1.8 no se pueden calibrar los objetivos de F2, y el panel deja de ser útil para Guillem.
+- *Propuesta:*
+  - Un plan corto de F1.8 antes de F2, que fije también el portero provisional del O7 de F1.6.
+  - Decidir (técnico, en DECISIONS) que las tablas de formas y de dificultad son **datos** (`src/data/*.json`, validados por un test), no ajustes de tacto. Aplicar antes las pestañas «Bàsic» / «Avançat» de la auditoría E (R3).
+
+**O17 — Demasiadas decisiones, y algunas ya están tomadas** · Gravedad **Baja**
+- *Qué falla:* el §15 tiene 15 decisiones. Algunas ya están en los documentos: la 9 (docs/06 F2 ya dice «faltas leves, libre indirecto») y la 15 (docs/03:144, «cada equipo tiene uno preferido»). Otras son técnicas: la 13 (`teams.json`) y la 1 (orden de trabajo).
+- *Por qué importa:* entre los dos planes suman 31 decisiones, y el resumen final admite como mucho 8.
+- *Propuesta:* dejar para Guillem la 2, la 3 (con O1 y O14), la 4, la 5, la 6 y la 11, y añadir el perfil de pase de la IA (O10). El resto, «decide Claude».
+
+**Lo que cambiaría primero**
+- Que la entrada vacíe el búfer, que Passada siga siendo pase en defensa y que los botones muestren su función en defensa (O1), más una entrada posible sin soltar el contener (O2).
+- Medir y arreglar ya el recálculo de `planPass` en cada tick, y escribir un objetivo de coste alcanzable sin aproximar los pases de la IA (O3).
+- El estado de trabajo de la IA dentro del mundo y el hash con dos mundos intercalados como condición de F2a (O4).
+- Partidos espejo e intervalos en lugar de ventanas de victorias, y métricas contra el humano de guion (O6, O7).
+- Adelantar desmarques + P4 y un partido mínimo jugable a F2a/F2c1; la API del defensor y la recogida justa, una sola vez en F1.6a (O9, O15).

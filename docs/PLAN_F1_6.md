@@ -438,3 +438,141 @@ Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates
 | Textos en ca/es/en; números en tuning.ts y en el panel | `i18n.test.ts`, `tuningMeta.test.ts` |
 | 60 fps en el Pixel 8a | `perf.spec.ts` + línea de rendimiento de Guillem (`?debug=1`) |
 | **Ronda 3:** Guillem dice que regatear «se siente bien» | Prueba en el Pixel 8a; valores de «PATINS tuning vX» como fábrica |
+
+## Objeciones
+*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29 y en las auditorías de `docs/audit/`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
+
+**O1 — Las letras «A» y «B» no significan lo mismo que en DECISIONS ni que en docs/06** · Gravedad **Alta**
+- *Qué falla:* la «opción A» del plan (deslizar en la zona libre, PLAN_F1_6:8, :53-54) **no existe** entre las opciones de aixecar de DECISIONS.md:128. Allí, A = «los regates salen al soltar», B = «el regate se convierte en aixecar si arrastras ↗ en 0,1 s» y C = «doble toque». La zona libre era la opción A de **otro** juego de opciones: el gesto del **remate** (DECISIONS.md:134). La «B2» del plan es, en realidad, la A de DECISIONS:128. Además, docs/06:19 dice «aixecar dentro de REGATE». La auditoría D (C1) ya pedía nombres distintos para los dos juegos de opciones.
+- *Por qué importa:* Guillem no lee código y decide por letras. Puede aprobar «la A» pensando en otra cosa, y la decisión 1 (:413) cambia una decisión suya ya registrada (DECISIONS:128 punto 1, :129) sin decirlo claramente.
+- *Propuesta:* usar en todo el plan nombres en vez de letras: «Aixecar-Zona lliure», «Aixecar-Regat↗ (conversión en 0,1 s)», «Regat al soltar» y «Doble toc». En la decisión 1, decir en una línea que «Zona lliure» saca aixecar de Regat, en contra de docs/06:19 y de DECISIONS:128 (1).
+
+**O2 — El gesto se decide al final, con todo lo demás ya construido encima** · Gravedad **Alta**
+- *Qué falla:* el plan implementa los dos gestos (dos reconocedores, interruptor, pista visual, i18n y e2e; :115, :270, :285) con «Tots dos» activo de fábrica, y Guillem no elige hasta la ronda 3 (:371). Para entonces, F1.6f (deslizar para rematar) y F1.6g (cuchara) ya dependen de ese gesto.
+- *Por qué importa:* es la decisión de ergonomía más cara de F1.6. Con los dos activos, las activaciones sin querer se suman. Y si gana B, el reconocedor A y la proyección con la cámara (:286) se tiran a la basura.
+- *Propuesta:*
+  - **Antes de F1.6e**, medir sin construir nada: añadir a la línea de diagnóstico del panel cuánto tarda el pulgar de Guillem en recorrer 40 px y con qué inclinación, en los arrastres ↗ de Passada que ya hace cada día. Así se sabe si los 0,1 s de B1 (:79, :88) están a su alcance.
+  - Hacer un prototipo de **solo entrada** (con una levantada provisional) al final de F1.6b. Guillem prueba una vez y elige, y solo se implementa el gesto ganador.
+  - Nunca «Tots dos» de fábrica.
+
+**O3 — La levantada propia rompe la predicción del contacto y la recogida** · Gravedad **Alta**
+- *Qué falla:* `predictContact` (volley.ts:36-41, :85-100) se queda con «el primer paso por el alcance» y, dentro de él, con la distancia mínima. Una bola que sale de tu propia pala está en ese primer paso desde t = 0, así que el contacto «previsto» cae a ~0,03-0,05 s de la salida, en cuanto pasa de 0,15 m de altura, y no en la bajada. Además, sin `noPickupTicks` (:267), `pickupDistance` (dribble.ts:167-174; `pickupMaxHeight` 0,35 m, tuning.ts:236) la vuelve a recoger en los primeros ~0,1 s. El test previsto «la ventana se abre desde la salida» (:301) pasaría justo con el comportamiento equivocado.
+- *Por qué importa:* el anillo dorado, la vibración y el «buen timing» de la picada quedarían anclados al gesto de levantar, no a la caída. La jugada estrella no funcionaría y los tests seguirían en verde.
+- *Propuesta:* una regla propia para la levantada (`liftOwner`): no se puede recoger ni rematar mientras sube (vz > 0, o durante `lift.selfTouchDelay`), y `predictContact` solo busca en la rama de bajada. Métricas: contacto previsto en la bajada ≥ 95 %, y tiempo del gesto al contacto de 0,45-0,75 s.
+
+**O4 — «El joystick solo apunta» anula el uso para el que existe aixecar** · Gravedad **Alta**
+- *Qué falla:* durante el vuelo (~0,6-0,85 s) el jugador va solo al punto de contacto, a su velocidad y sin poder girar (:272-273). Pero aixecar sirve para «pasar por encima de un stick tumbado» (:127, :269). A 7 m/s recorres ~5 m durante el vuelo y el defensor tumbado está a 2,5-3,5 m: tu jugador choca con su cuerpo (`collidePlayers`) sin poder esquivarlo. El banco solo mide que la bola pasa por encima del stick (:293).
+- *Por qué importa:* la combinación amago → aixecar → picar, la «estrella» (:108), quedaría bloqueada por el propio piloto automático.
+- *Propuesta:*
+  - Con tu levantada, el joystick sigue mandando el **lateral** (el piloto automático solo gobierna el avance), o solo apunta cuando Xut está armado.
+  - La caída de la bola se desplaza hacia el lado del joystick.
+  - Métrica nueva: «amago → aixecar contra Quiet tumbado: lo superas y recuperas la bola ≥ 70 %».
+
+**O5 — Elegir el regate con dos pulgares: trencada, derrape y finta chocan** · Gravedad **Alta**
+- *Qué falla:*
+  - (a) La trencada empieza en el mismo tick del golpe de joystick, con frenada previa inmediata, y cancelarla cuesta la recarga de 0,8 s (player.ts:240-254, :259-265). El `flickGrace` «0,1 s alrededor de la pulsación» (:186) exige ver el futuro o deshacer una frenada ya empezada. Con dos pulgares, el golpe llega 30-80 ms antes o después de Regat: si llega antes, ya estás frenando; si llega después, el regate se elige con el joystick viejo (hacia delante = caño o conducció llarga, :125, :130).
+  - (b) Finta = «joystick suelto» (:123). Pero soltar el joystick de golpe (≥ 60 % en 0,1 s) a ≥ 3,5 m/s **es la frenada-derrape** (player.ts:227, :270; tuning.ts:103-105). La finta, el regate más usado en los partidos reales (REFERENCIA §1.4), acabaría en un derrape que separa la bola.
+  - (c) Hay un hueco en la tabla: joystick hacia el rival con el rival a 3-5 m (el caño pide 1-3 m). Y la misma entrada cambia de regate cuando el rival entra o sale del cono de 5 m.
+- *Por qué importa:* los regates saldrían cambiados o acompañados de una maniobra que no has pedido, justo en el pilar 3 del GDD.
+- *Propuesta:*
+  - Leer la dirección del joystick al **terminar** la anticipación, no al pulsar.
+  - Si pulsas Regat ≤ `flickGrace` después de que empiece una trencada o un derrape, se cancelan sin recarga y se recupera la velocidad (`cutSpeed0`).
+  - Finta = Regat con el joystick **en la dirección de la marcha** (sin golpe en los últimos 0,15 s); el caño solo con el joystick hacia el rival ±15° y él a 1-3 m.
+  - Nada de derrape por soltar el joystick durante 0,15 s alrededor de Regat.
+  - En el banco, simular un desfase entre los pulgares de ±80 ms y contar «regate distinto del que querías» y «trencadas o derrapes sin querer».
+
+**O6 — El amago choca con el tiro picado y el alto: Regat está a 16 px de Xut** · Gravedad **Alta**
+- *Qué falla:* Regat ocupa y 178-262 y Xut y 278-378 (:45, :47; tuning.ts:740-754), así que el rectángulo de Regat + 10 px (:249) empieza 6 px por encima de Xut. El picado es arrastrar ↖ en Xut y el alto, ↗ (actionButtons.ts:136-143, passGesture.ts:11-15: ≥ 40 px y ≥ 15°). Un ↖ de 60-80 px desde el centro de Xut (831, 328), inclinado 20-45°, entra en Regat + 10 px (p. ej., 70 px a 30° → (796, 267)). Como el amago se reconoce «en cuanto el dedo entra» (:240), **cancela el tiro**. La alternativa de la decisión 7, deslizar hacia abajo, solo tiene 34 px de pantalla por debajo de Xut. La métrica (:255) solo comprueba el caso buscado.
+- *Por qué importa:* picados y altos se convertirían en amagos sin querer, y el tiro picado es justo el que «salta la muralla de sticks».
+- *Propuesta:*
+  - Amago solo con un arrastre casi vertical (menos de 15° de inclinación, que hoy es «raso» y no cambia nada), que entre en el círculo de Regat (no en el rectángulo + 10 px) o se quede ≥ 60 ms dentro.
+  - Métrica inversa con arrastres sintéticos: «↖ y ↗ de 40-120 px desde cualquier punto de Xut → 0 % de amagos».
+
+**O7 — Los objetivos de picar, cuchara y amago se miden sin portero** · Gravedad **Media**
+- *Qué falla:* «entre los palos ≥ 75 %» (:326), la cuchara «sin portero, ≥ 50 %» (:358) y el portero que no llega hasta F1.8 (:22). Pero el sentido de la jugada es tumbar al **portero** («amagar al portero hasta que cae y entonces levantar la bola», REFERENCIA §1.4; aceptación de F1 en docs/06:23).
+- *Por qué importa:* sin portero, esas cifras solo miden la puntería. La ronda 3 preguntaría «¿se siente bien?» sin el rival para el que existe la jugada.
+- *Propuesta:* un portero provisional mínimo en F1.6d (una caja en «mariposa» que reacciona a `shotFeintTick`), o adelantar un F1.8 mínimo antes de F1.6f. Marcar esas cifras como «provisionales, sin portero» y no usarlas como criterio de aceptación.
+
+**O8 — Rodear la portería «a 4 y 6 m/s» es imposible con la física que el propio plan cita** · Gravedad **Media**
+- *Qué falla:* el plan da el radio de giro mínimo, 0,35 + 0,12·v² (:42), y luego pide rodear la portería a 4 y 6 m/s sin pararse más de 0,5 s (:355). Con 1,88 m de hueco detrás y un jugador de 0,3 m de radio, rodear una portería de ~1,9 m de ancho exige radios de ~1-1,5 m, es decir, ≤ 2,5-3,2 m/s. A 6 m/s el radio mínimo es de 4,7 m.
+- *Por qué importa:* el banco fallará siempre o se redefinirá después de medir, y eso es justo un objetivo que se ajusta a la medida.
+- *Propuesta:* escribir el objetivo como velocidad de **entrada**, «frena y rodea». Medir el tiempo de poste a poste, bola conservada ≥ 90 % y 0 túneles. Antes, arreglar los dos modelos de portería distintos (auditoría B, F5: 3,8 cm), que es justo donde se notan.
+
+**O9 — Falta lo que más se usa detrás de la portería: la pared con la valla de fondo y las esquinas** · Gravedad **Media**
+- *Qué falla:* el plan constata que `wallPass.ts` solo usa las vallas laterales (:42), y F1.6g (:340-345) no lo amplía. La decisión 13 manda el rebote hacia un compañero a F2, y PLAN_F2:626 lo pone como opcional y el primero que se recorta (PLAN_F2:740). Sin embargo, la **recomendación n.º 1** del informe real (ordenadas por impacto) es el rebote en la valla, con «uso constante de las vallas redondeadas de detrás de la portería para autopases» (REFERENCIA §1.3 y §1.8).
+- *Por qué importa:* el juego detrás de la portería que pidió Guillem quedaría sin su herramienta principal.
+- *Propuesta:* en F1.6g, extender `planWallPass` a la valla de fondo y a las esquinas para el autopase (la geometría del punto espejo y la bisección ya existe). Banco: «autopase por la esquina rodeando al rival Encara ≥ 60 %». A cambio, recortar el deslizamiento para rematar (decisión 2) o la Conducció llarga.
+
+**O10 — La red de protección no cubre lo que se toca** · Gravedad **Media**
+- *Qué falla:* el plan se protege con el banco J idéntico (:144, :297, :394). Pero el banco J solo mide pase, tiro, volea y rechaces (auditoría J, «Qué mide»): nada de conducción, separación de la bola, trencada, derrape ni pérdidas. Y F1.6b toca justo `stepPlayer` (la excepción de la trencada) y quién mueve la bola durante un regate (:192), mientras F1.6a mete un jugador nuevo en `stepWorld`. La auditoría E recomienda **antes de F1.6** dos cosas que el plan no recoge: R1, el hash de determinismo con dos mundos intercalados, y R4, partir `stepPlayer` y `stepWorld` (E.4, filas R1 y R4, y su «orden recomendado»).
+- *Por qué importa:* se podría romper la trencada o la conducción y el banco J seguiría «idéntico».
+- *Propuesta:* un sub-paso F1.6-0 antes de F1.6a con tres cosas, en este orden:
+  1. R1;
+  2. un bloque «conducción y patinaje» en `bench:feel` (separación, pérdidas a sprint, trencada con su tiempo y su velocidad de salida, derrape);
+  3. R4 con el hash idéntico.
+
+**O11 — El rival de prueba hereda dos sesgos del código fijado al equipo 0** · Gravedad **Media**
+- *Qué falla:*
+  - En el bucle de recepción, si dos sticks llegan a la bola en el mismo tick gana siempre el índice más bajo, es decir, el humano (world.ts:558-599, `break`). PLAN_F2:67 lo arregla en F2a, **después** de medir los regates.
+  - `ballLooseForTeam` es verdadero cuando la lleva un rival (world.ts:183-188), así que con los 2 compañeros de Entrenamiento un robo del rival puede disparar el cambio automático.
+  - El rival «fijo contra el controlado» se reescribirá como `defendStep(world, i, assignment, out)` (PLAN_F2:340).
+- *Por qué importa:* todas las cifras de F1.6a-d (robada ≥ 80 %, superar ≥ 75 %…) están medidas con un sesgo a favor del atacante y cambiarán en F2a. Además, se programa dos veces lo mismo.
+- *Propuesta:* pasar la «recogida justa» y la protección del cambio automático a F1.6a, y escribir `ai/defender.ts` desde el principio con la firma de F2.
+
+**O12 — Lo que el plan mide en metros, la cámara TV lo enseña en pocos píxeles** · Gravedad **Media**
+- *Qué falla:* desplazamientos de 0,7 m (:122) y separación ≤ 0,45 m (:198). Con la cámara TV (10 m de altura, 21 m de distancia, fov 0,6; tuning.ts:773-779) salen unos ~29 px por metro a lo largo de la pista y ~12 px por metro en profundidad (acortamiento 10/23). Un cambio de lado atacando a lo largo de la pista mueve la bola en profundidad: **~9 px**. La cápsula mide ~17 px. Y la anticipación (0,08-0,10 s, 5-6 fotogramas) es «la señal» a la que reacciona el rival (:133): el rival la ve, Guillem casi no.
+- *Por qué importa:* el riesgo 7 (:406) es real y se descubriría en la ronda 3, demasiado tarde.
+- *Propuesta:* en F1.6b, medir en una captura cuántos píxeles de pantalla se mueve la bola con cada cámara, con un objetivo de ≥ 20 px en la TV (o exagerar el desplazamiento solo en el render). Decidir pronto si Entrenamiento usa la cámara Cercana.
+
+**O13 — La tabla A frente a B no es justa: la anticipación existe con los dos** · Gravedad **Media**
+- *Qué falla:* la tabla pone «A: 0 ms y ninguna ambigüedad» (:88), pero todos los regates llevan una anticipación de 0,08-0,10 s en la que la bola no se mueve, también con A (:133). docs/03:156 (§9) pide «latencia de la entrada al movimiento visible ≤ 50 ms».
+- *Por qué importa:* sesga la recomendación de A y no comprueba un criterio que ya está escrito.
+- *Propuesta:* o bien la anticipación se ve desde el primer tick (inclinación medible en pantalla), o bien con A no hay anticipación. En los dos casos, añadir la métrica «latencia de la pulsación al primer movimiento visible ≤ 50 ms».
+
+**O14 — Métricas que se cumplen solas** · Gravedad **Media**
+- *Qué falla:*
+  - Los gestos «reconocidos el 100 % dentro de las reglas y el 0 % fuera» (:294-295) y el amago «100 % con el arrastre sintético» (:255) solo comprueban el reconocedor contra su propia especificación.
+  - El rival se afina en el mismo banco y en el mismo sub-paso que los regates que debe medir («robada ≥ 80 %» :169, y luego «supera ≥ 75 %» :197).
+- *Por qué importa:* todo puede salir en verde con un gesto que en el móvil se dispara sin querer, o con un rival hecho a la medida de los objetivos.
+- *Propuesta:*
+  - Congelar los parámetros del rival al cerrar F1.6a, con su propia línea base («defender-v1»).
+  - Añadir contadores a la línea de diagnóstico del panel que Guillem pueda copiar tras jugar: regates por tipo, conversiones de regate a aixecar, amagos, gestos A empezados y abortados, y «aixecar sin querer» (levantada seguida de una pérdida en < 1 s). Son tasas reales del Pixel, sin que Guillem programe nada.
+
+**O15 — Ocho sub-pasos «de una sesión» que no lo son, y el recorte propuesto es el equivocado** · Gravedad **Media**
+- *Qué falla:* F1.6e (:264-311) junta física, `liftOwner`, la regla del joystick, dos reconocedores, la proyección con la cámara, la pista visual, dos secciones del panel, tres tests y un e2e. Y el riesgo 10 (:409) propone recortar F1.6g, que es justo lo que pidió Guillem.
+- *Por qué importa:* se cortaría por donde el encargo no lo permite.
+- *Propuesta:*
+  - Partir F1.6e en e1 (física, `liftOwner` y banco, con teclado) y e2 (gesto).
+  - Si hay que recortar, quitar por este orden: el gesto que pierda (O2), deslizar para rematar (decisión 2; Xut ya funciona), la Conducció llarga (no está en docs/03 §4 ni en el encargo), el impulso al encadenar (decisión 14) y el interruptor de la cámara lenta (decisión 11).
+
+**O16 — Demasiadas decisiones para Guillem, y varias son técnicas** · Gravedad **Baja-Media**
+- *Qué falla:* el §9 (:411-427) tiene 16 decisiones, y el resumen de la FASE 4 admite «hasta 8» entre los dos planes. Según CLAUDE.md, «los cambios técnicos internos: decide tú». Son técnicas o ya están documentadas: la 0 (orden de trabajo), la 3 (ya lo dice docs/03:104), la 8 (cómo se configura una herramienta de prueba), y la 12 y la 14 (valores del panel).
+- *Por qué importa:* Guillem decide mejor pocas cosas bien explicadas.
+- *Propuesta:* dejar 5: el gesto (1, con los nombres de O1), la lista de regates con la finta y sin la vaselina (4), que Regat gane a la trencada y al derrape (6), extender «el joystick solo apunta» (10) y lo de detrás de la portería (13). El resto, «decide Claude; se revisa en la ronda 3».
+
+**O17 — Pruebas en el móvil sobre una PWA que puede estar vieja** · Gravedad **Baja-Media**
+- *Qué falla:* la auditoría I mide que la app que vuelve de «recientes» nunca busca la versión nueva y que se recarga sola en mitad de una jugada. El plan depende de 8 o más despliegues y de una ronda con «PATINS tuning vX» (:371).
+- *Por qué importa:* Guillem puede estar probando una versión anterior y dar por buena o mala una cosa que no ha visto.
+- *Propuesta:* la P-A de la auditoría I (aviso «Hi ha una versió nova») como requisito previo de F1.6a, y que el primer punto de cada lista de qué probar sea «comprueba que el panel dice vX».
+
+**O18 — Rendimiento: dos cifras distintas para lo mismo y una prueba que no mide bien** · Gravedad **Baja**
+- *Qué falla:* «≤ 0,03 ms por tick con CPU ×4 (hoy 0,01)» (:395), mientras PLAN_F2:91 da «hoy ~0,03 ms» para lo mismo. La §C de la auditoría (rendimiento) no existe: no hay `docs/audit/C.md` y PROGRESS la tiene sin hacer. Además, `perf.spec` compara tiempo de reloj en una máquina compartida (auditoría E, E.3.3).
+- *Por qué importa:* el objetivo no se puede comprobar, y el riesgo real de F1.6 es el render (el rival, su stick, las estelas y la pista de la zona libre), no la simulación.
+- *Propuesta:* medir en el Pixel con `?debug=1` y con referencias relativas, y fijar un presupuesto de draw calls para lo nuevo.
+
+**O19 — Reglamento: «tirarse a tapar»** · Gravedad **Baja**
+- *Qué falla:* el rival «se tira a tapar» y queda «tumbado» (:241, :309). docs/02 solo deja tumbarse al portero en su área («fuera del área se comporta como jugador»), y el art. 6.1 limita con qué se juega la bola.
+- *Por qué importa:* si un jugador de pista no puede jugar la bola tumbado o de rodillas, el premio del amago sería una falta en F3.
+- *Propuesta:* modelarlo como «stick plano en el suelo, agachado» (sin tumbarse), con [VERIFICAR] en docs/02 para F3.
+
+**O20 — La capa de entrada decide entre `lift` y `swipeStrike` mirando el estado de la simulación** · Gravedad **Baja-Media**
+- *Qué falla:* el mismo deslizamiento significa aixecar «con la bola en el stick» y picar «con la ventana abierta» (:54-59), y la entrada emite órdenes distintas (`lift`, `swipeStrike`; :68-72). Para elegir, `src/input` tiene que leer el estado del último fotograma, que va un fotograma por detrás de la simulación, y con la cámara lenta todavía más.
+- *Por qué importa:* en los bordes (bola recién recogida, ventana que se acaba de cerrar, levantada que acaba de salir) se emite la orden equivocada, y la simulación ya no puede corregirla. Además, el teclado y el mando tendrían que repetir esa misma lógica.
+- *Propuesta (decisión técnica, para DECISIONS):* una sola orden `airSwipe {dirX, dirY, longitud}`. La simulación la interpreta en el tick en que llega: aixecar si llevas la bola, remate si la ventana está abierta, nada en otro caso. Test: el mismo `airSwipe` en el tick de la recogida y en el de cierre de la ventana da el resultado esperado.
+
+**Lo que cambiaría primero**
+- Renombrar las opciones de aixecar (O1) y elegir el gesto **antes** de F1.6e, con la medida del pulgar y un prototipo de entrada (O2).
+- Añadir F1.6-0: hash de determinismo, bloque «conducción y patinaje» en `bench:feel` y la recogida justa (O10, O11).
+- Rediseñar la elección del regate frente a la trencada, el derrape y el desfase entre pulgares, y quitar «finta = joystick suelto» (O5).
+- Reglas propias de la levantada: sin recoger ni rematar mientras sube, y joystick lateral libre (O3, O4).
+- Amago solo con un arrastre vertical que se quede en Regat, más la métrica inversa con picados y altos (O6).
