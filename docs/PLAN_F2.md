@@ -11,7 +11,7 @@
 6. **Desmarques:** los compañeros corren solos al espacio y el que pasa sigue corriendo. El pase sabe hacia dónde va el compañero y tiene en cuenta que está acelerando (P3b + P4).
 7. **Presión:** un rival encima ya separa la bola al conducir y estropea el pase. Propongo que también cuente en el tiro y en la recepción, y que importe hacia dónde está el rival. Todo con pesos en el panel (a 0 = como hoy).
 8. Cada sub-paso trae su banco de pruebas (cientos de partidos IA contra IA con semillas fijas, cifras medibles) y una lista de qué probar en el Pixel.
-9. **Rendimiento:** la IA cabe con margen (estimo 0,2-0,4 ms por tick en el Pixel). El peligro son los cálculos de los pases altos (~1 ms cada uno ya en el ordenador de pruebas): la IA no los usará para pensar.
+9. **Rendimiento:** la IA cabe con margen (estimación inicial 0,2-0,4 ms; la §C de la auditoría la eleva a ~1-2 ms: se mide desde F2a). El peligro son los cálculos de los pases altos (~1 ms cada uno ya en el ordenador de pruebas): la IA no los usará para pensar.
 10. Hay 15 decisiones en el §15. Las más importantes son la 1 a la 6.
 
 ## 1. Objetivo y alcance
@@ -98,6 +98,8 @@
 | Percepción ingenua completa (100 distancias + 200 líneas de pase) | ~10 µs | ~0,04 ms |
 
 ¹ ×4 es el factor de «CPU ×4» que usa el repo para emular el Pixel en Playwright (PROGRESS, F0). La §C de la auditoría lo medirá de verdad. **Hallazgo para la §C:** la flecha del pase recalcula `planPass` **en cada tick** mientras mantienes Passada (`world.aimActive`). Con alto fuerte o vaselina eso es ~0,6-1,9 ms por tick en el contenedor, quizá varios ms en el Pixel. Hay que medirlo en el móvil (§11).
+
+**Medido después en la §C de la auditoría (`docs/AUDITORIA_F1.md`):** dentro del juego la física con 10 entidades cuesta 0,21-0,36 ms por tick a ×4 (no 0,05-0,07): ×4 sobre Node se queda corto (~10× en el navegador). La IA estimada pasa a ~1-2 ms por tick en el Pixel y hay que medirla en Chromium desde F2a (M9). El objetivo «p95 ≤ 0,5 ms y máx. ≤ 1 ms a ×4» ya se supera hoy sin IA por los picos de `planPass` (M1-M3 antes de F2).
 
 ## 3. Arquitectura de la IA dentro de la simulación
 ### 3.1 Reglas de oro
@@ -518,6 +520,8 @@ Una función nueva, `actionPressure(p, dirección)`. La de hoy se queda tal cual
 | Sticks en los sub-pasos de la bola (10 palas × hasta 24 sub-pasos) | ~5-10 µs | ~0,02-0,04 ms |
 | **Total típico** | **~50-80 µs** | **~0,2-0,35 ms** |
 
+**Medido después en la §C de la auditoría (`docs/AUDITORIA_F1.md`):** dentro del juego la física con 10 entidades cuesta 0,21-0,36 ms por tick a ×4 (no 0,05-0,07): ×4 sobre Node se queda corto (~10× en el navegador). La IA estimada pasa a ~1-2 ms por tick en el Pixel y hay que medirla en Chromium desde F2a (M9). El objetivo «p95 ≤ 0,5 ms y máx. ≤ 1 ms a ×4» ya se supera hoy sin IA por los picos de `planPass` (M1-M3 antes de F2).
+
 **Lo que puede pasarse del presupuesto:**
 1. **`planPass` de pases altos: ~0,55-1,9 ms por llamada en el contenedor.** La IA nunca lo usa para comparar opciones (§3.4), pero cada pase alto que sale lo llama una vez: un pico de 2-8 ms en el Pixel en ese tick (estimado).
    - **Mitigación:** una tabla precalculada de salidas del alto fuerte y la vaselina (ángulo y velocidad por distancia y carga), hecha al crear el partido y al cambiar los números de la bola. El cálculo exacto sigue disponible para el humano y para los tests.
@@ -771,7 +775,7 @@ Todas son **propuestas iniciales**: tras la ronda 4, Guillem puede pedir otra co
 | Nada de F1 cambia en Entrenamiento | Banco J idéntico, `determinism.test.ts`, `simPurity.test.ts` |
 
 ## Objeciones
-*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29, en las auditorías de `docs/audit/` y en `docs/PLAN_F1_6.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
+*(Crítico de diseño independiente, fase 3 del bloque 2, 2026-10-10. Todo lo citado se ha comprobado en el código de la v0.1.29, en las auditorías de `docs/AUDITORIA_F1.md` y en `docs/PLAN_F1_6.md`. No reescribe el plan: señala dónde falla y propone un cambio concreto.)*
 
 **O1 — Defender con Xut y Passada choca con el búfer del primer toque** · Gravedad **Alta**
 - *Qué falla:* cuando el rival lleva la bola, el plan hace Xut = entrada y Passada = Canvi (§7.1, :377-386). Pero soltar Xut sin la bola ya deja el tiro en el búfer 0,2 s (`bufShoot`, shot.ts:66-73) y pone `shotSinceRelease` a 0, que arma el remate en el aire. Soltar Passada deja el pase en el búfer (`bufPass`). Y en cuanto un jugador recoge la bola, `ballActions` dispara lo que hay en el búfer (world.ts:596-597).
@@ -795,7 +799,7 @@ Todas son **propuestas iniciales**: tras la ronda 4, Guillem puede pedir otra co
   - La flecha del pase llama a `planPass` en **cada tick** mientras mantienes Passada (world.ts:614-617). Con alto fuerte o vaselina, eso es ~0,55-1,9 ms por llamada en el contenedor, ~2-7,7 ms en el Pixel según la estimación del propio plan (:94-95, :100).
   - El objetivo es «máximo ≤ 1 ms por tick» (:505). Pero una sola suelta de un pase alto del humano ya cuesta 2-4,5 ms (estimado).
   - La mitigación de la IA, una «tabla precalculada» (:523), contradice el §3.4: «performPass calcula el pase exactamente igual que para el humano» (:151). Los pases de la IA volarían distinto que los tuyos.
-  - Y la §C de la auditoría, a la que el plan remite (:100, :524), **no existe** (no hay `docs/audit/C.md`; PROGRESS la tiene sin hacer).
+  - Y la §C de la auditoría, a la que el plan remite (:100, :524), **no existía** al escribir esto *(nota del agente principal, 2026-10-10: ya está en `docs/AUDITORIA_F1.md` §C)*.
 - *Por qué importa:* a 140 % de velocidad, o en un fotograma de recuperación de 5 ticks, la flecha sola puede pasar de 33 ms, el límite de docs/03:157, y eso **ya en la v0.1.29**. P4 (§5.3) mete además la predicción de la aceleración dentro de `planPass`.
 - *Propuesta:*
   - Antes de F2a: medir en el Pixel con `?debug=1` mientras se mantiene un globo largo, y medir también el render con 10 cápsulas, sticks, dorsales y anillos (draw calls frente al techo de docs/04). Es la §C que falta.
