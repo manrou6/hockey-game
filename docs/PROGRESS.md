@@ -16,8 +16,8 @@ Reglas de Guillem para este encargo: un solo escritor (el agente principal hace 
   - [x] G. (hecho) `docs/PLAN_F2.md` (con `REFERENCIA_PARTIDOS.md`): IA de compañeros y rivales en la sim determinista, roles, desmarques (pase al espacio), defensa en caja, cambio de jugador en defensa, presión rival en el error del tiro, cambios en sim/interfaces, sub-pasos con objetivos medibles, riesgos, decisiones de Guillem.
   - [x] I. (hecho: `docs/AUDITORIA_F1.md` §I) §I actualización de la PWA (service worker, caché, flujo de actualización): causa de la versión vieja y propuesta (sin aplicar), p. ej. aviso «versión nueva, toca para actualizar».
   - [x] J. (hecho: `npm run bench:feel`, `docs/AUDITORIA_F1.md` §J) Banco permanente de regresión del tacto en `tests/unit/bench` (solo con PATINS_BENCH): un comando para los bancos de pase, tiro, volea y rechaces; línea base JSON versionada de la v0.1.29 y comparación que marque cambios.
-- [ ] **FASE 3** — (crítico de diseño HECHO: «Objeciones» en los dos planes; falta el revisor) revisor independiente (cifras de A, B, C y J reproducibles; docs sin contradicciones → `docs/REVISION_BLOQUE2.md`) y crítico de diseño (sección «Objeciones» en PLAN_F1_6.md y PLAN_F2.md).
-- [ ] **FASE 4 (H)** — resumen final en español para Guillem: una pantalla de móvil como máximo, hasta 8 decisiones, tablas, sin relleno. Todo subido.
+- [x] **FASE 3** — (HECHA el 2026-10-11: «Objeciones» en los dos planes y `docs/REVISION_BLOQUE2.md`, 65 de 70 cifras reproducidas; sus correcciones de hechos, aplicadas) revisor independiente (cifras de A, B, C y J reproducibles; docs sin contradicciones → `docs/REVISION_BLOQUE2.md`) y crítico de diseño (sección «Objeciones» en PLAN_F1_6.md y PLAN_F2.md).
+- [x] **FASE 4 (H)** — (HECHA el 2026-10-11: `docs/RESUMEN_BLOQUE2.md`) resumen final en español para Guillem: una pantalla de móvil como máximo, hasta 8 decisiones, tablas, sin relleno. Todo subido.
 
 ## Plan F1 (aprobado)
 Prioridad de Guillem: que conducción, pase y tiro se sientan bien por encima de todo; Entrenamiento y portero al final.
@@ -129,6 +129,6 @@ Rama de trabajo: `ccr-c510413a-rbn6hg` → PR a `main` → GitHub Pages
 | El jugador patina con inercia | OK | Guillem: "el patinaje ya está bien" (se revisará con bola/regates en F1); unit `skating.test` (0→7 m/s ≈1,75 s, planeo, frenada ≈0,6 s, radio de giro) |
 
 ## Notas para la siguiente sesión
-- Siguiente paso: FASE 4 (resumen a Guillem, `docs/RESUMEN_BLOQUE2.md`) → prueba de Guillem de la v0.1.30 en el Pixel (volea, anillo dorado, cámara lenta, vibración, alto fuerte) → cierre de F1.5 → plan de F1.6 (decisiones del §9 de `docs/PLAN_F1_6.md`, gesto de aixecar) teniendo en cuenta sus «Objeciones».
+- Encargo del 2026-10-09 terminado (resumen y 8 decisiones para Guillem en `docs/RESUMEN_BLOQUE2.md`). Siguiente paso: respuestas de Guillem → prueba de Guillem de la v0.1.30 en el Pixel (volea, anillo dorado, cámara lenta, vibración, alto fuerte) → cierre de F1.5 → plan de F1.6 (decisiones del §9 de `docs/PLAN_F1_6.md`, gesto de aixecar) teniendo en cuenta sus «Objeciones».
 - Antes de tocar el tacto: `npm run bench:feel` (550 medidas contra `tests/unit/bench/baseline/feel-v<versión>.json`); si el cambio es intencionado, `npm run bench:feel:write` y decirlo en el PR.
 - Rendimiento real: pedir a Guillem captura del panel `?debug=1` (fps, frame p95) en el Pixel; propuestas M1-M10 en `docs/AUDITORIA_F1.md` §C.
