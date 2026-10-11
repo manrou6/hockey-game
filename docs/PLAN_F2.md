@@ -11,7 +11,7 @@
 6. **Desmarques:** los compañeros corren solos al espacio y el que pasa sigue corriendo. El pase sabe hacia dónde va el compañero y tiene en cuenta que está acelerando (P3b + P4).
 7. **Presión:** un rival encima ya separa la bola al conducir y estropea el pase. Propongo que también cuente en el tiro y en la recepción, y que importe hacia dónde está el rival. Todo con pesos en el panel (a 0 = como hoy).
 8. Cada sub-paso trae su banco de pruebas (cientos de partidos IA contra IA con semillas fijas, cifras medibles) y una lista de qué probar en el Pixel.
-9. **Rendimiento:** la IA cabe con margen (estimo 0,2-0,4 ms por tick en el Pixel). El peligro son los cálculos de los pases altos (~1 ms cada uno ya en el ordenador de pruebas): la IA no los usará para pensar.
+9. **Rendimiento:** la IA cabe con margen (estimación inicial 0,2-0,4 ms; la §C de la auditoría la eleva a ~1-2 ms: se mide desde F2a). El peligro son los cálculos de los pases altos (~1 ms cada uno ya en el ordenador de pruebas): la IA no los usará para pensar.
 10. Hay 15 decisiones en el §15. Las más importantes son la 1 a la 6.
 
 ## 1. Objetivo y alcance
@@ -98,6 +98,8 @@
 | Percepción ingenua completa (100 distancias + 200 líneas de pase) | ~10 µs | ~0,04 ms |
 
 ¹ ×4 es el factor de «CPU ×4» que usa el repo para emular el Pixel en Playwright (PROGRESS, F0). La §C de la auditoría lo medirá de verdad. **Hallazgo para la §C:** la flecha del pase recalcula `planPass` **en cada tick** mientras mantienes Passada (`world.aimActive`). Con alto fuerte o vaselina eso es ~0,6-1,9 ms por tick en el contenedor, quizá varios ms en el Pixel. Hay que medirlo en el móvil (§11).
+
+**Medido después en la §C de la auditoría (`docs/AUDITORIA_F1.md`):** dentro del juego la física con 10 entidades cuesta 0,21-0,36 ms por tick a ×4 (no 0,05-0,07): ×4 sobre Node se queda corto (~10× en el navegador). La IA estimada pasa a ~1-2 ms por tick en el Pixel y hay que medirla en Chromium desde F2a (M9). El objetivo «p95 ≤ 0,5 ms y máx. ≤ 1 ms a ×4» ya se supera hoy sin IA por los picos de `planPass` (M1-M3 antes de F2).
 
 ## 3. Arquitectura de la IA dentro de la simulación
 ### 3.1 Reglas de oro
@@ -517,6 +519,8 @@ Una función nueva, `actionPressure(p, dirección)`. La de hoy se queda tal cual
 | Pilotaje de 10 jugadores | ~3 µs | ~0,01 ms |
 | Sticks en los sub-pasos de la bola (10 palas × hasta 24 sub-pasos) | ~5-10 µs | ~0,02-0,04 ms |
 | **Total típico** | **~50-80 µs** | **~0,2-0,35 ms** |
+
+**Medido después en la §C de la auditoría (`docs/AUDITORIA_F1.md`):** dentro del juego la física con 10 entidades cuesta 0,21-0,36 ms por tick a ×4 (no 0,05-0,07): ×4 sobre Node se queda corto (~10× en el navegador). La IA estimada pasa a ~1-2 ms por tick en el Pixel y hay que medirla en Chromium desde F2a (M9). El objetivo «p95 ≤ 0,5 ms y máx. ≤ 1 ms a ×4» ya se supera hoy sin IA por los picos de `planPass` (M1-M3 antes de F2).
 
 **Lo que puede pasarse del presupuesto:**
 1. **`planPass` de pases altos: ~0,55-1,9 ms por llamada en el contenedor.** La IA nunca lo usa para comparar opciones (§3.4), pero cada pase alto que sale lo llama una vez: un pico de 2-8 ms en el Pixel en ese tick (estimado).

@@ -5,7 +5,7 @@
 ## 0. En 10 líneas (para Guillem)
 1. F1.6 añade **5 regates** con REGATE + joystick: cambio de lado, finta de cuerpo, ruleta, bola entre los patines del rival y amago de tiro. Además: **aixecar** (levantarte tú la bola), **aixecar + picar** (rematarla en el aire), **juego por detrás de la portería** y un **rival de prueba** al que regatear.
 2. Primero llega el rival (F1.6a), porque sin él no se puede medir si un regate funciona. Después, los regates (b, c), el amago (d), aixecar (e), picar (f), detrás de la portería (g) y la **ronda 3** contigo (h).
-3. **Gesto de aixecar.** El plan parte de la **opción A**: deslizar el pulgar derecho por la zona libre del centro de la pantalla. La **opción B**, la que preferiste el 08-10, es arrastrar en diagonal arriba-derecha sobre Regat. En el §4 se comparan las dos. Recomiendo **A**, pero propongo dejar **las dos activas durante la ronda 3** para que elijas probándolas en el móvil. La simulación es la misma para las dos.
+3. **Gesto de aixecar.** El plan parte del gesto **Aixecar-Zona lliure** (antes «opción A»): deslizar el pulgar derecho por la zona libre del centro de la pantalla. El gesto **Aixecar-Regat ↗** (antes «opción B»), el que preferiste el 08-10, es arrastrar en diagonal arriba-derecha sobre Regat. En el §4 se comparan las dos. Recomiendo **A**, pero propongo dejar **las dos activas durante la ronda 3** para que elijas probándolas en el móvil. La simulación es la misma para las dos.
 4. **Picar** es el remate en el aire que ya existe (F1.5d/e), aplicado a tu propia levantada: Xut en la ventana, con el anillo dorado, el timing y la vibración. Opcionalmente también se podrá picar deslizando el dedo hacia la portería.
 5. Mientras la bola que te has levantado está en el aire, **el joystick solo apunta** (igual que con el alto fuerte desde la v0.1.29) y sigues yendo a por ella. Así no la pierdes al apuntar a la portería.
 6. Cada sub-paso trae su banco de pruebas con objetivos numéricos y una lista de qué probar en el Pixel. Sin el rival, todo lo de antes tiene que salir **idéntico** (pase, tiro, volea, rechaces).
@@ -35,7 +35,7 @@ Fuera de F1.6: la IA de equipo y la defensa en «cuadro» (F2), el portero (F1.8
 - **Remate en el aire.** Con el balón del jugador controlado, `volleyStep` (`src/sim/world.ts`) predice el contacto (`predictContact`), abre la ventana y remata con Xut. Hay tres detalles que afectan a la levantada propia:
   - **(a)** La ventana se cierra si el jugador tiene `noPickupTicks > 0`, y soltar la bola (`releaseBall`) se los pone durante 0,3 s (`dribble.relockTime`). Con una levantada propia, la ventana no se abriría hasta pasados 0,3 s.
   - **(b)** «El joystick solo apunta» (`humanCommand`) solo se aplica si el jugador es el `receiver`, y `findReceiver` descarta a quien tiene `noPickupTicks`.
-  - **(c)** El arreglo de la v0.1.29 (`aerialPass = passTo === controlled && passAir > 0 && inAir`, `world.ts:453`) solo cubre el alto fuerte que llega por el aire, es decir, el que sale a menos de 16,5 m del stick. La auditoría §A (hallazgo 1) midió que con pases de 17,9-20 m y el joystick a fondo hacia la portería se pierden sin tocar 11-14 de 24.
+  - **(c)** El arreglo de la v0.1.29 (`aerialPass = passTo === controlled && passAir > 0 && inAir`, `world.ts:453`) solo cubre el alto fuerte que llega por el aire, es decir, el que sale a menos de 16,5 m del stick. La auditoría §A (hallazgo 1) midió que con pases de 17,9-20 m y el joystick a fondo hacia la portería se pierden sin tocar 11-14 de 24. **Desde la v0.1.30** la condición también cubre el alto fuerte largo (`passKind === PASS_DRIVE`); no la vaselina.
 
   Con una levantada propia no hay ningún pase (`passTo = -1`, `passAir = 0`). Si hoy apuntas el joystick a la portería mientras la bola está en el aire, tu jugador patina hacia allí y la bola cae donde ya no estás: el mismo fallo que la v0.1.29 arregló para el alto fuerte. **El plan lo resuelve en F1.6e** (ver «Regla única: el joystick solo apunta»).
 - **Tirar desde detrás de la portería apunta a la red de atrás.** `planShot` (`src/sim/shot.ts`) apunta a la portería con el joystick suelto a ≤ 10 m (`releasedNear`). Si la bola está detrás de la línea de gol, el tiro va al centro de la portería atravesando la red. Además, `needsTurn` hace una media vuelta hacia ella, y la retícula se dibuja en un sitio imposible.
@@ -49,7 +49,7 @@ Fuera de F1.6: la IA de equipo y la defensa en «cuadro» (F2), el portero (F1.8
   - Pausa, cámara y panel: arriba a la derecha (~60 px).
   - **Zona libre:** la franja x 366-575 en toda la altura bajo la barra de arriba, más la banda por encima de los botones (x 575-915, y 70-170), siempre a ≥ 16 px de cualquier botón.
 
-## 3. Gestos: la base del plan (opción A)
+## 3. Gestos: la base del plan (Aixecar-Zona lliure, antes «opción A»)
 **Una sola idea: «la zona libre es el juego por el aire».** El pulgar derecho desliza desde la zona libre:
 - **Con la bola en el stick:** deslizar = **aixecar**. La levantada sale hacia donde patinas (o hacia donde miras si vas despacio). El gesto solo la dispara: su dirección no importa, siempre que vaya hacia arriba o hacia la portería (±75°). Cuenta si recorre ≥ 40 px en ≤ 0,35 s y empieza a ≥ 16 px de un botón.
 - **Con la bola en el aire y la ventana abierta** (tu levantada o un pase de un compañero): deslizar **hacia la portería** = **picar / volea**. Es el plan A del 2026-10-09:
@@ -72,7 +72,7 @@ La simulación recibe **órdenes abstractas** y no sabe qué gesto las produjo. 
 
 Gracias a eso, A y B (y el teclado y el mando) se pueden cambiar sin tocar `src/sim`.
 
-## 4. Decisión del gesto de aixecar (opción B)
+## 4. Decisión del gesto de aixecar (Aixecar-Regat ↗, antes «opción B»)
 **Qué es la opción B** (DECISIONS 2026-10-08, punto 2; la que prefirió Guillem): aixecar = **arrastrar en diagonal arriba-derecha sobre Regat**. Es el mismo lenguaje que el alto fuerte de Passada y el tiro alto de Xut: «↗ = por arriba». Picar = Xut en la ventana.
 
 **El conflicto ya registrado:** los regates salen al pulsar, pero un arrastre solo se reconoce cuando el dedo ya se ha movido, así que el regate ya ha empezado. Hay tres maneras de resolverlo (DECISIONS 2026-10-08):
@@ -271,7 +271,7 @@ Todo número de tacto va en `src/config/tuning.ts` + `tuningMeta.ts` + etiquetas
 - **Regla única: «el joystick solo apunta» también con tu levantada** (lo que pide la auditoría §A):
   - Desde que sale la levantada hasta que la controlas, la rematas o «muere» (cae y se aleja más de 1,7 m de tu pala, o pasan 1,2 s), el mundo la marca como tuya (`world.liftOwner`, el equivalente a `passTo` de un pase a ti mismo).
   - Durante ese tiempo eres su receptor y el joystick **solo apunta**: el jugador va al punto de contacto previsto **conservando su velocidad, también el sprint**. Hoy `humanCommand` quita el sprint al receptor y, como la levantada se calcula con tu velocidad, al frenar la bola se te iría por delante.
-  - El arreglo de la v0.1.29 (`aerialPass`) solo cubre el alto fuerte de menos de 16,5 m. En F1.6e la condición pasa a ser una sola: «una bola en el aire que va a ti», sea `passTo === controlado` o `liftOwner === controlado`. Para la levantada propia es obligatorio. Extenderlo a la vaselina y al alto fuerte largo es justo el hallazgo 1 de §A: si la v0.1.30 no lo arregla antes, se decide aquí (decisión 10) y se mide con el banco `volleyCueRealFlow`.
+  - El arreglo (`aerialPass`, v0.1.29 y v0.1.30) cubre el alto fuerte a cualquier distancia, pero no la vaselina. En F1.6e la condición pasa a ser una sola: «una bola en el aire que va a ti», sea `passTo === controlado` o `liftOwner === controlado`. Para la levantada propia es obligatorio. Extenderlo a la vaselina y al alto fuerte largo es justo el hallazgo 1 de §A: se decide aquí (decisión 10) y se mide con el banco `volleyCueRealFlow`.
 - **Controles:**
   - Táctil A: con la bola, deslizar ≥ 40 px en ≤ 0,35 s desde la zona libre.
   - Táctil B: Regat ↗ en la anticipación.
@@ -391,8 +391,8 @@ Todo número de tacto va en `src/config/tuning.ts` + `tuningMeta.ts` + etiquetas
 | Aixecar + picar | remata ≥ 95 %, buen timing ≥ 70 %, entre los palos 6-8 m ≥ 75 % | runVolley ampliado |
 | Detrás de la portería | conserva ≥ 90 %, 0 túneles, 0 tiros a la red de atrás, pase atrás ≥ 90 % | behindGoalBench |
 | Gestos A y B | 100 % reconocidos dentro de las reglas, 0 % fuera | airGesture.test + Playwright |
-| **Protección** | Rival apagado: pase (cadenas Mitjana 100 % / 2,87 s), tiro (rápido 7 m 94 %, carga completa 14 m 91 %), volea (100 % / ~85 % buen timing), rechaces y dirección del alto fuerte **idénticos** a la línea base de la v0.1.29 | Banco J del bloque 2 |
-| Determinismo y rendimiento | misma semilla = mismo resultado con rival; sim ≤ 0,03 ms por tick con CPU ×4 (hoy 0,01) | determinism.test, §C |
+| **Protección** | Rival apagado: pase (cadenas Mitjana 100 % / 2,87 s), tiro (rápido 7 m 94 %, carga completa 14 m 91 %), volea (100 % / ~85 % buen timing), rechaces y dirección del alto fuerte **idénticos** a la línea base vigente (hoy `feel-v0.1.30.json`) | Banco J del bloque 2 |
+| Determinismo y rendimiento | misma semilla = mismo resultado con rival; sim en el navegador a ×4 ≤ 0,1 ms por tick con un rival (hoy 0,08 ms con 3 jugadores, §C6); los picos de `planPass` aparte | determinism.test, §C |
 
 Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates más fáciles o más difíciles, y los objetivos se reescriben en DECISIONS.
 
@@ -409,8 +409,8 @@ Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates
 10. **Alcance:** 8 sub-pasos. Si hay que recortar, F1.6g (detrás de la portería) puede pasar a F2 sin romper nada.
 
 ## 9. Decisiones que debe tomar Guillem
-0. **¿Empezar F1.6 con F1.5 abierta?** Recomendación: sí, con F1.6a-d (no tocan la volea). F1.6e solo después de tu visto bueno a la volea de la v0.1.29.
-1. **Gesto de aixecar: A (deslizar en la zona libre) o B (Regat ↗; la que preferiste el 08-10).** Recomendación: **A** como gesto principal, con **los dos activos en la ronda 3**; después eliges en el móvil (§4).
+0. **¿Empezar F1.6 con F1.5 abierta?** Recomendación: sí, con F1.6a-d (no tocan la volea). F1.6e solo después de tu visto bueno a la volea de la v0.1.30.
+1. **Gesto de aixecar: Aixecar-Zona lliure (deslizar en la zona libre) o Aixecar-Regat ↗ (la que preferiste el 08-10).** Recomendación: **A** como gesto principal, con **los dos activos en la ronda 3**; después eliges en el móvil (§4). Ojo: «Zona lliure» saca aixecar de REGATE, en contra de tu decisión del 2026-10-08 (DECISIONS, punto 2) y de docs/06:19.
 2. **Picar también deslizando hacia la portería** (además de Xut, que siempre funciona). Recomendación: sí; sirve igual para la volea a un pase.
 3. **Cómo se elige el regate:** por la dirección del joystick respecto al rival (si hay uno delante a ≤ 5 m) y, si no, respecto a la marcha. Recomendación: sí (es lo que dice docs/03 §4).
 4. **La lista de regates:** Canvi de costat, Finta, Ruleta, Entre patins y Amagar el tir, más Aixecar y Aixecar + picar; quitar «Vaselina (bola por encima)» de docs/03 §4 (la cubre aixecar). «Pasarse la bola por debajo de los propios patines» queda para más adelante. Recomendación: sí.
@@ -419,7 +419,7 @@ Todas son **propuestas iniciales**: tras la ronda 3, Guillem puede pedir regates
 7. **Gesto del amago:** mantener Xut y deslizar el pulgar recto hacia arriba hasta Regat (el «cancelar con REGATE» de docs/03 con un solo pulgar; u otro dedo en Regat). Alternativa: deslizar hacia abajo. Recomendación: hasta Regat.
 8. **Rival de prueba:** modos Quiet y Encara, roba con el stick, reinicio automático; sin presión activa hasta F2. Recomendación: sí.
 9. **Presión del rival en el error del tiro** (`shot.ctxPressure`, hoy 0). Recomendación: seguir a 0 en F1.6 (mediré qué haría) y decidir en F2. La presión en el pase y en la conducción ya actúa sola.
-10. **Con tu levantada en el aire, el joystick solo apunta** y sigues yendo a por ella a tu velocidad (como el alto fuerte desde la v0.1.29). Recomendación: sí. Y si la v0.1.30 no lo ha arreglado antes, aplicar la misma regla a todo pase por el aire dirigido a ti, incluidos la vaselina y el alto fuerte largo (el hallazgo 1 de §A: hoy se pierden 11-14 de 24 de 17,9-20 m si apuntas a la portería).
+10. **Con tu levantada en el aire, el joystick solo apunta** y sigues yendo a por ella a tu velocidad (como el alto fuerte desde la v0.1.29). Recomendación: sí. Y aplicar la misma regla a la vaselina dirigida a ti (el alto fuerte largo ya lo hace desde la v0.1.30); antes, medir la vaselina con `volleyCueRealFlow`.
 11. **Cámara lenta en la picada de tu propia levantada.** Recomendación: apagada (tú marcas el ritmo y saldría en cada levantada), con interruptor. La propuesta P16 (cámara lenta «fuerte») sigue aparte.
 12. **Una sola levantada** (punto más alto 0,9 m, cae justo delante; en el panel hasta 1,50 m), en vez de dos (corta y larga) según el gesto. Recomendación: una.
 13. **Detrás de la portería:** Xut detrás de la línea de gol = tiro-pase atrás hacia el joystick (nunca a la red); cuchara = aixecar + picar a mano (la cuchara automática con una pulsación, más adelante); rebote asistido en la valla de fondo hacia un compañero, en F2 con la IA. Recomendación: sí a las tres.
